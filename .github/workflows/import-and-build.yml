@@ -97,7 +97,7 @@ jobs:
           unzip -q "$ARCHIVE" -d /tmp/ursinho-import
           SRC="/tmp/ursinho-import/URSINHO-X-BOT-AUTOMATION-v1.1.2"
           test -f "$SRC/platform/package.json"
-          rsync -a "$SRC/" ./
+          cp -a "$SRC/." ./
           rm -f "$ARCHIVE"
 
           # O preflight inclui higiene e deve correr antes de npm ci criar node_modules.
