@@ -1,6 +1,10 @@
 package com.ursinhox.tenant
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.app.AlertDialog
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -32,8 +36,34 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Entrada suave e brilho discreto da faixa aurora; sem simular estado de rede.
+        findViewById<View>(R.id.brandMark).apply {
+            alpha = 0f
+            scaleX = 0.90f
+            scaleY = 0.90f
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(460L)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .start()
+        }
+        ObjectAnimator.ofFloat(findViewById<View>(R.id.auroraAccent), View.ALPHA, 0.68f, 1f).apply {
+            duration = 2100L
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+
         webView = findViewById(R.id.webview)
         swipeRefresh = findViewById(R.id.swipeRefresh)
+        swipeRefresh.setColorSchemeResources(
+            R.color.accent_mint,
+            R.color.accent_blue,
+            R.color.accent_violet
+        )
         progressLoading = findViewById(R.id.progressLoading)
         offlinePanel = findViewById(R.id.offlinePanel)
         txtOfflineMessage = findViewById(R.id.txtOfflineMessage)
