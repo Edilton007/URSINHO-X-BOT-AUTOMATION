@@ -263,20 +263,61 @@ jobs:
           import hashlib
 
           manifest = Path("SHA256SUMS.txt")
-          target = Path("platform/package-lock.json")
-          if not target.is_file():
+          lockfile = Path("platform/package-lock.json")
+          if not lockfile.is_file():
               raise SystemExit("package-lock.json não foi gerado.")
-          lines = []
-          found = False
+
+          # Apenas os ficheiros alterados intencionalmente nesta revisão visual
+          # são recalculados/adicionados. O restante manifesto continua a ser
+          # verificado sem alterações por sha256sum -c.
+          refresh_paths = {
+              "platform/package-lock.json",
+              "android/agent/app/src/main/res/layout/activity_main.xml",
+              "android/agent/app/src/main/res/values/themes.xml",
+              "android/agent/app/src/main/res/values/colors.xml",
+              "android/agent/app/src/main/java/com/ursinhox/automation/agent/MainActivity.kt",
+              "android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdOperacoes.kt",
+              "android/tenant-app/app/src/main/res/layout/activity_main.xml",
+              "android/tenant-app/app/src/main/res/values/themes.xml",
+              "android/tenant-app/app/src/main/res/values/colors.xml",
+              "android/tenant-app/app/src/main/java/com/ursinhox/tenant/MainActivity.kt",
+              "platform/automation/painel/index.html",
+              "platform/automation/painel/loja.html",
+              "android/agent/app/src/main/res/drawable/bg_aurora_strip.xml",
+              "android/agent/app/src/main/res/drawable/bg_brand_mark.xml",
+              "android/agent/app/src/main/res/drawable/bg_hero.xml",
+              "android/agent/app/src/main/res/drawable/bg_badge_safe.xml",
+              "android/agent/app/src/main/res/drawable/bg_badge_hero.xml",
+              "android/agent/app/src/main/res/drawable/bg_inset.xml",
+              "android/agent/app/src/main/res/drawable/bg_field.xml",
+              "android/agent/app/src/main/res/drawable/bg_button_primary.xml",
+              "android/agent/app/src/main/res/drawable/bg_button_secondary.xml",
+              "android/agent/app/src/main/res/drawable/bg_button_tertiary.xml",
+              "android/tenant-app/app/src/main/res/drawable/bg_aurora_strip.xml",
+              "android/tenant-app/app/src/main/res/drawable/bg_brand_mark.xml",
+              "android/tenant-app/app/src/main/res/drawable/bg_button_primary.xml",
+              "android/tenant-app/app/src/main/res/drawable/bg_button_secondary.xml",
+              "android/tenant-app/app/src/main/res/drawable/bg_offline_panel.xml",
+          }
+
+          entries = {}
           for line in manifest.read_text(encoding="utf-8").splitlines():
               digest, rel = line.split("  ", 1)
-              if rel.removeprefix("./") == "platform/package-lock.json":
-                  digest = hashlib.sha256(target.read_bytes()).hexdigest()
-                  found = True
-              lines.append(f"{digest}  {rel}")
-          if not found:
-              raise SystemExit("package-lock.json não está listado no manifesto SHA256.")
-          manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              clean = rel.removeprefix("./")
+              if clean in entries:
+                  raise SystemExit(f"Entrada duplicada no manifesto: {clean}")
+              entries[clean] = digest
+
+          for rel in refresh_paths:
+              target = Path(rel)
+              if not target.is_file():
+                  raise SystemExit(f"Ficheiro visual alterado não encontrado: {rel}")
+              entries[rel] = hashlib.sha256(target.read_bytes()).hexdigest()
+
+          manifest.write_text(
+              "".join(f"{digest}  ./{rel}\n" for rel, digest in sorted(entries.items())),
+              encoding="utf-8"
+          )
           PY
           sha256sum -c SHA256SUMS.txt
 
