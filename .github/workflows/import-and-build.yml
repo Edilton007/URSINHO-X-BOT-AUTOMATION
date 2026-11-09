@@ -1,0 +1,141 @@
+name: Importar fonte auditada e validar URSINHO
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ursinho-import-main
+  cancel-in-progress: false
+
+jobs:
+  import-and-validate:
+    name: Importar v1.1.2, testar Backend e compilar APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Obter repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar e extrair arquivo-fonte
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip"
+          test -f "$ARCHIVE" || { echo "::error::Falta enviar $ARCHIVE para a raiz do repositório."; exit 1; }
+
+          python3 - <<'PY'
+          import pathlib, zipfile, sys
+          archive = pathlib.Path("URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip")
+          root = "URSINHO-X-BOT-AUTOMATION-v1.1.2"
+          required = {
+              f"{root}/README.md",
+              f"{root}/platform/package.json",
+              f"{root}/platform/package-lock.json",
+              f"{root}/android/agent/app/build.gradle.kts",
+              f"{root}/android/tenant-app/app/build.gradle.kts",
+          }
+          forbidden_parts = {".git", "node_modules", "sessions", "downloads", "logs", "tmp"}
+          with zipfile.ZipFile(archive) as z:
+              names = set()
+              for info in z.infolist():
+                  p = pathlib.PurePosixPath(info.filename)
+                  if p.is_absolute() or ".." in p.parts:
+                      sys.exit(f"Entrada ZIP insegura: {info.filename}")
+                  if not p.parts or p.parts[0] != root:
+                      sys.exit(f"Entrada fora da pasta esperada: {info.filename}")
+                  if forbidden_parts.intersection(p.parts):
+                      sys.exit(f"Conteúdo operacional não permitido no ZIP: {info.filename}")
+                  base = p.name
+                  if (base == ".env" or (base.startswith(".env.") and base != ".env.example")
+                      or p.suffix.lower() in {".apk", ".aab", ".jks", ".keystore", ".pem", ".p12", ".pfx"}):
+                      sys.exit(f"Possível segredo ou binário de release no ZIP: {info.filename}")
+                  if not info.is_dir():
+                      names.add(info.filename)
+              missing = required - names
+              if missing:
+                  sys.exit("Faltam ficheiros obrigatórios: " + ", ".join(sorted(missing)))
+          print("Arquivo validado: estrutura correta e sem padrões de segredos proibidos.")
+          PY
+
+          rm -rf /tmp/ursinho-import
+          mkdir -p /tmp/ursinho-import
+          unzip -q "$ARCHIVE" -d /tmp/ursinho-import
+          SRC="/tmp/ursinho-import/URSINHO-X-BOT-AUTOMATION-v1.1.2"
+          test -f "$SRC/platform/package.json"
+          rsync -a "$SRC/" ./
+          rm -f "$ARCHIVE"
+
+      - name: Publicar a fonte completa no branch main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import URSINHO X BOT AUTOMATION v1.1.2 audited source"
+            git push origin HEAD:main
+          else
+            echo "Não há alterações novas para publicar."
+          fi
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+
+      - name: Instalar dependências bloqueadas
+        working-directory: platform
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Executar testes e pré-validação do Backend
+        working-directory: platform
+        run: |
+          npm run preflight
+          npm run verify:release
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar Android SDK 35 e Build Tools
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Configurar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Testar e compilar Android Agent
+        working-directory: android/agent
+        run: gradle testDebugUnitTest assembleDebug
+
+      - name: Compilar Tenant Android App
+        working-directory: android/tenant-app
+        run: gradle assembleDebug
+
+      - name: Guardar APKs de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: URSINHO-X-APKs-DEBUG-v1.1.2
+          path: |
+            android/agent/app/build/outputs/apk/debug/*.apk
+            android/tenant-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
