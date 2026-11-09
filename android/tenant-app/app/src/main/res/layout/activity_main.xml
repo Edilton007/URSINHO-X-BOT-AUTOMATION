@@ -1,49 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="#080D0B">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp"
-        android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="16dp">
-        <TextView android:layout_width="38dp" android:layout_height="38dp" android:gravity="center"
-            android:background="#12392D" android:text="UX" android:textColor="#54E0B3"
-            android:textSize="16sp" android:textStyle="bold" />
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_marginStart="11dp" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="URSINHO X" android:textColor="#F1F7F3" android:textSize="14sp" android:textStyle="bold" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="TENANT CONTROL PANEL" android:textColor="#54E0B3" android:textSize="9sp" android:letterSpacing="0.14" />
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/app_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="76dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="17dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/brandMark"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:background="@drawable/bg_brand_mark"
+            android:gravity="center"
+            android:letterSpacing="0.04"
+            android:text="UX"
+            android:textColor="#06121B"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="URSINHO X"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:letterSpacing="0.12"
+                android:text="TENANT CONTROL PANEL"
+                android:textColor="@color/accent_mint"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
-        <Button android:id="@+id/btnSettings" android:layout_width="46dp" android:layout_height="42dp"
-            android:backgroundTint="#172820" android:text="⚙" android:textColor="#DDF4E8" android:textSize="18sp"
-            android:contentDescription="Configurar servidor" />
+
+        <Button
+            android:id="@+id/btnSettings"
+            android:layout_width="46dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:contentDescription="Configurar servidor"
+            android:stateListAnimator="@null"
+            android:text="⚙"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp" />
     </LinearLayout>
-    <ProgressBar android:id="@+id/progressLoading" style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true"
-        android:indeterminateTint="#00C896" android:visibility="gone" />
+
+    <View
+        android:id="@+id/auroraAccent"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:alpha="0.88"
+        android:background="@drawable/bg_aurora_strip" />
+
+    <ProgressBar
+        android:id="@+id/progressLoading"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:indeterminate="true"
+        android:indeterminateTint="@color/accent_mint"
+        android:visibility="gone" />
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefresh" android:layout_width="match_parent" android:layout_height="0dp"
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
         android:layout_weight="1">
-        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
-            <WebView android:id="@+id/webview" android:layout_width="match_parent" android:layout_height="match_parent"
-                android:background="#080D0B" />
-            <LinearLayout android:id="@+id/offlinePanel" android:layout_width="match_parent"
-                android:layout_height="match_parent" android:orientation="vertical" android:gravity="center"
-                android:padding="28dp" android:background="#080D0B" android:visibility="gone">
-                <TextView android:layout_width="64dp" android:layout_height="64dp" android:gravity="center"
-                    android:background="#12392D" android:text="!" android:textColor="#54E0B3"
-                    android:textSize="28sp" android:textStyle="bold" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp" android:text="Não foi possível ligar ao Backend"
-                    android:textColor="#F1F7F3" android:textSize="18sp" android:textStyle="bold" />
-                <TextView android:id="@+id/txtOfflineMessage" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center"
-                    android:text="Verifique a ligação à Internet ou o endereço do servidor."
-                    android:textColor="#9BAEA4" android:textSize="13sp" />
-                <Button android:id="@+id/btnRetry" android:layout_width="match_parent" android:layout_height="48dp"
-                    android:layout_marginTop="20dp" android:backgroundTint="#00C896"
-                    android:text="Tentar novamente" android:textAllCaps="false"
-                    android:textColor="#03140E" android:textStyle="bold" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/app_background">
+
+            <WebView
+                android:id="@+id/webview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/app_background" />
+
+            <LinearLayout
+                android:id="@+id/offlinePanel"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_offline_panel"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:paddingTop="32dp"
+                android:paddingBottom="32dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:background="@drawable/bg_brand_mark"
+                    android:gravity="center"
+                    android:text="UX"
+                    android:textColor="#06121B"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="21dp"
+                    android:letterSpacing="0.12"
+                    android:text="LIGAÇÃO AO BACKEND"
+                    android:textColor="@color/accent_mint"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:text="O portal está temporariamente indisponível"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtOfflineMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="4dp"
+                    android:text="Verifique a ligação à Internet ou o endereço HTTPS do servidor."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btnRetry"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="24dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:backgroundTint="@null"
+                    android:stateListAnimator="@null"
+                    android:text="Tentar novamente"
+                    android:textAllCaps="false"
+                    android:textColor="#06131D"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:gravity="center"
+                    android:text="URSINHO X BOT AUTOMATION  ·  CLIENT APP"
+                    android:textColor="@color/text_muted"
+                    android:textSize="9sp"
+                    android:letterSpacing="0.04" />
             </LinearLayout>
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
