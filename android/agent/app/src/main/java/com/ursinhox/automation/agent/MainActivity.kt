@@ -1,6 +1,10 @@
 package com.ursinhox.automation.agent
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -60,6 +64,27 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Microanimações apenas decorativas. Não representam ligação ou estado operacional.
+        findViewById<View>(R.id.brandMark).apply {
+            alpha = 0f
+            scaleX = 0.90f
+            scaleY = 0.90f
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(460L)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .start()
+        }
+        ObjectAnimator.ofFloat(findViewById<View>(R.id.auroraAccent), View.ALPHA, 0.68f, 1f).apply {
+            duration = 2100L
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
 
         txtSims = findViewById(R.id.txtSims)
         txtSaldo = findViewById(R.id.txtSaldo)
