@@ -211,6 +211,37 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Sincronizar package-lock com package.json
+        working-directory: platform
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verificar lockfile e atualizar o manifesto SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --dry-run --ignore-scripts --no-audit --no-fund --prefix platform
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          manifest = Path("SHA256SUMS.txt")
+          target = Path("platform/package-lock.json")
+          if not target.is_file():
+              raise SystemExit("package-lock.json não foi gerado.")
+          lines = []
+          found = False
+          for line in manifest.read_text(encoding="utf-8").splitlines():
+              digest, rel = line.split("  ", 1)
+              if rel.removeprefix("./") == "platform/package-lock.json":
+                  digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                  found = True
+              lines.append(f"{digest}  {rel}")
+          if not found:
+              raise SystemExit("package-lock.json não está listado no manifesto SHA256.")
+          manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          sha256sum -c SHA256SUMS.txt
+
       - name: Verificar higiene antes de publicar código no repositório público
         working-directory: platform
         run: node scripts/check-release-hygiene.js
