@@ -59,10 +59,9 @@ a9a3d59a794bd55f40c05b83cf3d1fb4c4f25a523d5f4cfd5b118e5bbf42dfe4  ./platform/LEI
 42d07b21693a60f3ffbf0b118853c06042d7c66bd974c95b944ab8736c2d2916  ./platform/README.md
 fa40f1165fea59fde626b7bab1a7be1591bbe1ff92be3bb5b923130352c70a63  ./platform/automation/painel/index.html
 41c36f52a46949950a463d785cb11c7bccb9c57c168b72c8b4902972ab75e30d  ./platform/automation/painel/loja.html
-fb8973f3924e24a8e780922923192cdf6fc8f0c598d3d0ca186f8d51104f59ed  ./platform/data/.gitkeep
 5dc5d8d640a212c9d6184921ba103b186f50e0fed9ee716c53e6b312b400d747  ./platform/eng.traineddata
 ec1871a1cb8fed71f8dff0ef7284a973275ad047f8923e29d9b69d417a5cd6f0  ./platform/master-admin/index.html
-598cb5e01a47fba453ad6bfc41d31ea69a07a302aa2529168890373abc1627c2  ./platform/package-lock.json
+3e2b9c1b1dab6bad10067150c091c568694520f41c40348ef7c8aeb0b5c884ba  ./platform/package-lock.json
 3ee5f6f3813178bb551bdd60e7c97cd75061c4fe0b627142b70742865f8c0efe  ./platform/package.json
 9a55c82271644837ce7f65ffc7c6e1316eabf7f2d768fb959db8f613c4bff124  ./platform/painel/index.html
 c4b87acec13e66cf1b25c85e54fa9b72f33faf6534ae1faff3f392eb35c055b9  ./platform/painel/src/app.js
