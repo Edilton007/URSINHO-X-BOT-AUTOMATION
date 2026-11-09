@@ -19,6 +19,7 @@
 - Sintaxe JavaScript: 242/242 ficheiros aprovados.
 - Higiene de release: aprovada.
 - Integridade do ZIP auditado: 330/330 hashes SHA-256 verificados sem divergências.
+- SHA-256 do ZIP fixado no workflow: `65179d4d7980163b0d53d4a56398cbeda41d41a324a05917e2faf2aed38d45e4`.
 - Pacote: 331 ficheiros, cerca de 18,47 MB descompactados.
 
 ## Estado ainda pendente
