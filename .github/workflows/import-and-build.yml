@@ -195,6 +195,24 @@ jobs:
                     retention-days: 7
           YAML
 
+          # Os workflows de CI foram atualizados acima; atualizar os hashes no manifesto auditável.
+          python3 - <<'PY'
+          import hashlib, pathlib
+          manifest = pathlib.Path("SHA256SUMS.txt")
+          if not manifest.is_file():
+              raise SystemExit("Manifesto SHA256 não encontrado após a importação.")
+          updated = []
+          changed = {".github/workflows/backend-ci.yml", ".github/workflows/android-build.yml"}
+          for line in manifest.read_text(encoding="utf-8").splitlines():
+              digest, rel = line.split("  ", 1)
+              clean = rel.removeprefix("./")
+              if clean in changed:
+                  digest = hashlib.sha256(pathlib.Path(clean).read_bytes()).hexdigest()
+              updated.append(f"{digest}  {rel}")
+          manifest.write_text("\\n".join(updated) + "\\n", encoding="utf-8")
+          PY
+          sha256sum -c SHA256SUMS.txt
+
       - name: Configurar Node.js 24
         uses: actions/setup-node@v4
         with:
