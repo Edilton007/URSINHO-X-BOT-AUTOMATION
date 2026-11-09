@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip"
+      - ".github/workflows/import-and-build.yml"
   workflow_dispatch:
 
 permissions:
@@ -223,8 +224,17 @@ jobs:
           node-version: "24"
 
       - name: Verificar higiene antes de publicar código no repositório público
-        working-directory: platform
-        run: node scripts/check-release-hygiene.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          # O verificador procura artefactos de Git dentro da árvore-fonte.
+          # O .git do checkout pertence ao runner, não ao ZIP do produto.
+          mv .git /tmp/ursinho-checkout-git
+          restore_git() { mv /tmp/ursinho-checkout-git .git; }
+          trap restore_git EXIT
+          (cd platform && node scripts/check-release-hygiene.js)
+          restore_git
+          trap - EXIT
 
       - name: Pré-validar Backend antes de instalar dependências
         working-directory: platform
