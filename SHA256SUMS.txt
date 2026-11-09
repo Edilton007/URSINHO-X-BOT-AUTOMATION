@@ -14,7 +14,7 @@ bedeecc267cd6be98b14e592dcae3f3f6dee9f7fee797da68c8b34c2ea07584d  ./docs/ci-temp
 2b26fcff3f7ed7f8c5cabbe96251e1e8c043c96cb42097a74f429bab9c6564a8  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/SaldoParser.kt
 79aff2883afbedf3faaf222e3e9db9510c4759d49795c645c9a57384f8b1017b  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/SimManager.kt
 de1bf36a2694e9a2d9ba187efa9f3cf0c193639090a7abef47f625855ad08d46  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdAccessibilityService.kt
-3065ecbf5d996e1d0230859ac323afa5319e70f2f5253b98adb785332f1660ed  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdOperacoes.kt
+6c51c8fb308c6be059f632080510b49b3268410cfab9ca178811c64c9e9bcc9d  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdOperacoes.kt
 afb317bf0ce4acb15910f778a67f4fd563247f522945055b589847e40448a13e  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdResultadoClassifier.kt
 d95bba31973bd32768ce67fc24b395b593f3214522c51a0fc520fffe6d265278  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdRoteiro.kt
 6d30ab4f6062830d24f914b42528d28697d20be8422667376b6af9f7330dd3d9  ./android/agent/app/src/main/java/com/ursinhox/automation/agent/UssdSender.kt
