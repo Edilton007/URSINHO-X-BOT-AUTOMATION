@@ -323,6 +323,8 @@ jobs:
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Instalar Android SDK 35 e Build Tools
         run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
