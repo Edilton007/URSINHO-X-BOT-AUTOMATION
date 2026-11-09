@@ -100,6 +100,50 @@ jobs:
           rsync -a "$SRC/" ./
           rm -f "$ARCHIVE"
 
+          # O preflight inclui higiene e deve correr antes de npm ci criar node_modules.
+          cat > .github/workflows/backend-ci.yml <<'YAML'
+          name: Backend validation
+
+          on:
+            push:
+              branches: [main]
+              paths:
+                - "platform/**"
+                - ".github/workflows/backend-ci.yml"
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          concurrency:
+            group: backend-validation-${{ github.ref }}
+            cancel-in-progress: true
+
+          jobs:
+            node-tests:
+              name: Node.js 24
+              runs-on: ubuntu-latest
+              timeout-minutes: 20
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: "24"
+                    cache: npm
+                    cache-dependency-path: platform/package-lock.json
+                - name: Pré-validar antes de instalar dependências
+                  working-directory: platform
+                  run: npm run preflight
+                - name: Instalar dependências bloqueadas
+                  working-directory: platform
+                  run: npm ci --ignore-scripts --no-audit --no-fund
+                - name: Repetir testes após instalação
+                  working-directory: platform
+                  run: |
+                    npm test
+                    npm run check
+          YAML
+
       - name: Configurar Node.js 24
         uses: actions/setup-node@v4
         with:
