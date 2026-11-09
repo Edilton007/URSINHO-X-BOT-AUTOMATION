@@ -1,0 +1,12 @@
+<resources>
+    <color name="app_background">#070B14</color>
+    <color name="surface">#111A28</color>
+    <color name="surface_stroke">#26384B</color>
+    <color name="text_primary">#F3F7FC</color>
+    <color name="text_secondary">#AAB9CC</color>
+    <color name="text_muted">#718399</color>
+    <color name="accent_mint">#55E6C1</color>
+    <color name="accent_blue">#67BFFF</color>
+    <color name="accent_violet">#B39AFF</color>
+    <color name="accent_coral">#FF9EAA</color>
+</resources>
