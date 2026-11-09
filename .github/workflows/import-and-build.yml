@@ -6,6 +6,11 @@ on:
     paths:
       - "URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip"
       - ".github/workflows/import-and-build.yml"
+      - "android/**"
+      - "platform/**"
+      - "docs/ci-templates/**"
+      - "SHA256SUMS.txt"
+      - "README.md"
   workflow_dispatch:
 
 permissions:
