@@ -105,6 +105,35 @@ jobs:
           cp -a "$SRC/." ./
           rm -f "$ARCHIVE"
 
+          # O checkout do GitHub tem um .git na raiz; isso não faz parte do pacote importado.
+          # Ignorar apenas esse .git de checkout, continuando a rejeitar .git aninhados.
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          script = Path("platform/scripts/check-release-hygiene.js")
+          source = script.read_text(encoding="utf-8")
+          old = '    if (entry.isDirectory()) {\n      if (forbiddenDirs.has(entry.name)) {'
+          new = '    if (entry.isDirectory()) {\n      if (relative === "" && entry.name === ".git") continue;\n      if (forbiddenDirs.has(entry.name)) {'
+          if old not in source:
+              raise SystemExit("Não foi possível aplicar a correção segura ao verificador de higiene.")
+          script.write_text(source.replace(old, new, 1), encoding="utf-8")
+          manifest = Path("SHA256SUMS.txt")
+          lines = manifest.read_text(encoding="utf-8").splitlines()
+          target = "platform/scripts/check-release-hygiene.js"
+          updated = []
+          found = False
+          for line in lines:
+              digest, rel = line.split("  ", 1)
+              clean = rel.removeprefix("./")
+              if clean == target:
+                  digest = hashlib.sha256(script.read_bytes()).hexdigest()
+                  found = True
+              updated.append(f"{digest}  {rel}")
+          if not found:
+              raise SystemExit("O manifesto não contém o verificador de higiene.")
+          manifest.write_text("\n".join(updated) + "\n", encoding="utf-8")
+          PY
+
           # O preflight inclui higiene e deve correr antes de npm ci criar node_modules.
           cat > .github/workflows/backend-ci.yml <<'YAML'
           name: Backend validation
@@ -224,17 +253,8 @@ jobs:
           node-version: "24"
 
       - name: Verificar higiene antes de publicar código no repositório público
-        shell: bash
-        run: |
-          set -euo pipefail
-          # O verificador procura artefactos de Git dentro da árvore-fonte.
-          # O .git do checkout pertence ao runner, não ao ZIP do produto.
-          mv .git /tmp/ursinho-checkout-git
-          restore_git() { mv /tmp/ursinho-checkout-git .git; }
-          trap restore_git EXIT
-          (cd platform && node scripts/check-release-hygiene.js)
-          restore_git
-          trap - EXIT
+        working-directory: platform
+        run: node scripts/check-release-hygiene.js
 
       - name: Pré-validar Backend antes de instalar dependências
         working-directory: platform
