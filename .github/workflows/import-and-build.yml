@@ -135,115 +135,74 @@ jobs:
           PY
 
           # O preflight inclui higiene e deve correr antes de npm ci criar node_modules.
-          cat > .github/workflows/backend-ci.yml <<'YAML'
-          name: Backend validation
-
-          on:
-            push:
-              branches: [main]
-              paths:
-                - "platform/**"
-                - ".github/workflows/backend-ci.yml"
-            workflow_dispatch:
-
-          permissions:
-            contents: read
-
-          concurrency:
-            group: backend-validation-${{ github.ref }}
-            cancel-in-progress: true
-
-          jobs:
-            node-tests:
-              name: Node.js 24
-              runs-on: ubuntu-latest
-              timeout-minutes: 20
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-node@v4
-                  with:
-                    node-version: "24"
-                    cache: npm
-                    cache-dependency-path: platform/package-lock.json
-                - name: Pré-validar antes de instalar dependências
-                  working-directory: platform
-                  run: npm run preflight
-                - name: Instalar dependências bloqueadas
-                  working-directory: platform
-                  run: npm ci --ignore-scripts --no-audit --no-fund
-                - name: Repetir testes após instalação
-                  working-directory: platform
-                  run: |
-                    npm test
-                    npm run check
-          YAML
-
-          cat > .github/workflows/android-build.yml <<'YAML'
-          name: Android APKs
-
-          on:
-            push:
-              branches: [main]
-              paths:
-                - "android/**"
-                - ".github/workflows/android-build.yml"
-            workflow_dispatch:
-
-          permissions:
-            contents: read
-
-          concurrency:
-            group: android-build-${{ github.ref }}
-            cancel-in-progress: true
-
-          jobs:
-            build-apks:
-              name: Testar Agent e compilar APKs
-              runs-on: ubuntu-latest
-              timeout-minutes: 45
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-java@v4
-                  with:
-                    distribution: temurin
-                    java-version: "17"
-                - uses: android-actions/setup-android@v3
-                - name: Instalar Android SDK 35
-                  run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
-                - uses: gradle/actions/setup-gradle@v4
-                  with:
-                    gradle-version: "8.7"
-                - name: Testar e compilar Android Agent
-                  working-directory: android/agent
-                  run: gradle testDebugUnitTest assembleDebug
-                - name: Compilar Tenant App
-                  working-directory: android/tenant-app
-                  run: gradle assembleDebug
-                - uses: actions/upload-artifact@v4
-                  with:
-                    name: URSINHO-X-APKs-DEBUG
-                    path: |
-                      android/agent/app/build/outputs/apk/debug/*.apk
-                      android/tenant-app/app/build/outputs/apk/debug/*.apk
-                    if-no-files-found: error
-                    retention-days: 7
-          YAML
-
-          # Os workflows de CI foram atualizados acima; atualizar os hashes no manifesto auditável.
+          # Guardar os workflows auxiliares como modelos, não como workflows ativos.
+          # O token disponível ao runner não tem permissão "workflows" para os publicar.
+          # Os testes e as compilações já são executados neste workflow principal.
           python3 - <<'PY'
-          import hashlib, pathlib
-          manifest = pathlib.Path("SHA256SUMS.txt")
-          if not manifest.is_file():
-              raise SystemExit("Manifesto SHA256 não encontrado após a importação.")
-          updated = []
-          changed = {".github/workflows/backend-ci.yml", ".github/workflows/android-build.yml"}
+          from pathlib import Path
+          import hashlib
+
+          workflow_dir = Path(".github/workflows")
+          template_dir = Path("docs/ci-templates")
+          template_dir.mkdir(parents=True, exist_ok=True)
+
+          templates = {
+              "backend-ci.yml": "docs/ci-templates/backend-ci.yml",
+              "android-build.yml": "docs/ci-templates/android-build.yml",
+          }
+          for source_name, destination_name in templates.items():
+              source = workflow_dir / source_name
+              destination = Path(destination_name)
+              if not source.is_file():
+                  raise SystemExit(f"Modelo de CI ausente: {source}")
+              destination.write_bytes(source.read_bytes())
+              source.unlink()
+
+          readme_updates = {
+              Path("android/agent/README.md"): (
+                  "- O workflow na raiz `.github/workflows/android-build.yml` compila o APK debug com GitHub Actions.",
+                  "- O modelo de compilação está em `docs/ci-templates/android-build.yml`. A compilação também é executada pelo workflow principal `import-and-build.yml`."
+              ),
+              Path("android/tenant-app/README.md"): (
+                  "- O workflow raiz `.github/workflows/android-build.yml` compila o APK debug. A compilação e instalação neste ambiente ainda não foram executadas.",
+                  "- O modelo de compilação está em `docs/ci-templates/android-build.yml`. A compilação é executada pelo workflow principal `import-and-build.yml`; a instalação no dispositivo ainda não foi validada."
+              ),
+          }
+          for path, (old, new) in readme_updates.items():
+              original = path.read_text(encoding="utf-8")
+              if old not in original:
+                  raise SystemExit(f"Texto esperado não encontrado em {path}")
+              path.write_text(original.replace(old, new, 1), encoding="utf-8")
+
+          manifest = Path("SHA256SUMS.txt")
+          updated_lines = []
+          seen = set()
           for line in manifest.read_text(encoding="utf-8").splitlines():
-              digest, rel = line.split("  ", 1)
-              clean = rel.removeprefix("./")
-              if clean in changed:
-                  digest = hashlib.sha256(pathlib.Path(clean).read_bytes()).hexdigest()
-              updated.append(f"{digest}  {rel}")
-          manifest.write_text("\n".join(updated) + "\n", encoding="utf-8")
+              digest, original_rel = line.split("  ", 1)
+              rel = original_rel.removeprefix("./")
+              if rel.startswith(".github/workflows/"):
+                  rel = "docs/ci-templates/" + rel.rsplit("/", 1)[1]
+              target = Path(rel)
+              if not target.is_file():
+                  raise SystemExit(f"Ficheiro listado no manifesto não encontrado: {rel}")
+              if rel in {
+                  "android/agent/README.md",
+                  "android/tenant-app/README.md",
+                  "platform/scripts/check-release-hygiene.js",
+              }:
+                  digest = hashlib.sha256(target.read_bytes()).hexdigest()
+              if rel in seen:
+                  raise SystemExit(f"Caminho duplicado no manifesto: {rel}")
+              seen.add(rel)
+              updated_lines.append(f"{digest}  ./{rel}")
+          required = set(templates.values()) | {
+              "android/agent/README.md",
+              "android/tenant-app/README.md",
+              "platform/scripts/check-release-hygiene.js",
+          }
+          if not required.issubset(seen):
+              raise SystemExit("Manifesto não cobre todos os ficheiros ajustados.")
+          manifest.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
           PY
           sha256sum -c SHA256SUMS.txt
 
