@@ -209,7 +209,7 @@ jobs:
               if clean in changed:
                   digest = hashlib.sha256(pathlib.Path(clean).read_bytes()).hexdigest()
               updated.append(f"{digest}  {rel}")
-          manifest.write_text("\\n".join(updated) + "\\n", encoding="utf-8")
+          manifest.write_text("\n".join(updated) + "\n", encoding="utf-8")
           PY
           sha256sum -c SHA256SUMS.txt
 
