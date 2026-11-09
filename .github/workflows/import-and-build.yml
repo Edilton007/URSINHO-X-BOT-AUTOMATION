@@ -109,6 +109,10 @@ jobs:
         working-directory: platform
         run: node scripts/check-release-hygiene.js
 
+      - name: Pré-validar Backend antes de instalar dependências
+        working-directory: platform
+        run: npm run preflight
+
       - name: Publicar a fonte completa no branch main
         shell: bash
         run: |
@@ -135,11 +139,11 @@ jobs:
         working-directory: platform
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Executar testes e pré-validação do Backend
+      - name: Repetir testes Node.js após instalar dependências
         working-directory: platform
         run: |
-          npm run preflight
-          npm run verify:release
+          npm test
+          npm run check
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
