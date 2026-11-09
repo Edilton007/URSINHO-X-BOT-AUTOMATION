@@ -27,6 +27,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validar e extrair arquivo-fonte
+        if: hashFiles('URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip') != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -205,6 +206,15 @@ jobs:
           manifest.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
           PY
           sha256sum -c SHA256SUMS.txt
+
+      - name: Confirmar que a fonte está disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s platform/package.json
+          test -s platform/package-lock.json
+          test -f android/agent/app/build.gradle.kts
+          test -f android/tenant-app/app/build.gradle.kts
 
       - name: Configurar Node.js 24
         uses: actions/setup-node@v4
