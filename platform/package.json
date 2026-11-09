@@ -1,0 +1,50 @@
+{
+  "name": "ursinho-x-bot-v2",
+  "version": "2.1.1",
+  "description": "URSINHO X BOT AUTOMATION - Backend Telecom multi-tenant e WhatsApp Bot V2",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "test": "node --test",
+    "check": "node scripts/check-source.js",
+    "doctor": "node scripts/doctor.js",
+    "backup:now": "node scripts/backup-kv.js",
+    "backup:list": "node scripts/listar-backups-kv.js",
+    "restore:stage": "node scripts/restaurar-backup-kv.js",
+    "verify:release": "node scripts/check-release-hygiene.js",
+    "preflight": "node scripts/preflight.js",
+    "setup:media": "node scripts/setup-ytdlp.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "ursinho-x-bot"
+  ],
+  "author": "Edilton Ronaldo",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "axios": "^1.19.0",
+    "chalk": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "edge-tts-universal": "^1.4.0",
+    "express": "^5.2.1",
+    "fs-extra": "^11.4.0",
+    "node-id3": "^0.2.9",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "tesseract.js": "^7.0.0",
+    "youtube-dl-exec": "^3.0.10",
+    "ytdlp-nodejs": "^3.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

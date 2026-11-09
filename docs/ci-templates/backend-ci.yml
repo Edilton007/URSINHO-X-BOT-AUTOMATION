@@ -1,0 +1,35 @@
+name: Backend validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-tests:
+    name: Node.js 24
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+      - name: Install exact locked dependencies (skip optional binary downloads)
+        working-directory: platform
+        run: npm ci --ignore-scripts
+      - name: Run preflight checks
+        working-directory: platform
+        run: npm run preflight
+      - name: Check release package hygiene
+        working-directory: platform
+        run: npm run verify:release

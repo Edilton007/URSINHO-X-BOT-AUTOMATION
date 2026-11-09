@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050806">
+<title>URSINHO X BOT AUTOMATION</title>
+<style>
+:root{--bg:#050806;--panel:#0b110f;--panel2:#0e1713;--panel3:#101a15;--line:#19271f;--line2:#22372c;--text:#eef7f2;--muted:#87978e;--green:#20d889;--green2:#0fae69;--amber:#e6ad43;--red:#ed6262;--blue:#5ca9ff;--radius:18px;--shadow:0 16px 45px rgba(0,0,0,.28)}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}body{min-height:100vh;padding-bottom:88px}button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}.app{width:min(1120px,100%);margin:auto;padding:14px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 2px 18px}.brand{display:flex;align-items:center;gap:11px;min-width:0}.logo{width:40px;height:40px;flex:0 0 40px;border:1px solid #1b6e4e;border-radius:13px;display:grid;place-items:center;color:var(--green);font-weight:900;background:#09130f;box-shadow:inset 0 0 20px rgba(32,216,137,.08)}.brand b{font-size:14px;letter-spacing:.08em;white-space:nowrap}.brand small{display:block;color:var(--muted);font-size:9px;margin-top:3px;letter-spacing:.04em;white-space:nowrap}.topActions{display:flex;align-items:center;gap:9px;flex:0 0 auto}.status{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);white-space:nowrap}.dot{width:8px;height:8px;border-radius:50%;background:#64726c;flex:0 0 8px}.dot.on{background:var(--green);box-shadow:0 0 12px rgba(32,216,137,.65)}.dot.warn{background:var(--amber)}.dot.err{background:var(--red)}.iconbtn{border:1px solid var(--line);background:#0a100d;color:var(--text);width:38px;height:38px;border-radius:12px;display:grid;place-items:center}.page{display:none}.page.active{display:block}.hero{position:relative;overflow:hidden;border:1px solid var(--line);background:radial-gradient(circle at 78% 22%,rgba(32,216,137,.11),transparent 28%),linear-gradient(145deg,#0c1511,#070b09);border-radius:24px;padding:20px;box-shadow:var(--shadow)}.heroGrid{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:18px;align-items:center}.eyebrow{color:var(--green);font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.hero h1{font-size:28px;line-height:1.05;margin:8px 0}.hero p{margin:0;color:var(--muted);font-size:12px;line-height:1.55;max-width:600px}.heroActions{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.radar{height:190px;display:grid;place-items:center;position:relative}.radarRing{width:158px;height:158px;border:1px solid #194a36;border-radius:50%;position:relative;background:radial-gradient(circle,#10271d 0 2px,transparent 3px),repeating-radial-gradient(circle,transparent 0 35px,#163b2b 36px 37px);box-shadow:0 0 55px rgba(32,216,137,.08)}.radarRing:before{content:"";position:absolute;left:50%;top:50%;width:48%;height:1px;background:linear-gradient(90deg,rgba(32,216,137,.75),transparent);transform-origin:left;animation:sweep 3.5s linear infinite}.radarRing:after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 14px var(--green)}@keyframes sweep{to{transform:rotate(360deg)}}.engineState{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:115px;text-align:center;pointer-events:none}.engineState b{display:block;font-size:12px;line-height:1.2}.engineState span{display:block;color:var(--muted);font-size:8px;line-height:1.35;margin-top:5px}.grid{display:grid;gap:12px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:12px 0}.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px;box-shadow:0 10px 28px rgba(0,0,0,.15);min-width:0}.stat small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}.stat strong{display:block;font-size:24px;margin-top:6px;line-height:1.1}.stat em{font-style:normal;color:var(--muted);font-size:10px}.sectionHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:19px 2px 9px;min-width:0}.sectionHead h2{font-size:14px;margin:0;white-space:nowrap}.sectionHead>span{font-size:10px;color:var(--muted);white-space:nowrap}.two{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.resource{display:flex;align-items:center;gap:12px;min-width:0}.resourceIcon{width:42px;height:42px;flex:0 0 42px;border-radius:13px;background:#0d1a14;border:1px solid #1b3c2e;display:grid;place-items:center;color:var(--green);font-size:17px}.resourceInfo{min-width:0;flex:1}.resourceInfo b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.resourceInfo small{display:block;color:var(--muted);font-size:9px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);font-size:9px;font-weight:800;text-transform:uppercase;line-height:1;white-space:nowrap;width:max-content;max-width:none;flex:0 0 auto}.badge.ok{color:var(--green);border-color:#19583f;background:#081810}.badge.warn{color:var(--amber);border-color:#59461e;background:#171208}.badge.err{color:var(--red);border-color:#5c2828;background:#190b0b}.badge.info{color:var(--blue);border-color:#234a70;background:#0b1320}.badge.muted{color:var(--muted);background:#0a100d}.kv{display:grid;grid-template-columns:minmax(120px,1fr) max-content;align-items:center;gap:14px;border-top:1px solid var(--line);padding:10px 0;min-width:0}.kv:first-child{border-top:0}.kv>span:first-child{color:var(--muted);font-size:10px;min-width:0}.kv>span:last-child{font-size:10px;text-align:right;white-space:nowrap;min-width:0}.valueStack{display:flex!important;flex-direction:column;align-items:flex-end;gap:2px}.valueStack small{font-size:8px;color:var(--muted)}.flow{display:flex;align-items:center;gap:6px;overflow:auto;padding:4px 0;scrollbar-width:none}.flow::-webkit-scrollbar{display:none}.flowStep{min-width:96px;text-align:center;flex:1}.flowStep .circle{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;margin:auto;background:#0b1510;border:1px solid var(--line);font-size:11px;color:var(--muted)}.flowStep.active .circle{border-color:#20895f;color:var(--green);box-shadow:0 0 18px rgba(32,216,137,.12)}.flowStep.done .circle{border-color:#19583f;color:var(--green);background:#081810}.flowStep b{display:block;font-size:9px;margin-top:7px;white-space:nowrap}.flowStep small{display:block;color:var(--muted);font-size:8px;margin-top:3px;white-space:nowrap}.arrow{color:#315244;flex:0 0 auto}.timeline{position:relative;padding-left:18px}.timeline:before{content:"";position:absolute;left:4px;top:5px;bottom:5px;width:1px;background:#1d3028}.event{position:relative;padding:0 0 15px;min-width:0}.event:last-child{padding-bottom:0}.event:before{content:"";position:absolute;left:-17px;top:3px;width:7px;height:7px;border-radius:50%;background:#31433a;border:2px solid var(--panel)}.event.ok:before{background:var(--green)}.event.warn:before{background:var(--amber)}.event.err:before{background:var(--red)}.eventHead{display:flex;align-items:center;gap:7px;min-width:0}.eventHead b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event small{display:block;color:var(--muted);font-size:9px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.btn{border:1px solid var(--line);background:#0d1511;color:var(--text);padding:10px 13px;border-radius:12px;font-size:10px;font-weight:800;white-space:nowrap}.btn.primary{background:var(--green);border-color:var(--green);color:#031009}.btn.ghost{background:transparent}.btn:disabled{opacity:.45;cursor:not-allowed}.tableWrap{overflow-x:auto;border:1px solid var(--line);border-radius:15px}.table{width:100%;border-collapse:collapse;min-width:720px}.table th,.table td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:10px;white-space:nowrap}.table th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.table tr:last-child td{border-bottom:0}.table tbody tr{cursor:pointer}.table tbody tr:hover{background:#0c1511}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.input,.select{width:100%;background:#070c0a;border:1px solid var(--line);color:var(--text);border-radius:12px;padding:11px 12px;outline:none}.input:focus,.select:focus{border-color:#226f4e}.toolbar .input{flex:1;min-width:180px}.toolbar .select{width:auto;min-width:150px}.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:10px;margin-bottom:6px}.field.full{grid-column:1/-1}.preview{background:#07110c;border:1px solid #173e2c;border-radius:13px;padding:12px}.preview strong{font-size:20px}.preview small{display:block;color:var(--muted);font-size:9px;margin-top:4px}.notice{padding:11px 12px;border-radius:12px;background:#0a130f;border:1px solid var(--line);font-size:10px;color:var(--muted);line-height:1.45}.notice.warn{border-color:#4d3b19;color:#d9b767}.notice.err{border-color:#522727;color:#e28b8b}.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(7px);z-index:50;display:none;align-items:flex-end;justify-content:center;padding:12px}.modal.open{display:flex}.sheet{width:min(620px,100%);max-height:92vh;overflow:auto;background:#09100d;border:1px solid var(--line);border-radius:22px;padding:17px}.sheetHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.sheetHead h3{margin:0;font-size:15px}.bottom{position:fixed;z-index:40;bottom:0;left:0;right:0;background:rgba(5,8,6,.94);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.nav{border:0;background:transparent;color:var(--muted);padding:7px 4px;border-radius:12px;font-size:9px;min-width:0}.nav.active{color:var(--green);background:#0a1711}.nav span{display:block;font-size:16px;margin-bottom:2px}.login{min-height:90vh;display:grid;place-items:center}.loginCard{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:22px}.loginCard h1{font-size:22px;margin:10px 0 4px}.loginCard p{font-size:11px;color:var(--muted);margin:0 0 18px}.loginForm{display:grid;gap:10px}.footer{text-align:center;color:#506158;font-size:9px;padding:18px}.empty{text-align:center;padding:30px 15px;color:var(--muted);font-size:10px;line-height:1.5}.empty b{display:block;color:var(--text);margin-bottom:4px}.toast{position:fixed;z-index:80;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#101b16;border:1px solid #244638;color:var(--text);border-radius:12px;padding:11px 14px;font-size:10px;transition:.2s;max-width:90%;text-align:center}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.sectionNote{font-size:9px;color:var(--muted)}
+@media(max-width:760px){.app{padding:12px}.heroGrid{grid-template-columns:1fr}.radar{height:145px}.radarRing{width:126px;height:126px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.two,.three{grid-template-columns:1fr}.formGrid{grid-template-columns:1fr}.field.full{grid-column:auto}.kv{grid-template-columns:minmax(105px,1fr) max-content}.hero h1{font-size:25px}.brand small{font-size:8px}.status{font-size:9px}.topbar{gap:8px}}
+@media(max-width:430px){.app{padding:10px}.brand b{font-size:12px}.brand small{font-size:7px}.logo{width:37px;height:37px;flex-basis:37px}.topActions .status span{display:none}.stats{gap:8px}.card{padding:13px}.stat strong{font-size:21px}.resourceInfo b{font-size:11px}.badge{font-size:8px;padding:5px 8px}.kv{grid-template-columns:minmax(100px,1fr) max-content;gap:10px}.kv>span:last-child{font-size:9px}}
+</style>
+</head>
+<body>
+<div id="loginView" class="app login">
+  <div class="loginCard">
+    <div class="logo">UX</div>
+    <h1>URSINHO X BOT</h1>
+    <p>Centro de Controle de Operações de Telecomunicações</p>
+    <div class="loginForm">
+      <input id="loginTenant" class="input" placeholder="Tenant ID" autocomplete="username">
+      <input id="loginKey" class="input" placeholder="Chave de acesso" type="password" autocomplete="current-password">
+      <button id="loginBtn" class="btn primary">ENTRAR NO CONTROL CENTER</button>
+      <div id="loginMsg" class="notice hidden"></div>
+    </div>
+    <div class="footer">✨ BY Edilton Ronaldo</div>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">UX</div>
+      <div><b>URSINHO X BOT</b><small>AUTOMATION CONTROL CENTER</small></div>
+    </div>
+    <div class="topActions">
+      <div class="status"><i id="backendDot" class="dot"></i><span id="backendText">AGUARDANDO</span></div>
+      <button id="refreshBtn" class="iconbtn" title="Atualizar">↻</button>
+      <a class="btn ghost" href="/tenant/loja.html" style="text-decoration:none">LOJA ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="pageDashboard" class="page active">
+      <div class="hero">
+        <div class="heroGrid">
+          <div>
+            <div class="eyebrow">CONTROL TOWER</div>
+            <h1>Operação sob controle.</h1>
+            <p>Monitoramento do tenant, Agent Android, SIMs e operações reais. Os dados exibidos vêm do Backend.</p>
+            <div class="heroActions">
+              <button id="newOpBtn" class="btn primary">＋ NOVA OPERAÇÃO</button>
+              <span id="licenseBadge" class="badge muted">LICENÇA</span>
+            </div>
+          </div>
+          <div class="radar">
+            <div class="radarRing"></div>
+            <div class="engineState"><b id="engineMain">SEM DADOS</b><span id="engineSub">Aguardando telemetria</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid stats">
+        <div class="card stat"><small>Hoje</small><strong id="statToday">Sem dados</strong><em>operações</em></div>
+        <div class="card stat"><small>Concluídas</small><strong id="statDone">Sem dados</strong><em>validadas</em></div>
+        <div class="card stat"><small>Execução</small><strong id="statExec">Sem dados</strong><em>aguardando / executando</em></div>
+        <div class="card stat"><small>Revisão</small><strong id="statReview">Sem dados</strong><em>pendências</em></div>
+      </div>
+
+      <div class="sectionHead"><h2>Recursos operacionais</h2><span id="lastUpdate">Sem atualização</span></div>
+      <div class="grid two">
+        <div class="card">
+          <div class="resource">
+            <div class="resourceIcon">▣</div>
+            <div class="resourceInfo"><b id="simTitle">SIM</b><small id="simMeta">Aguardando telemetria</small></div>
+            <span id="simBadge" class="badge muted">SEM LEITURA</span>
+          </div>
+          <div style="margin-top:14px" id="simQuick"></div>
+        </div>
+        <div class="card">
+          <div class="resource">
+            <div class="resourceIcon">⌁</div>
+            <div class="resourceInfo"><b>Agent Android</b><small id="deviceMeta">Nenhum dispositivo autorizado</small></div>
+            <span id="deviceBadge" class="badge muted">SEM DADOS</span>
+          </div>
+          <div style="margin-top:14px" id="deviceQuick"></div>
+        </div>
+      </div>
+
+      <div class="sectionHead"><h2>Fluxo operacional</h2><span>estado real</span></div>
+      <div class="card"><div class="flow" id="flow"></div></div>
+
+      <div class="sectionHead"><h2>Atividade recente</h2><button id="seeOperations" class="btn ghost">VER OPERAÇÕES</button></div>
+      <div class="card"><div id="timeline" class="timeline"></div></div>
+      <div class="footer">✨ BY Edilton Ronaldo</div>
+    </section>
+
+    <section id="pageOperations" class="page">
+      <div class="sectionHead"><h2>Operações</h2><button id="newOpBtn2" class="btn primary">＋ NOVA</button></div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="toolbar">
+          <input id="opSearch" class="input" placeholder="Pesquisar operação, destino ou SIM">
+          <select id="opFilter" class="select">
+            <option value="ALL">Todos os estados</option>
+            <option value="CONCLUIDA">Concluídas</option>
+            <option value="EXECUTANDO">Executando</option>
+            <option value="AGUARDANDO_EXECUCAO">Aguardando execução</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="PENDENTE_REVISAO">Pendente de revisão</option>
+            <option value="FALHOU">Falhou</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tableWrap">
+          <table class="table">
+            <thead><tr><th>Operação</th><th>Volume</th><th>Destino</th><th>SIM</th><th>Estado</th><th>Data</th></tr></thead>
+            <tbody id="operationsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="pageSims" class="page">
+      <div class="sectionHead"><h2>SIMs</h2><span>recursos reais</span></div>
+      <div id="simsGrid" class="grid three"></div>
+      <div class="sectionHead"><h2>Dispositivo autorizado</h2></div>
+      <div class="card" id="devicePanel"></div>
+    </section>
+
+    <section id="pageSystem" class="page">
+      <div class="sectionHead"><h2>Sistema</h2><span>estado e sessão</span></div>
+      <div class="grid two">
+        <div class="card" id="systemStatus"></div>
+        <div class="card" id="licensePanel"></div>
+      </div>
+      <div class="sectionHead"><h2>Internet e saldo</h2><span>última telemetria disponível</span></div>
+      <div class="card">
+        <div class="tableWrap">
+          <table class="table">
+            <thead><tr><th>SIM</th><th>Operadora</th><th>Internet</th><th>Saldo</th><th>Atualização</th></tr></thead>
+            <tbody id="simTable"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sectionHead"><h2>Sessão</h2></div>
+      <div class="card" id="sessionPanel"></div>
+    </section>
+  </main>
+</div>
+
+<nav id="bottomNav" class="bottom hidden">
+  <button class="nav active" data-page="Dashboard"><span>⌂</span>Visão geral</button>
+  <button class="nav" data-page="Operations"><span>◎</span>Operações</button>
+  <button class="nav" data-page="Sims"><span>▣</span>SIMs</button>
+  <button class="nav" data-page="System"><span>⚙</span>Sistema</button>
+</nav>
+
+<div id="modal" class="modal">
+  <div class="sheet">
+    <div class="sheetHead"><h3>Nova operação</h3><button id="closeModal" class="iconbtn">×</button></div>
+    <div>
+      <div class="notice" style="margin-bottom:12px">O SIM não é escolhido manualmente. O Backend valida licença, dispositivo, telemetria, operadora, limite e disponibilidade antes de criar a execução.</div>
+      <div class="formGrid">
+        <div class="field full"><label>Número de destino</label><input id="newDestination" class="input" inputmode="numeric" placeholder="Ex.: 857286555"></div>
+        <div class="field"><label>Quantidade</label><input id="newAmount" class="input" inputmode="decimal" placeholder="Ex.: 1024"></div>
+        <div class="field"><label>Unidade</label><select id="newUnit" class="select"><option value="MB">MB</option><option value="GB">GB</option></select></div>
+        <div class="field full"><div id="amountPreview" class="preview"><strong>0 MB</strong><small>Informe a quantidade</small></div></div>
+      </div>
+      <div id="newOpMsg" class="notice hidden" style="margin-top:10px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button id="cancelOp" class="btn">CANCELAR</button><button id="submitOp" class="btn primary">CRIAR OPERAÇÃO</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="detailModal" class="modal">
+  <div class="sheet">
+    <div class="sheetHead"><h3>Detalhes da operação</h3><button id="closeDetail" class="iconbtn">×</button></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+
+const API_BASE=location.origin;
+const SESSION_KEY='ursinho_x_tenant_session_v3';
+const DEVICE_ONLINE_WINDOW_MS=120*1000;
+const SIM_ONLINE_WINDOW_MS=45*60*1000;
+let session=null;
+let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],loadedAt:null};
+let refreshTimer=null;
+
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify(session))}
+function loadSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
+function clearSession(){localStorage.removeItem(SESSION_KEY);session=null}
+function apiHeaders(){const h={'Accept':'application/json','Content-Type':'application/json'};if(session?.apiKey)h['x-api-key']=session.apiKey;return h}
+
+async function api(path,options={}){
+  const response=await fetch(API_BASE+path,{...options,headers:{...apiHeaders(),...(options.headers||{})},cache:'no-store'});
+  const text=await response.text();
+  let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
+  if(!response.ok){const error=new Error(data?.error||data?.message||`HTTP ${response.status}`);error.status=response.status;error.data=data;throw error}
+  return data;
+}
+
+function asArray(value){if(Array.isArray(value))return value;return value?.items||value?.data||value?.operations||value?.operacoes||value?.sims||[]}
+function firstDefined(...values){return values.find(v=>v!==undefined&&v!==null)}
+function toMs(value){
+  if(value===null||value===undefined||value==='')return null;
+  if(typeof value==='number')return value<1e12?value*1000:value;
+  if(/^\d+$/.test(String(value))){const n=Number(value);return n<1e12?n*1000:n}
+  const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:null;
+}
+function fmtDate(value){const ms=toMs(value);if(!ms)return 'Sem data';return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(ms)}
+function age(value){const ms=toMs(value);if(!ms)return 'Sem leitura';const diff=Math.max(0,Date.now()-ms);const min=Math.floor(diff/60000);if(min<1)return 'agora';if(min<60)return `há ${min} min`;const h=Math.floor(min/60);if(h<24)return `há ${h} h`;return `há ${Math.floor(h/24)} d`}
+function online(value,windowMs=SIM_ONLINE_WINDOW_MS){const ms=toMs(value);return !!ms&&ms<=Date.now()+120000&&Date.now()-ms<=windowMs}
+function number(value){return typeof value==='number'&&Number.isFinite(value)?value:Number(value)}
+function validNum(value){return Number.isFinite(number(value))}
+function fmtDecimal(value){return new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)}
+
+function formatMB(mb){
+  const n=number(mb);
+  if(!Number.isFinite(n))return{main:'Não disponível',secondary:''};
+  if(n>=1024){return{main:`${fmtDecimal(n/1024)} GB`,secondary:`${fmtDecimal(n)} MB`}}
+  return{main:`${fmtDecimal(n)} MB`,secondary:''};
+}
+
+function mbFromInput(){
+  const raw=Number($('newAmount').value.replace(',','.'));
+  if(!Number.isFinite(raw)||raw<0)return 0;
+  return $('newUnit').value==='GB'?Math.round(raw*1024):Math.round(raw);
+}
+
+function statusClass(status){
+  const s=String(status||'').toUpperCase();
+  if(['CONCLUIDA','ONLINE','ATIVO','ATIVA','CONECTADO','DISPONIVEL'].includes(s))return'ok';
+  if(['PENDENTE','PENDENTE_REVISAO','AGUARDANDO_EXECUCAO','AGUARDANDO','SEM_TELEMETRIA','SEM_DADOS'].includes(s))return'warn';
+  if(['FALHOU','OFFLINE','EXPIRADA','SUSPENSA'].includes(s))return'err';
+  return'muted';
+}
+function badge(status,label){return`<span class="badge ${statusClass(status)}">${esc(label||status||'SEM DADOS')}</span>`}
+function showToast(message){const t=$('toast');t.textContent=message;t.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove('show'),2800)}
+function showLoginMsg(message,error=false){$('loginMsg').textContent=message;$('loginMsg').className='notice '+(error?'err':'');$('loginMsg').classList.remove('hidden')}
+function showOpMsg(message,error=false){$('newOpMsg').textContent=message;$('newOpMsg').className='notice '+(error?'err':'');$('newOpMsg').classList.remove('hidden')}
+function resetOpMsg(){$('newOpMsg').classList.add('hidden');$('newOpMsg').textContent=''}
+
+function normalizeOperation(o){
+  return{
+    raw:o,
+    id:firstDefined(o.id,o.operationId,o.operacaoId,o._id,''),
+    state:String(firstDefined(o.estado,o.status,o.state,'SEM_DADOS')).toUpperCase(),
+    type:firstDefined(o.tipo,o.type,'TRANSFERENCIA_INTERNET'),
+    destination:firstDefined(o.destino,o.destination,o.numeroDestino,o.phone,''),
+    requestedMB:number(firstDefined(o.megas,o.megabytes,o.requestedMB,o.quantidadeMB,o.volumeMB)),
+    simId:firstDefined(o.simId,o.sim?.simId,o.sim?.id,''),
+    simSlot:firstDefined(o.simSlot,o.slot,o.sim?.slot),
+    operator:firstDefined(o.operadora,o.operator,o.sim?.operadora,''),
+    beforeMB:number(firstDefined(o.saldoAntesMB,o.beforeMB,o.evidence?.saldoAntesMB)),
+    afterMB:number(firstDefined(o.saldoDepoisMB,o.afterMB,o.evidence?.saldoDepoisMB)),
+    claimToken:firstDefined(o.claimToken,''),
+    createdAt:firstDefined(o.createdAt,o.criadaEm,o.created_at,o.criadoEm,o.createdAtMs,o.criadaEmMs,o.timestamp,o.created_at_ms),
+    updatedAt:firstDefined(o.updatedAt,o.atualizadaEm,o.updated_at,o.updatedAtMs,o.atualizadaEmMs,o.completedAt),
+    evidence:o.evidence||o.evidencia||null,
+    rawLog:firstDefined(o.rawLog,o.log,'')
+  };
+}
+
+function normalizeSim(s){
+  const updated=firstDefined(s.atualizadoEmMs,s.updatedAt,s.updated_at,s.atualizadoEm,s.lastTelemetryAt,s.lastSeenAt);
+  return{...s,simId:firstDefined(s.simId,s.id,''),slot:firstDefined(s.slot,s.simSlot),operator:firstDefined(s.operadora,s.operator,''),internetMB:number(firstDefined(s.internetMB,s.internet,s.mbDisponiveis)),saldoMT:firstDefined(s.saldoMT,s.balanceMT,s.saldo),updatedAt:updated,transferenciasHoje:firstDefined(s.transferenciasHoje,s.transfersToday),limiteDiario:firstDefined(s.limiteDiario,s.dailyLimit,10)};
+}
+
+function normalizeDevice(d){
+  if(!d)return null;
+  return{...d,deviceId:firstDefined(d.deviceId,d.id,''),onlineAt:firstDefined(d.ultimoContactoMs,d.lastSeenAt,d.onlineAt,d.atualizadoEmMs,d.updatedAt,d.updatedAtMs),agentVersion:firstDefined(d.agentVersion,d.version,d.appVersion,'')};
+}
+
+async function login(){
+  const tenantId=$('loginTenant').value.trim();
+  const apiKey=$('loginKey').value.trim();
+  if(!tenantId||!apiKey){showLoginMsg('Informe o Tenant ID e a chave de acesso.',true);return}
+  $('loginBtn').disabled=true;$('loginBtn').textContent='VALIDANDO...';
+  session={tenantId,apiKey};
+  try{await loadPanel(true);saveSession();openApp()}catch(e){clearSession();showLoginMsg(`Não foi possível autenticar: ${e.message}`,true)}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='ENTRAR NO CONTROL CENTER'}
+}
+
+function openApp(){$('loginView').classList.add('hidden');$('appView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');navigate('Dashboard');startRefresh()}
+function logout(){clearSession();location.reload()}
+
+async function loadPanel(){
+  const tid=encodeURIComponent(session.tenantId);
+  const tenantR=await api(`/automation/tenants/${tid}`);
+  const licenseR=await api(`/automation/tenants/${tid}/licenca`);
+  let deviceR=null,simsR=[],healthR=null;
+  try{deviceR=await api(`/automation/tenants/${tid}/device`)}catch(e){if(e.status!==404)throw e}
+  try{healthR=await api(`/automation/tenants/${tid}/saude`)}catch(e){if(e.status!==404)console.warn('Saúde do Agent indisponível:',e.message)}
+  const opsR=await api(`/automation/tenants/${tid}/operacoes`);
+  try{simsR=await api(`/automation/tenants/${tid}/sims`)}catch(e){if(e.status!==404)throw e}
+  state.tenant=tenantR?.tenant||tenantR?.data||tenantR;
+  state.license=licenseR?.licenca||licenseR?.license||licenseR?.data||licenseR;
+  state.device=normalizeDevice(deviceR?.device||deviceR?.data||deviceR);
+  state.health=healthR?.saude||null;
+  state.operations=asArray(opsR).map(normalizeOperation);
+  state.sims=asArray(simsR).map(normalizeSim);
+  state.loadedAt=Date.now();
+  renderAll();backendState(true);return state;
+}
+
+function backendState(ok){$('backendDot').className='dot '+(ok?'on':'err');$('backendText').textContent=ok?'SISTEMA ONLINE':'BACKEND OFFLINE'}
+async function refresh(){try{await loadPanel();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
+function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
+function renderAll(){renderDashboard();renderOperations();renderSims();renderSystem()}
+
+function currentActiveOperation(){
+  const active=['EXECUTANDO','AGUARDANDO_EXECUCAO','CRIADA','PENDENTE'];
+  return state.operations.filter(o=>active.includes(o.state)).sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0))[0]||null;
+}
+
+function engine(){
+  const op=currentActiveOperation();
+  if(op){
+    if(op.state==='EXECUTANDO')return['EXECUTANDO','Operação em execução'];
+    if(op.state==='AGUARDANDO_EXECUCAO'||op.state==='CRIADA')return['AGUARDANDO EXECUÇÃO','Aguardando Agent'];
+    return['PENDENTE','Aguardando recurso/evidência'];
+  }
+  const recent=state.operations.slice().sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0))[0];
+  if(recent?.state==='CONCLUIDA')return['IDLE','Última operação validada'];
+  if(recent?.state==='FALHOU')return['IDLE','Última operação falhou'];
+  if(recent?.state==='PENDENTE_REVISAO')return['PENDENTE','Revisão necessária'];
+  return['SEM DADOS','Aguardando telemetria'];
+}
+
+function latestDeviceTimestamp(){
+  return toMs(state.health?.device?.ultimoContactoMs||state.device?.ultimoContactoMs||state.device?.onlineAt);
+}
+
+function deviceIsConnected(){
+  if(typeof state.health?.device?.online==='boolean')return state.health.device.online;
+  if(typeof state.device?.online==='boolean')return state.device.online;
+  return online(latestDeviceTimestamp(),DEVICE_ONLINE_WINDOW_MS);
+}
+
+function renderDashboard(){
+  const operations=state.operations;
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayOps=operations.filter(o=>(toMs(o.createdAt)||0)>=today.getTime());
+  $('statToday').textContent=String(todayOps.length);
+  $('statDone').textContent=String(operations.filter(o=>o.state==='CONCLUIDA').length);
+  $('statExec').textContent=String(operations.filter(o=>['CRIADA','AGUARDANDO_EXECUCAO','EXECUTANDO'].includes(o.state)).length);
+  $('statReview').textContent=String(operations.filter(o=>['PENDENTE','PENDENTE_REVISAO'].includes(o.state)).length);
+
+  const [em,es]=engine();$('engineMain').textContent=em;$('engineSub').textContent=es;
+  const lic=state.license||{};
+  const licenseStatus=String(lic.status||'').toUpperCase();
+  const active=lic.ativa===true||lic.active===true||['ATIVA','ACTIVE'].includes(licenseStatus);
+  $('licenseBadge').outerHTML=`<span id="licenseBadge" class="badge ${active?'ok':'warn'}">${esc(lic.status||(active?'ATIVA':'SEM DADOS'))}</span>`;
+
+  const sim=state.sims.find(s=>String(s.operator).toLowerCase().includes('vodacom'))||state.sims[0];
+  if(sim){
+    $('simTitle').textContent=sim.simId||`SIM SLOT ${sim.slot??'?'}`;
+    $('simMeta').textContent=`${sim.operator||'Operadora não informada'} • Slot ${sim.slot??'?'}`;
+    $('simBadge').outerHTML=`<span id="simBadge" class="badge ${online(sim.updatedAt)?'ok':'warn'}">${online(sim.updatedAt)?'ONLINE':'TELEMETRIA DESATUALIZADA'}</span>`;
+    const internet=formatMB(sim.internetMB);
+    const balance=validNum(sim.saldoMT)?`${fmtDecimal(sim.saldoMT)} MT`:'Não disponível';
+    const transfers=validNum(sim.transferenciasHoje)?`${sim.transferenciasHoje}/${sim.limiteDiario??10}`:'Não disponível';
+    $('simQuick').innerHTML=`
+      <div class="kv"><span>Internet disponível</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div>
+      <div class="kv"><span>Saldo</span><span>${esc(balance)}</span></div>
+      <div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div>
+      <div class="kv"><span>Última leitura</span><span>${esc(age(sim.updatedAt))}</span></div>`;
+  }else{
+    $('simTitle').textContent='SIM';$('simMeta').textContent='Nenhuma telemetria disponível';$('simQuick').innerHTML='<div class="empty"><b>Sem dados</b>Aguardando telemetria real do Agent.</div>';
+  }
+
+  const device=state.device;
+  const connected=deviceIsConnected();
+  $('deviceMeta').textContent=device?.deviceId?`ID ${device.deviceId}`:'Nenhum dispositivo autorizado';
+  $('deviceBadge').outerHTML=`<span id="deviceBadge" class="badge ${connected?'ok':'warn'}">${connected?'CONECTADO':device?'SEM TELEMETRIA':'SEM DADOS'}</span>`;
+  $('deviceQuick').innerHTML=device?`
+    <div class="kv"><span>Device ID</span><span>${esc(device.deviceId)}</span></div>
+    <div class="kv"><span>Agent</span><span>${esc(device.agentVersion||'Não informado')}</span></div>
+    <div class="kv"><span>Último contato</span><span>${esc(age(latestDeviceTimestamp()))}</span></div><div class="kv"><span>Saúde</span><span>${badge(state.health?.device?.estado||'SEM LEITURA',state.health?.device?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Revisões antigas</span><span>${esc(state.health?.operacoes?.revisoesAntigas??'Não disponível')}</span></div>`:'<div class="empty"><b>Sem dispositivo</b>Nenhum Agent autorizado foi retornado.</div>';
+
+  const op=currentActiveOperation();
+  const isDone=op?.state==='CONCLUIDA';
+  const isExecuting=op?.state==='EXECUTANDO';
+  const steps=[
+    ['BACKEND','validação',!!op||isDone],
+    ['SIM','recurso selecionado',!!op?.simId],
+    ['AGENT','execução Android',isExecuting||isDone],
+    ['USSD','execução real',isExecuting||isDone],
+    ['EVIDÊNCIA','validação',isDone||op?.state==='PENDENTE_REVISAO']
+  ];
+  $('flow').innerHTML=steps.map((s,i)=>`${i?'<div class="arrow">›</div>':''}<div class="flowStep ${s[2]?'done':''} ${isExecuting&&i===3?'active':''} ${isDone?'done':''}"><div class="circle">${s[2]?'✓':i+1}</div><b>${s[0]}</b><small>${s[1]}</small></div>`).join('');
+  renderTimeline();
+  $('lastUpdate').textContent=state.loadedAt?`Atualizado ${fmtDate(state.loadedAt)}`:'Sem atualização';
+}
+
+function renderTimeline(){
+  const list=state.operations.slice().sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0)).slice(0,6);
+  $('timeline').innerHTML=list.length?list.map(o=>`<div class="event ${statusClass(o.state)}"><div class="eventHead"><b>${esc(o.id||'Operação')}</b>${badge(o.state,o.state)}</div><small>${esc(formatMB(o.requestedMB).main)} • ${esc(o.destination||'Destino não informado')} • ${esc(fmtDate(o.updatedAt||o.createdAt))}</small></div>`).join(''):'<div class="empty"><b>Sem atividade</b>Nenhuma operação foi retornada pelo Backend.</div>';
+}
+
+function renderOperations(){
+  const q=($('opSearch').value||'').toLowerCase();
+  const f=$('opFilter').value;
+  let list=state.operations.filter(o=>f==='ALL'||o.state===f).filter(o=>!q||`${o.id} ${o.destination} ${o.simId}`.toLowerCase().includes(q));
+  list.sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0));
+  $('operationsTable').innerHTML=list.length?list.map(o=>{const v=formatMB(o.requestedMB);return`<tr data-op="${esc(o.id)}"><td><b>${esc(o.id||'Sem ID')}</b></td><td><span class="valueStack"><b>${esc(v.main)}</b>${v.secondary?`<small>${esc(v.secondary)}</small>`:''}</span></td><td>${esc(o.destination||'Não disponível')}</td><td>${esc(o.simId||'Não disponível')}</td><td>${badge(o.state,o.state)}</td><td>${esc(fmtDate(o.updatedAt||o.createdAt))}</td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty"><b>Sem operações</b>Nenhum registro corresponde aos filtros.</div></td></tr>';
+  document.querySelectorAll('#operationsTable tr[data-op]').forEach(row=>row.addEventListener('click',()=>openDetail(row.dataset.op)));
+}
+
+function renderSims(){
+  if(!state.sims.length){$('simsGrid').innerHTML='<div class="card empty" style="grid-column:1/-1"><b>Sem SIMs</b>O Backend ainda não retornou recursos SIM para este tenant.</div>'}else{
+    $('simsGrid').innerHTML=state.sims.map(s=>{
+      const internet=formatMB(s.internetMB);const isVod=String(s.operator).toLowerCase().includes('vodacom');const connected=typeof s.online==='boolean'?s.online:online(s.updatedAt,SIM_ONLINE_WINDOW_MS);
+      const transfers=validNum(s.transferenciasHoje)?`${s.transferenciasHoje}/${s.limiteDiario??10}`:'Não disponível';
+      return`<div class="card"><div class="resource"><div class="resourceIcon">▣</div><div class="resourceInfo"><b>${esc(s.simId||'SIM')}</b><small>${esc(s.operator||'Operadora não informada')} • Slot ${esc(s.slot??'?')}</small></div>${badge(connected?'ONLINE':'SEM_TELEMETRIA',connected?'ONLINE':'SEM TELEMETRIA')}</div><div style="margin-top:12px"><div class="kv"><span>Internet</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div><div class="kv"><span>Saldo</span><span>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</span></div><div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div><div class="kv"><span>Última leitura</span><span>${esc(age(s.updatedAt))}</span></div>${isVod?'':'<div class="notice warn" style="margin-top:9px">Este recurso não é selecionável para transferência Vodacom.</div>'}</div></div>`;
+    }).join('');
+  }
+  const d=state.device;const connected=deviceIsConnected();
+  $('devicePanel').innerHTML=d?`<div class="kv"><span>Device ID</span><span>${esc(d.deviceId)}</span></div><div class="kv"><span>Estado</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div><div class="kv"><span>Agent</span><span>${esc(d.agentVersion||'Não informado')}</span></div><div class="kv"><span>Último contato</span><span>${esc(fmtDate(latestDeviceTimestamp()))} (${esc(age(latestDeviceTimestamp()))})</span></div>`:'<div class="empty"><b>Sem dispositivo autorizado</b></div>';
+}
+
+function renderSystem(){
+  const lic=state.license||{};const tenant=state.tenant||{};const connected=deviceIsConnected();
+  $('systemStatus').innerHTML=`<div class="kv"><span>Backend</span><span>${badge('ONLINE','SISTEMA ONLINE')}</span></div><div class="kv"><span>Saúde operacional</span><span>${badge(state.health?.estado||'SEM LEITURA',state.health?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Execução telecom</span><span>${state.health?.execucaoPermitida===true?badge('ATIVA','ATIVA'):badge('BLOQUEADA','BLOQUEADA')}</span></div><div class="kv"><span>Tenant</span><span>${esc(firstDefined(tenant.id,tenant.tenantId,session.tenantId))}</span></div><div class="kv"><span>Engine</span><span>${esc(engine()[0])}</span></div><div class="kv"><span>Telemetria</span><span>${state.sims.length?'Disponível':'Aguardando'}</span></div><div class="kv"><span>Agent</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div>`;
+  $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(lic.status||'SEM DADOS',lic.status||'SEM DADOS')}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.code,lic.codigo,'Não disponível'))}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
+  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td>${esc(s.simId||'SIM')}</td><td>${esc(s.operator||'Não informado')}</td><td><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td>${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
+  $('sessionPanel').innerHTML=`<div class="kv"><span>Tenant</span><span>${esc(session?.tenantId||'')}</span></div><div class="kv"><span>Endpoint</span><span>${esc(location.origin)}</span></div><div class="kv"><span>Atualização automática</span><span>30 segundos</span></div><div class="kv"><span>Assinatura</span><span>✨ BY Edilton Ronaldo</span></div><div style="margin-top:12px"><button id="logoutBtn" class="btn">SAIR DA SESSÃO</button></div>`;
+  $('logoutBtn').onclick=logout;
+}
+
+function navigate(name){
+  const map={Dashboard:'pageDashboard',Operations:'pageOperations',Sims:'pageSims',System:'pageSystem'};
+  Object.entries(map).forEach(([key,id])=>$(id).classList.toggle('active',key===name));
+  document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.page===name));
+}
+
+function openModal(){resetOpMsg();$('newDestination').value='';$('newAmount').value='';$('newUnit').value='MB';updatePreview();$('modal').classList.add('open')}
+function closeModal(){$('modal').classList.remove('open')}
+function updatePreview(){const mb=mbFromInput();const f=formatMB(mb);$('amountPreview').innerHTML=`<strong>${esc(f.main)}</strong><small>${mb?esc(f.secondary||`${mb} MB`):'Informe a quantidade'} • 1 GB = 1024 MB</small>`}
+
+async function submitOperation(){
+  const destination=$('newDestination').value.trim();const megas=mbFromInput();
+  if(destination.length<9){showOpMsg('Informe um número de destino válido.',true);return}
+  if(megas<100||megas>10240){showOpMsg('A operação individual deve estar entre 100 MB e 10.240 MB.',true);return}
+  $('submitOp').disabled=true;$('submitOp').textContent='VALIDANDO...';resetOpMsg();
+  try{
+    const tid=encodeURIComponent(session.tenantId);
+    const result=await api(`/automation/tenants/${tid}/transferir`,{method:'POST',body:JSON.stringify({destino:destination,megas})});
+    closeModal();showToast('Operação criada pelo Backend');await loadPanel();
+    const created=result?.operacao||result?.operation||result?.data;if(created?.id)setTimeout(()=>openDetail(created.id),250);
+  }catch(e){showOpMsg(`Não foi possível criar: ${e.message}`,true)}finally{$('submitOp').disabled=false;$('submitOp').textContent='CRIAR OPERAÇÃO'}
+}
+
+function openDetail(id){
+  const o=state.operations.find(x=>String(x.id)===String(id));if(!o)return;
+  const before=formatMB(o.beforeMB);const after=formatMB(o.afterMB);let diff='Não validado';
+  if(validNum(o.beforeMB)&&validNum(o.afterMB))diff=formatMB(o.beforeMB-o.afterMB).main;
+  $('detailContent').innerHTML=`<div class="notice ${statusClass(o.state)==='err'?'err':statusClass(o.state)==='warn'?'warn':''}" style="margin-bottom:12px">${badge(o.state,o.state)}<div style="margin-top:8px">${o.state==='CONCLUIDA'?'Resultado validado pelo Backend com evidência de saldo.':o.state==='PENDENTE_REVISAO'?'A operação aguarda revisão da evidência.':o.state==='FALHOU'?'A execução não foi validada como concluída.':'Estado operacional atual retornado pelo Backend.'}</div></div><div class="kv"><span>ID</span><span>${esc(o.id||'Não disponível')}</span></div><div class="kv"><span>Tipo</span><span>${esc(o.type)}</span></div><div class="kv"><span>Volume solicitado</span><span>${esc(formatMB(o.requestedMB).main)}</span></div><div class="kv"><span>Destino</span><span>${esc(o.destination||'Não disponível')}</span></div><div class="kv"><span>SIM selecionado</span><span>${esc(o.simId||'Não disponível')}</span></div><div class="kv"><span>Slot</span><span>${esc(o.simSlot??'Não disponível')}</span></div><div class="kv"><span>Operadora</span><span>${esc(o.operator||'Não disponível')}</span></div><div class="kv"><span>Saldo antes</span><span>${esc(before.main)}</span></div><div class="kv"><span>Saldo depois</span><span>${esc(after.main)}</span></div><div class="kv"><span>Diferença validada</span><span>${esc(diff)}</span></div><div class="kv"><span>Criada</span><span>${esc(fmtDate(o.createdAt))}</span></div><div class="kv"><span>Atualizada</span><span>${esc(fmtDate(o.updatedAt))}</span></div>`;
+  $('detailModal').classList.add('open');
+}
+
+document.addEventListener('DOMContentLoaded',async()=>{
+  $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('newOpBtn').onclick=openModal;$('newOpBtn2').onclick=openModal;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
+  document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
+  const saved=loadSession();
+  if(saved?.tenantId&&saved?.apiKey){session=saved;try{await loadPanel();openApp()}catch(e){clearSession();$('loginKey').value='';showLoginMsg('Sessão expirada ou sem acesso ao Backend. Entre novamente.',true)}}
+});
+</script>
+</body>
+</html>

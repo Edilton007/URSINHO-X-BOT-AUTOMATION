@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#080D0B">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp"
+        android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="16dp">
+        <TextView android:layout_width="38dp" android:layout_height="38dp" android:gravity="center"
+            android:background="#12392D" android:text="UX" android:textColor="#54E0B3"
+            android:textSize="16sp" android:textStyle="bold" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_marginStart="11dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="URSINHO X" android:textColor="#F1F7F3" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="TENANT CONTROL PANEL" android:textColor="#54E0B3" android:textSize="9sp" android:letterSpacing="0.14" />
+        </LinearLayout>
+        <Button android:id="@+id/btnSettings" android:layout_width="46dp" android:layout_height="42dp"
+            android:backgroundTint="#172820" android:text="⚙" android:textColor="#DDF4E8" android:textSize="18sp"
+            android:contentDescription="Configurar servidor" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/progressLoading" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true"
+        android:indeterminateTint="#00C896" android:visibility="gone" />
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1">
+        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
+            <WebView android:id="@+id/webview" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:background="#080D0B" />
+            <LinearLayout android:id="@+id/offlinePanel" android:layout_width="match_parent"
+                android:layout_height="match_parent" android:orientation="vertical" android:gravity="center"
+                android:padding="28dp" android:background="#080D0B" android:visibility="gone">
+                <TextView android:layout_width="64dp" android:layout_height="64dp" android:gravity="center"
+                    android:background="#12392D" android:text="!" android:textColor="#54E0B3"
+                    android:textSize="28sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp" android:text="Não foi possível ligar ao Backend"
+                    android:textColor="#F1F7F3" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtOfflineMessage" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center"
+                    android:text="Verifique a ligação à Internet ou o endereço do servidor."
+                    android:textColor="#9BAEA4" android:textSize="13sp" />
+                <Button android:id="@+id/btnRetry" android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_marginTop="20dp" android:backgroundTint="#00C896"
+                    android:text="Tentar novamente" android:textAllCaps="false"
+                    android:textColor="#03140E" android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+</LinearLayout>

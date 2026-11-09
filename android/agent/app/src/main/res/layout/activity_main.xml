@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#080D0B"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="8dp"
+            android:paddingBottom="20dp">
+            <TextView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="#12392D"
+                android:gravity="center"
+                android:text="UX"
+                android:textColor="#54E0B3"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="13dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="URSINHO X" android:textColor="#F1F7F3" android:textSize="19sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="AUTOMATION AGENT" android:textColor="#54E0B3" android:textSize="10sp" android:letterSpacing="0.18" />
+            </LinearLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:background="#13251D" android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="7dp"
+                android:text="CONTROLADO" android:textColor="#54E0B3" android:textSize="9sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp" app:cardBackgroundColor="#101916"
+            app:cardCornerRadius="16dp" app:strokeColor="#263A31" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="01  ·  ESTADO DO DISPOSITIVO" android:textColor="#54E0B3" android:textSize="10sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtSaldo" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:background="#0A120E" android:padding="13dp"
+                    android:text="Saldo: ainda não consultado" android:textColor="#E6F1EA" android:textSize="14sp" android:textStyle="bold" />
+                <Button android:id="@+id/btnPedirPermissoes" android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_marginTop="12dp" android:backgroundTint="#00C896" android:text="Conceder permissões"
+                    android:textAllCaps="false" android:textColor="#03140E" android:textStyle="bold" />
+                <Button android:id="@+id/btnDetectarSims" android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_marginTop="8dp" android:backgroundTint="#1B2B23" android:text="Detetar cartões SIM"
+                    android:textAllCaps="false" android:textColor="#E8F4ED" />
+                <TextView android:id="@+id/txtSims" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp" android:background="#0A120E" android:padding="13dp"
+                    android:text="Nenhum SIM detetado ainda." android:textColor="#B2C4B9" android:textSize="12sp"
+                    android:typeface="monospace" />
+                <Button android:id="@+id/btnAtualizarSaldo" android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="8dp" android:backgroundTint="#16231D" android:text="Atualizar leitura de saldo"
+                    android:textAllCaps="false" android:textColor="#BFEBDD" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp" app:cardBackgroundColor="#101916"
+            app:cardCornerRadius="16dp" app:strokeColor="#263A31" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="02  ·  BACKEND CENTRAL" android:textColor="#54E0B3" android:textSize="10sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp" android:text="O servidor autoriza a tarefa e escolhe o SIM. O Agent apenas executa e devolve evidências."
+                    android:textColor="#9BAEA4" android:textSize="12sp" />
+                <EditText android:id="@+id/editServidor" android:layout_width="match_parent" android:layout_height="50dp"
+                    android:layout_marginTop="12dp" android:hint="Endereço HTTPS do Backend" android:inputType="textUri"
+                    android:singleLine="true" android:textColor="#F1F7F3" android:textColorHint="#71877B" android:backgroundTint="#386454" />
+                <EditText android:id="@+id/editDeviceId" android:layout_width="match_parent" android:layout_height="50dp"
+                    android:hint="Device ID provisionado no Master/Admin" android:singleLine="true"
+                    android:textColor="#F1F7F3" android:textColorHint="#71877B" android:backgroundTint="#386454" />
+                <EditText android:id="@+id/editApiKey" android:layout_width="match_parent" android:layout_height="50dp"
+                    android:hint="Chave individual do dispositivo" android:inputType="textPassword" android:singleLine="true"
+                    android:textColor="#F1F7F3" android:textColorHint="#71877B" android:backgroundTint="#386454" />
+                <Button android:id="@+id/btnBuscarTarefa" android:layout_width="match_parent" android:layout_height="50dp"
+                    android:layout_marginTop="10dp" android:backgroundTint="#00C896" android:text="Verificar tarefa autorizada"
+                    android:textAllCaps="false" android:textColor="#03140E" android:textStyle="bold" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp" app:cardBackgroundColor="#101916"
+            app:cardCornerRadius="16dp" app:strokeColor="#263A31" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="03  ·  SERVIÇO DE EXECUÇÃO" android:textColor="#54E0B3" android:textSize="10sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp" android:text="O modo manual está desativado. Ative a acessibilidade apenas quando o fluxo USSD exigir leitura do diálogo."
+                    android:textColor="#9BAEA4" android:textSize="12sp" />
+                <Button android:id="@+id/btnAtivarAcessibilidade" android:layout_width="match_parent" android:layout_height="46dp"
+                    android:layout_marginTop="10dp" android:backgroundTint="#1B2B23" android:text="Configurar acessibilidade USSD"
+                    android:textAllCaps="false" android:textColor="#E8F4ED" />
+                <Button android:id="@+id/btnLigarServico" android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_marginTop="8dp" android:backgroundTint="#00C896" android:text="Ligar monitorização automática"
+                    android:textAllCaps="false" android:textColor="#03140E" android:textStyle="bold" />
+                <Button android:id="@+id/btnDesligarServico" android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="8dp" android:backgroundTint="#26332D" android:text="Desligar monitorização"
+                    android:textAllCaps="false" android:textColor="#E8F4ED" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            app:cardBackgroundColor="#101916" app:cardCornerRadius="16dp"
+            app:strokeColor="#263A31" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="REGISTO OPERACIONAL" android:textColor="#54E0B3" android:textSize="10sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtLog" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="100dp" android:layout_marginTop="10dp" android:background="#0A120E"
+                    android:padding="13dp" android:text="Aguardando configuração do dispositivo..."
+                    android:textColor="#B7C9BE" android:textSize="11sp" android:typeface="monospace" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- IDs mantidos por compatibilidade com controlos desativados nas versões anteriores. -->
+        <EditText android:id="@+id/editUssd" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <EditText android:id="@+id/editRoteiro" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <EditText android:id="@+id/editMegas" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <EditText android:id="@+id/editDestino" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <Button android:id="@+id/btnEnviarUssd" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <Button android:id="@+id/btnAutomatizarMenu" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <Button android:id="@+id/btnTransferirVerificado" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+            android:paddingTop="20dp" android:paddingBottom="12dp" android:text="URSINHO X BOT AUTOMATION  ·  SECURE DEVICE CLIENT"
+            android:textColor="#60776B" android:textSize="9sp" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>URSINHO X BOT V2 — Painel</title>
+
+    <link rel="stylesheet" href="./src/style.css">
+</head>
+
+<body>
+
+    <section id="authGate" class="authGate" aria-labelledby="authTitle">
+        <form id="authForm" class="authCard" autocomplete="off">
+            <div class="authMark">UX</div>
+            <p class="eyebrow">ACESSO RESTRITO</p>
+            <h1 id="authTitle">Painel de controlo</h1>
+            <p class="authCopy">Entre com a chave API privada configurada no servidor. A credencial permanece apenas nesta sessão do navegador.</p>
+            <label for="apiKeyInput">Chave API</label>
+            <input id="apiKeyInput" name="apiKey" type="password" inputmode="text" autocomplete="current-password" spellcheck="false" required>
+            <button type="submit" class="primaryButton">Aceder ao painel</button>
+            <p id="authMessage" class="authMessage" role="status">Acesso privado.</p>
+        </form>
+    </section>
+
+    <main id="appShell" class="app hidden">
+
+        <header class="topbar">
+            <div>
+                <div class="brand">URSINHO X BOT <span>V2</span></div>
+                <div class="subtitle">Painel de controlo</div>
+            </div>
+
+            <div class="topbarActions">
+                <div id="connectionStatus" class="status offline">● SEM RESPOSTA</div>
+                <button id="logoutButton" class="ghostButton" type="button">Terminar sessão</button>
+            </div>
+        </header>
+
+        <section class="hero">
+            <div>
+                <p class="eyebrow">SISTEMA</p>
+                <h1>Painel Administrativo</h1>
+                <p class="heroText">
+                    Visão operacional do Bot V2. Dados apresentados pela API autenticada do servidor.
+                </p>
+            </div>
+        </section>
+
+        <section class="statsGrid">
+
+            <article class="card">
+                <span class="cardLabel">MENSAGENS</span>
+                <strong id="messages">0</strong>
+            </article>
+
+            <article class="card">
+                <span class="cardLabel">COMANDOS</span>
+                <strong id="commands">0</strong>
+            </article>
+
+            <article class="card">
+                <span class="cardLabel">GRUPOS</span>
+                <strong id="groups">0</strong>
+            </article>
+
+            <article class="card">
+                <span class="cardLabel">SESSÕES ATIVAS</span>
+                <strong id="activeSessions">0</strong>
+            </article>
+
+            <article class="card">
+                <span class="cardLabel">HISTÓRICO</span>
+                <strong id="historySessions">0</strong>
+            </article>
+
+            <article class="card">
+                <span class="cardLabel">CÓDIGOS DE ALUGUEL</span>
+                <strong id="rentalCodes">0</strong>
+            </article>
+
+        </section>
+
+        <section class="systemCard">
+
+            <div class="sectionHeader">
+                <div>
+                    <p class="eyebrow">SISTEMA</p>
+                    <h2>Estado do Bot</h2>
+                </div>
+
+                <span id="botStatus" class="badge">
+                    OFFLINE
+                </span>
+            </div>
+
+            <div class="systemInfo">
+                <div>
+                    <span>Nome</span>
+                    <strong id="botName">—</strong>
+                </div>
+
+                <div>
+                    <span>Última atualização</span>
+                    <strong id="lastUpdate">—</strong>
+                </div>
+            </div>
+
+        </section>
+
+        <footer>
+            URSINHO X BOT AUTOMATION
+            <small>✨ BY Edilton Ronaldo</small>
+        </footer>
+
+    </main>
+
+    <script src="./src/app.js"></script>
+
+</body>
+</html>

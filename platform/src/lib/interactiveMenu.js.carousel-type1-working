@@ -1,0 +1,522 @@
+const {
+    generateWAMessageFromContent,
+    proto
+} = require("@whiskeysockets/baileys");
+
+/*
+============================================================
+URSINHO X BOT V2
+MENU INTERATIVO
+Baileys 7.0.0-rc14
+
+Suporte:
+- Botões Native Flow
+- Carrossel
+============================================================
+*/
+
+
+/*
+============================================================
+CRIAR BOTÃO
+============================================================
+*/
+
+function createButton(name, params = {}) {
+
+    return proto.Message
+        .InteractiveMessage
+        .NativeFlowMessage
+        .NativeFlowButton
+        .create({
+            name,
+            buttonParamsJson: JSON.stringify(params)
+        });
+
+}
+
+
+/*
+============================================================
+GERAR INTERACTIVE MESSAGE
+============================================================
+*/
+
+function createInteractiveMessage({
+    header = null,
+    body = "",
+    footer = "",
+    buttons = [],
+    carousel = null
+} = {}) {
+
+    const messageData = {};
+
+    /*
+    --------------------------------------------------------
+    HEADER
+    --------------------------------------------------------
+    */
+
+    if (header) {
+
+        messageData.header =
+            proto.Message.InteractiveMessage.Header.create({
+                title: header.title || "",
+                subtitle: header.subtitle || "",
+                hasMediaAttachment:
+                    header.hasMediaAttachment || false
+            });
+
+    }
+
+
+    /*
+    --------------------------------------------------------
+    BODY
+    --------------------------------------------------------
+    */
+
+    messageData.body =
+        proto.Message.InteractiveMessage.Body.create({
+            text: String(body || "")
+        });
+
+
+    /*
+    --------------------------------------------------------
+    FOOTER
+    --------------------------------------------------------
+    */
+
+    if (footer) {
+
+        messageData.footer =
+            proto.Message.InteractiveMessage.Footer.create({
+                text: String(footer)
+            });
+
+    }
+
+
+    /*
+    --------------------------------------------------------
+    BOTÕES
+    --------------------------------------------------------
+    */
+
+    if (buttons.length) {
+
+        const nativeButtons =
+            buttons.map(button =>
+                createButton(
+                    button.name || "quick_reply",
+                    button.params || {}
+                )
+            );
+
+        messageData.nativeFlowMessage =
+            proto.Message.InteractiveMessage
+                .NativeFlowMessage
+                .create({
+                    buttons: nativeButtons,
+                    messageVersion: 1
+                });
+
+    }
+
+
+    /*
+    --------------------------------------------------------
+    CARROSSEL
+    --------------------------------------------------------
+    */
+
+    if (carousel) {
+
+        messageData.carouselMessage =
+            proto.Message.InteractiveMessage
+                .CarouselMessage
+                .create({
+                    cards: carousel.cards || [],
+                    messageVersion: 1,
+                    carouselCardType: 1
+                });
+
+    }
+
+
+    return proto.Message.InteractiveMessage.create(
+        messageData
+    );
+
+}
+
+
+/*
+============================================================
+ENVIAR MENSAGEM INTERATIVA
+============================================================
+*/
+
+async function relayInteractiveMessage(
+    sock,
+    chat,
+    interactiveMessage,
+    quoted = null
+) {
+
+    const message =
+        generateWAMessageFromContent(
+            chat,
+            {
+                viewOnceMessage: {
+                    message: {
+                        interactiveMessage
+                    }
+                }
+            },
+            {
+                quoted
+            }
+        );
+
+
+    console.log(
+        "================================"
+    );
+
+    console.log(
+        "📤 ENVIANDO INTERACTIVE MESSAGE"
+    );
+
+    console.log(
+        "Chat:",
+        chat
+    );
+
+    console.log(
+        "Message ID:",
+        message.key?.id
+    );
+
+    console.log(
+        "Estrutura:"
+    );
+
+    console.dir(
+        message.message,
+        {
+            depth: 10
+        }
+    );
+
+    console.log(
+        "================================"
+    );
+
+
+    try {
+
+        const result =
+            await sock.relayMessage(
+                chat,
+                message.message,
+                {
+                    messageId:
+                        message.key.id
+                }
+            );
+
+
+        console.log(
+            "📨 relayMessage retornou:"
+        );
+
+        console.dir(
+            result,
+            {
+                depth: 5
+            }
+        );
+
+        console.log(
+            "✅ InteractiveMessage enviado."
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ ERRO NO relayMessage:"
+        );
+
+        console.error(
+            error?.message || error
+        );
+
+        console.error(
+            error?.stack
+        );
+
+        throw error;
+
+    }
+
+
+    return message;
+
+}
+
+
+/*
+============================================================
+ENVIAR BOTÕES
+============================================================
+*/
+
+async function sendButtons(
+    sock,
+    chat,
+    options = {},
+    quoted = null
+) {
+
+    const {
+        title = "",
+        subtitle = "",
+        text = "",
+        footer = "",
+        buttons = []
+    } = options;
+
+
+    /*
+    --------------------------------------------------------
+    CRIAR INTERACTIVE MESSAGE
+    --------------------------------------------------------
+    */
+
+    const interactiveMessage =
+        createInteractiveMessage({
+
+            header: {
+                title,
+                subtitle,
+                hasMediaAttachment: false
+            },
+
+            body: text,
+
+            footer,
+
+            buttons
+
+        });
+
+
+    /*
+    --------------------------------------------------------
+    LOG
+    --------------------------------------------------------
+    */
+
+    console.log(
+        "🎛️ INTERACTIVE BUTTONS"
+    );
+
+    console.log(
+        "Botões:",
+        buttons.length
+    );
+
+
+    /*
+    --------------------------------------------------------
+    ENVIAR
+    --------------------------------------------------------
+    */
+
+    return await relayInteractiveMessage(
+        sock,
+        chat,
+        interactiveMessage,
+        quoted
+    );
+
+}
+
+
+/*
+============================================================
+CRIAR CARD DO CARROSSEL
+============================================================
+*/
+
+function createCarouselCard(card = {}) {
+
+    const buttons =
+        (card.buttons || [])
+            .map(button =>
+                createButton(
+                    button.name || "quick_reply",
+                    button.params || {}
+                )
+            );
+
+    return proto.Message.InteractiveMessage.create({
+
+        header:
+            proto.Message.InteractiveMessage.Header.create({
+                title: card.title || "",
+                subtitle: card.subtitle || "",
+                hasMediaAttachment:
+                    card.hasMediaAttachment || false
+            }),
+
+        body:
+            proto.Message.InteractiveMessage.Body.create({
+                text: card.text || ""
+            }),
+
+        footer:
+            proto.Message.InteractiveMessage.Footer.create({
+                text: card.footer || ""
+            }),
+
+        nativeFlowMessage:
+            proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                buttons,
+                messageVersion: 1
+            })
+
+    });
+}
+
+/*
+============================================================
+ENVIAR CARROSSEL
+============================================================
+*/
+
+async function sendCarousel(
+    sock,
+    chat,
+    options = {},
+    quoted = null
+) {
+
+    const {
+        text = "",
+        footer = "",
+        cards = []
+    } = options;
+
+
+    /*
+    --------------------------------------------------------
+    CRIAR CARDS
+    --------------------------------------------------------
+    */
+
+    const carouselCards =
+        cards.map(card =>
+            createCarouselCard(card)
+        );
+
+
+    /*
+    --------------------------------------------------------
+    INTERACTIVE CAROUSEL
+    --------------------------------------------------------
+    */
+
+    const interactiveMessage =
+        proto.Message.InteractiveMessage.create({
+
+            body:
+                proto.Message.InteractiveMessage
+                    .Body
+                    .create({
+                        text
+                    }),
+
+            footer:
+                proto.Message.InteractiveMessage
+                    .Footer
+                    .create({
+                        text: footer
+                    }),
+
+            carouselMessage:
+                proto.Message.InteractiveMessage
+                    .CarouselMessage
+                    .create({
+                        cards:
+                            carouselCards,
+
+                        messageVersion: 1,
+                        carouselCardType: 1
+                    })
+
+        });
+
+
+    /*
+    --------------------------------------------------------
+    LOG
+    --------------------------------------------------------
+    */
+
+    console.log(
+        "================================"
+    );
+
+    console.log(
+        "🎠 CARROSSEL"
+    );
+
+    console.log(
+        "Chat:",
+        chat
+    );
+
+    console.log(
+        "Cards:",
+        carouselCards.length
+    );
+
+
+    /*
+    --------------------------------------------------------
+    ENVIAR
+    --------------------------------------------------------
+    */
+
+    return await relayInteractiveMessage(
+        sock,
+        chat,
+        interactiveMessage,
+        quoted
+    );
+
+}
+
+
+/*
+============================================================
+EXPORTS
+============================================================
+*/
+
+module.exports = {
+
+    createButton,
+
+    createInteractiveMessage,
+
+    sendButtons,
+
+    sendCarousel
+
+};

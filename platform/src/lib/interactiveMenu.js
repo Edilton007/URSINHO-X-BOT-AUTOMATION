@@ -1,0 +1,608 @@
+const {
+    generateWAMessageContent,
+    generateWAMessageFromContent,
+    proto,
+    isJidGroup
+} = require("@whiskeysockets/baileys");
+
+const fs = require("fs");
+const axios = require("axios");
+const { resolveMenuMedia } = require("../services/menuMedia");
+
+/*
+============================================================
+URSINHO X BOT V2
+MENU INTERATIVO
+Baileys 7.0.0-rc14
+
+Suporte:
+- Botões Native Flow
+- Carrossel
+============================================================
+*/
+
+/*
+============================================================
+CRIAR BOTÃO
+============================================================
+*/
+function createButton(name, params = {}) {
+    return proto.Message
+        .InteractiveMessage
+        .NativeFlowMessage
+        .NativeFlowButton
+        .create({
+            name,
+            buttonParamsJson: JSON.stringify(params)
+        });
+}
+
+/*
+============================================================
+GERAR INTERACTIVE MESSAGE
+============================================================
+*/
+function createInteractiveMessage({
+    header = null,
+    body = "",
+    footer = "",
+    buttons = [],
+    carousel = null
+} = {}) {
+    const messageData = {};
+
+    /*
+    --------------------------------------------------------
+    HEADER
+    --------------------------------------------------------
+    */
+    if (header) {
+        messageData.header =
+            proto.Message.InteractiveMessage.Header.create({
+                title: header.title || "",
+                subtitle: header.subtitle || "",
+                hasMediaAttachment:
+                    header.hasMediaAttachment || false
+            });
+    }
+
+    /*
+    --------------------------------------------------------
+    BODY
+    --------------------------------------------------------
+    */
+    messageData.body =
+        proto.Message.InteractiveMessage.Body.create({
+            text: String(body || "")
+        });
+
+    /*
+    --------------------------------------------------------
+    FOOTER
+    --------------------------------------------------------
+    */
+    if (footer) {
+        messageData.footer =
+            proto.Message.InteractiveMessage.Footer.create({
+                text: String(footer)
+            });
+    }
+
+    /*
+    --------------------------------------------------------
+    BOTÕES
+    --------------------------------------------------------
+    */
+    if (buttons.length) {
+        const nativeButtons = buttons.map(button =>
+            createButton(
+                button.name || "quick_reply",
+                button.params || {}
+            )
+        );
+
+        messageData.nativeFlowMessage =
+            proto.Message.InteractiveMessage
+                .NativeFlowMessage
+                .create({
+                    buttons: nativeButtons,
+                    messageVersion: 1
+                });
+    }
+
+    /*
+    --------------------------------------------------------
+    CARROSSEL
+    --------------------------------------------------------
+    */
+    if (carousel) {
+        messageData.carouselMessage =
+            proto.Message.InteractiveMessage
+                .CarouselMessage
+                .create({
+                    cards: carousel.cards || [],
+                    messageVersion: 1,
+                    carouselCardType: 1
+                });
+    }
+
+    return proto.Message.InteractiveMessage.create(
+        messageData
+    );
+}
+
+/*
+============================================================
+ENVIAR MENSAGEM INTERATIVA
+============================================================
+*/
+async function relayInteractiveMessage(
+    sock,
+    chat,
+    interactiveMessage,
+    quoted = null
+) {
+    const message = generateWAMessageFromContent(
+        chat,
+        {
+            viewOnceMessage: {
+                message: {
+                    interactiveMessage
+                }
+            }
+        },
+        {
+            userJid: sock.user?.id,
+            quoted
+        }
+    );
+
+    console.log("================================");
+    console.log("📤 ENVIANDO INTERACTIVE MESSAGE");
+    console.log("Chat:", chat);
+    console.log("Message ID:", message.key?.id);
+    console.log(
+        "Cards:",
+        interactiveMessage.carouselMessage?.cards?.length || 0
+    );
+
+    const additionalNodes = [
+        {
+            tag: "biz",
+            attrs: {},
+            content: [
+                {
+                    tag: "interactive",
+                    attrs: {
+                        type: "native_flow",
+                        v: "1"
+                    },
+                    content: [
+                        {
+                            tag: "native_flow",
+                            attrs: {
+                                v: "9",
+                                name: "mixed"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ];
+
+    if (!isJidGroup(chat)) {
+        additionalNodes.push({
+            tag: "bot",
+            attrs: {
+                biz_bot: "1"
+            }
+        });
+    }
+
+    try {
+        const result = await sock.relayMessage(
+            chat,
+            message.message,
+            {
+                messageId: message.key.id,
+                additionalNodes
+            }
+        );
+
+        console.log("📨 relayMessage retornou:", result);
+        console.log("✅ InteractiveMessage enviado.");
+    } catch (error) {
+        console.error("❌ ERRO NO relayMessage:");
+        console.error(error?.message || error);
+        console.error(error?.stack);
+        throw error;
+    }
+
+    return message;
+}
+
+/*
+============================================================
+ENVIAR BOTÕES
+============================================================
+*/
+async function sendButtons(
+    sock,
+    chat,
+    options = {},
+    quoted = null
+) {
+    const {
+        title = "",
+        subtitle = "",
+        text = "",
+        footer = "",
+        buttons = []
+    } = options;
+
+    const interactiveMessage =
+        createInteractiveMessage({
+            header: {
+                title,
+                subtitle,
+                hasMediaAttachment: false
+            },
+            body: text,
+            footer,
+            buttons
+        });
+
+    console.log(
+        "🎛️ INTERACTIVE BUTTONS"
+    );
+
+    console.log(
+        "Botões:",
+        buttons.length
+    );
+
+    return await relayInteractiveMessage(
+        sock,
+        chat,
+        interactiveMessage,
+        quoted
+    );
+}
+
+/*
+============================================================
+CRIAR CARD DO CARROSSEL
+============================================================
+*/
+async function createCarouselCard(
+    sock,
+    card = {}
+) {
+    const buttons =
+        (card.buttons || [])
+            .map(button =>
+                createButton(
+                    button.name || "quick_reply",
+                    button.params || {}
+                )
+            );
+
+    /*
+    --------------------------------------------------------
+    MEDIA DO CARD
+    --------------------------------------------------------
+    */
+    let header;
+
+    const mediaType =
+        card.mediaType ||
+        card.type ||
+        null;
+
+    const media =
+        mediaType
+            ? resolveMenuMedia(mediaType)
+            : null;
+
+    if (
+        media &&
+        media.kind === "video" &&
+        fs.existsSync(media.path)
+    ) {
+        try {
+            const videoBuffer =
+                fs.readFileSync(media.path);
+
+            console.log(
+                `🎬 Card "${card.title || "sem título"}" → preparando vídeo: ${mediaType}`
+            );
+
+            /*
+            ------------------------------------------------
+            UPLOAD REAL DO BAILEYS
+            ------------------------------------------------
+            */
+            const mediaContent =
+                await generateWAMessageContent(
+                    {
+                        video: videoBuffer
+                    },
+                    {
+                        upload:
+                            sock.waUploadToServer
+                    }
+                );
+
+            const videoMessage =
+                mediaContent?.videoMessage;
+
+            if (!videoMessage) {
+                throw new Error(
+                    "Baileys não retornou videoMessage após o upload."
+                );
+            }
+
+            header =
+                proto.Message.InteractiveMessage.Header.create({
+                    title: card.title || "",
+                    subtitle: card.subtitle || "",
+                    hasMediaAttachment: true,
+                    videoMessage
+                });
+
+            console.log(
+                `✅ Card "${card.title || "sem título"}" → vídeo preparado com upload real`
+            );
+        } catch (error) {
+            console.error(
+                `❌ Erro ao preparar vídeo do card "${card.title || "sem título"}":`,
+                error?.message || error
+            );
+
+            throw error;
+        }
+    } else if (card.imageUrl) {
+        /*
+        --------------------------------------------------------
+        CAPA DA MÚSICA
+        --------------------------------------------------------
+        Usado pelo !play através de card.imageUrl.
+        --------------------------------------------------------
+        */
+        try {
+            console.log(
+                `🖼️ Card "${card.title || "sem título"}" → preparando capa`
+            );
+
+            const response = await axios.get(
+                card.imageUrl,
+                {
+                    responseType: "arraybuffer",
+                    timeout: 8000,
+                    maxContentLength: 5 * 1024 * 1024,
+                    headers: {
+                        "User-Agent": "Mozilla/5.0"
+                    }
+                }
+            );
+
+            const imageBuffer =
+                Buffer.from(response.data);
+
+            if (!imageBuffer.length) {
+                throw new Error(
+                    "A capa retornou um buffer vazio."
+                );
+            }
+
+            /*
+            ----------------------------------------------------
+            UPLOAD REAL DO BAILEYS
+            ----------------------------------------------------
+            */
+            const mediaContent =
+                await generateWAMessageContent(
+                    {
+                        image: imageBuffer
+                    },
+                    {
+                        upload:
+                            sock.waUploadToServer
+                    }
+                );
+
+            const imageMessage =
+                mediaContent?.imageMessage;
+
+            if (!imageMessage) {
+                throw new Error(
+                    "Baileys não retornou imageMessage após o upload."
+                );
+            }
+
+            header =
+                proto.Message.InteractiveMessage.Header.create({
+                    title: card.title || "",
+                    subtitle: card.subtitle || "",
+                    hasMediaAttachment: true,
+                    imageMessage
+                });
+
+            console.log(
+                `✅ Card "${card.title || "sem título"}" → capa preparada`
+            );
+
+        } catch (error) {
+            /*
+            ----------------------------------------------------
+            FALLBACK
+            ----------------------------------------------------
+            Uma capa com erro não derruba todo o Carousel.
+            ----------------------------------------------------
+            */
+            console.error(
+                `⚠️ Capa do card "${card.title || "sem título"}" falhou:`,
+                error?.message || error
+            );
+
+            header =
+                proto.Message.InteractiveMessage.Header.create({
+                    title: card.title || "",
+                    subtitle: card.subtitle || "",
+                    hasMediaAttachment: false
+                });
+        }
+
+    } else {
+        header =
+            proto.Message.InteractiveMessage.Header.create({
+                title: card.title || "",
+                subtitle: card.subtitle || "",
+                hasMediaAttachment: false
+            });
+
+        if (mediaType) {
+            console.log(
+                `ℹ️ Card "${card.title || "sem título"}" → mídia "${mediaType}" não encontrada`
+            );
+        }
+    }
+
+    return proto.Message.InteractiveMessage.create({
+        header,
+
+        body:
+            proto.Message.InteractiveMessage
+                .Body
+                .create({
+                    text: card.text || ""
+                }),
+
+        footer:
+            proto.Message.InteractiveMessage
+                .Footer
+                .create({
+                    text: card.footer || ""
+                }),
+
+        nativeFlowMessage:
+            proto.Message.InteractiveMessage
+                .NativeFlowMessage
+                .create({
+                    buttons,
+                    messageVersion: 1
+                })
+    });
+}
+
+/*
+============================================================
+ENVIAR CARROSSEL
+============================================================
+*/
+async function sendCarousel(
+    sock,
+    chat,
+    options = {},
+    quoted = null
+) {
+    const {
+        text = "",
+        footer = "",
+        cards = []
+    } = options;
+
+    /*
+    --------------------------------------------------------
+    CRIAR CARDS
+    --------------------------------------------------------
+    */
+    const carouselCards =
+        await Promise.all(
+            cards.map(card =>
+                createCarouselCard(
+                    sock,
+                    card
+                )
+            )
+        );
+
+    /*
+    --------------------------------------------------------
+    INTERACTIVE CAROUSEL
+    --------------------------------------------------------
+    */
+    const interactiveMessage =
+        proto.Message.InteractiveMessage.create({
+            body:
+                proto.Message.InteractiveMessage
+                    .Body
+                    .create({
+                        text
+                    }),
+
+            footer:
+                proto.Message.InteractiveMessage
+                    .Footer
+                    .create({
+                        text: footer
+                    }),
+
+            carouselMessage:
+                proto.Message.InteractiveMessage
+                    .CarouselMessage
+                    .create({
+                        cards: carouselCards,
+                        messageVersion: 1,
+                        carouselCardType: 1
+                    })
+        });
+
+    /*
+    --------------------------------------------------------
+    LOG
+    --------------------------------------------------------
+    */
+    console.log(
+        "================================"
+    );
+
+    console.log(
+        "🎠 CARROSSEL"
+    );
+
+    console.log(
+        "Chat:",
+        chat
+    );
+
+    console.log(
+        "Cards:",
+        carouselCards.length
+    );
+
+    /*
+    --------------------------------------------------------
+    ENVIAR
+    --------------------------------------------------------
+    */
+    return await relayInteractiveMessage(
+        sock,
+        chat,
+        interactiveMessage,
+        quoted
+    );
+}
+
+/*
+============================================================
+EXPORTS
+============================================================
+*/
+module.exports = {
+    createButton,
+    createInteractiveMessage,
+    sendButtons,
+    sendCarousel
+};

@@ -1,0 +1,39 @@
+# Segredos e sessão do WhatsApp
+.env
+sessions/
+
+# Dependências
+node_modules/
+
+# Dados de execução (gerados pelo bot)
+src/database/db.json
+src/database/db.json.tmp
+src/database/db.json.corrompido-*
+src/database/sales.json
+src/database/usedReceipts.json
+src/database/automation.json
+
+# Temporários
+downloads/
+tmp/
+src/cache/*
+src/media/*
+*.log
+*.bak
+*.backup*
+*.before-*
+.DS_Store
+
+# Dados de execução do URSINHO X AUTOMATION (não incluir em pacotes de código)
+src/database/automationOrders.json
+src/database/*.bak-*
+src/database/*.corrompido-*
+src/automation/database/automation.json
+src/automation/database/automation.json.bak-*
+src/automation/database/automation.json.corrompido-*
+
+.env.*
+!.env.example
+data/
+src/automation/database/automation.json*
+src/database/*.json.bak-*
