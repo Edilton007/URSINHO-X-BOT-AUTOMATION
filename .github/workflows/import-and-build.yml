@@ -216,6 +216,29 @@ jobs:
           test -f android/agent/app/build.gradle.kts
           test -f android/tenant-app/app/build.gradle.kts
 
+      - name: Remover marcador ignorado da pasta de dados operacionais
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f platform/data/.gitkeep
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("SHA256SUMS.txt")
+          kept = []
+          removed = 0
+          for line in manifest.read_text(encoding="utf-8").splitlines():
+              _, rel = line.split("  ", 1)
+              if rel.removeprefix("./") == "platform/data/.gitkeep":
+                  removed += 1
+                  continue
+              kept.append(line)
+          if removed > 1:
+              raise SystemExit("Entrada duplicada inesperada de platform/data/.gitkeep.")
+          manifest.write_text("\n".join(kept) + "\n", encoding="utf-8")
+          print("Marcador temporário de dados removido do pacote; diretório operacional permanece ignorado.")
+          PY
+
       - name: Configurar Node.js 24
         uses: actions/setup-node@v4
         with:
