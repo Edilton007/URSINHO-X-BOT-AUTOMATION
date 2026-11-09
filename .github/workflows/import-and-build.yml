@@ -33,8 +33,12 @@ jobs:
           test -f "$ARCHIVE" || { echo "::error::Falta enviar $ARCHIVE para a raiz do repositório."; exit 1; }
 
           python3 - <<'PY'
-          import pathlib, zipfile, sys
+          import pathlib, zipfile, sys, hashlib
           archive = pathlib.Path("URSINHO-X-BOT-AUTOMATION-v1.1.2-AUDITORIA-01.zip")
+          expected_archive_sha256 = "65179d4d7980163b0d53d4a56398cbeda41d41a324a05917e2faf2aed38d45e4"
+          actual_archive_sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
+          if actual_archive_sha256 != expected_archive_sha256:
+              sys.exit("SHA256 do ZIP não corresponde ao pacote auditado autorizado.")
           root = "URSINHO-X-BOT-AUTOMATION-v1.1.2"
           required = {
               f"{root}/README.md",
@@ -80,7 +84,7 @@ jobs:
                   internal = f"{root}/{rel}"
                   if internal not in names or internal == manifest_path:
                       sys.exit(f"Ficheiro do manifesto não existe: {rel}")
-                  actual_hash = __import__("hashlib").sha256(z.read(internal)).hexdigest()
+                  actual_hash = hashlib.sha256(z.read(internal)).hexdigest()
                   if actual_hash != expected_hash:
                       sys.exit(f"SHA256 divergente: {rel}")
                   verified.add(internal)
