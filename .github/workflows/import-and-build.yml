@@ -63,7 +63,33 @@ jobs:
               missing = required - names
               if missing:
                   sys.exit("Faltam ficheiros obrigatórios: " + ", ".join(sorted(missing)))
-          print("Arquivo validado: estrutura correta e sem padrões de segredos proibidos.")
+
+              manifest_path = f"{root}/SHA256SUMS.txt"
+              if manifest_path not in names:
+                  sys.exit("Manifesto SHA256 ausente.")
+              verified = set()
+              for line in z.read(manifest_path).decode("utf-8").splitlines():
+                  try:
+                      expected_hash, rel = line.split("  ", 1)
+                  except ValueError:
+                      sys.exit("Linha inválida no manifesto SHA256.")
+                  rel = rel.removeprefix("./")
+                  entry = pathlib.PurePosixPath(rel)
+                  if entry.is_absolute() or ".." in entry.parts:
+                      sys.exit(f"Caminho inseguro no manifesto: {rel}")
+                  internal = f"{root}/{rel}"
+                  if internal not in names or internal == manifest_path:
+                      sys.exit(f"Ficheiro do manifesto não existe: {rel}")
+                  actual_hash = __import__("hashlib").sha256(z.read(internal)).hexdigest()
+                  if actual_hash != expected_hash:
+                      sys.exit(f"SHA256 divergente: {rel}")
+                  verified.add(internal)
+              expected_files = names - {manifest_path}
+              if verified != expected_files:
+                  missing_hashes = expected_files - verified
+                  extra_hashes = verified - expected_files
+                  sys.exit(f"Manifesto incompleto/inconsistente. Sem hash: {sorted(missing_hashes)[:10]}, extras: {sorted(extra_hashes)[:10]}")
+          print(f"Arquivo validado: {len(verified)} hashes SHA256 corretos e sem padrões de segredos proibidos.")
           PY
 
           rm -rf /tmp/ursinho-import
@@ -73,6 +99,15 @@ jobs:
           test -f "$SRC/platform/package.json"
           rsync -a "$SRC/" ./
           rm -f "$ARCHIVE"
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Verificar higiene antes de publicar código no repositório público
+        working-directory: platform
+        run: node scripts/check-release-hygiene.js
 
       - name: Publicar a fonte completa no branch main
         shell: bash
@@ -88,12 +123,13 @@ jobs:
             echo "Não há alterações novas para publicar."
           fi
 
-      - name: Configurar Node.js 24
-        uses: actions/setup-node@v4
+      - name: Ativar cache npm
+        uses: actions/cache@v4
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: platform/package-lock.json
+          path: ~/.npm
+          key: ${{ runner.os }}-node24-${{ hashFiles('platform/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-
 
       - name: Instalar dependências bloqueadas
         working-directory: platform
