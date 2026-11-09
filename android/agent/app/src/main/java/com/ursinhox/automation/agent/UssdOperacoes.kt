@@ -79,7 +79,7 @@ object UssdOperacoes {
      * Retorna false quando não é possível garantir o SIM de saída.
      * Nessa situação não é lançado ACTION_CALL sem EXTRA_PHONE_ACCOUNT_HANDLE.
      */
-    private fun discar(context: Context, sim: SimInfo, codigo: String): Boolean {
+    fun discar(context: Context, sim: SimInfo, codigo: String): Boolean {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE)
             != PackageManager.PERMISSION_GRANTED
         ) {
