@@ -174,6 +174,13 @@ function registerMessages(sock, handle) {
           continue;
         }
 
+        // O pairing é processado antes dos comandos gerais do Bot V2.
+        // Se a mensagem for um código de associação, não deve seguir
+        // para IA, comandos, OCR ou outros handlers.
+        if (await processGroupPairing(sock, m)) {
+          continue;
+        }
+
         /*
         ============================================================
         📨 MENSAGEM NORMAL
