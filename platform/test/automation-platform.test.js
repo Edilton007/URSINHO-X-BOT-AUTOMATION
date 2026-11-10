@@ -103,6 +103,46 @@ test("pagamento não é confirmado automaticamente e exige revisão administrati
   assert.equal(reviewed.pedido.revisaoPagamento.por, "admin");
 });
 
+
+test("métodos de pagamento pertencem ao tenant, são publicados sem segredos e ficam congelados no pedido", () => {
+  const a = tenants.criarTenant({ nome: "Tenant Pagamentos A" });
+  const b = tenants.criarTenant({ nome: "Tenant Pagamentos B" });
+  const configA = store.configurarLoja(a.id, {
+    slug: "pagamentos-a", publicado: true,
+    metodosPagamento: [{
+      id: "mpesa-a", tipo: "MPESA", nome: "M-Pesa da Loja A",
+      conta: "841234567", titular: "Loja A", instrucoes: "Use a referência do pedido."
+    }]
+  });
+  assert.equal(configA.ok, true);
+  assert.equal(store.configurarLoja(b.id, { slug: "pagamentos-b", publicado: true, metodosPagamento: [] }).ok, true);
+
+  const productA = store.criarProduto(a.id, { nome: "1 GB", precoMT: 100 }).produto;
+  const publicCatalog = store.catalogoPublico("pagamentos-a");
+  assert.equal(publicCatalog.loja.metodosPagamento.length, 1);
+  assert.equal(publicCatalog.loja.metodosPagamento[0].conta, "841234567");
+  assert.equal(Object.hasOwn(publicCatalog.loja.metodosPagamento[0], "apiKey"), false);
+
+  const payload = {
+    nome: "Cliente A", telefone: "258841234567",
+    paymentMethodId: "mpesa-a",
+    items: [{ productId: productA.id, quantity: 1 }]
+  };
+  const created = store.criarPedidoPublico("pagamentos-a", payload, "tenant-payment-001");
+  assert.equal(created.ok, true);
+  assert.equal(created.pedido.pagamentoMetodo.id, "mpesa-a");
+  assert.equal(created.pedido.pagamentoMetodo.conta, "841234567");
+
+  assert.equal(store.criarPedidoPublico("pagamentos-a", { ...payload, paymentMethodId: "metodo-de-b" }, "tenant-payment-002").error,
+    "Método de pagamento indisponível para esta loja.");
+  assert.equal(store.configurarLoja(a.id, { metodosPagamento: [{ id: "x", tipo: "MPESA", conta: "123" }] }).error,
+    "Cada método precisa de um número ou conta válida.");
+
+  store.configurarLoja(a.id, { metodosPagamento: [{ id: "mpesa-a", tipo: "MPESA", nome: "Conta atualizada", conta: "849999999" }] });
+  assert.equal(store.listarPedidos(a.id).find(o => o.id === created.pedido.id).pagamentoMetodo.conta, "841234567");
+  assert.deepEqual(store.listarPedidos(b.id), []);
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
