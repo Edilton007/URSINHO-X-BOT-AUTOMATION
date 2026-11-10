@@ -18,7 +18,8 @@ function keyFor(jid) {
 
 function tenantLabel(tenantId) {
     const tenant = db.tenants?.[tenantId];
-    return tenant?.nome || tenant?.name || "Loja";
+    const store = storefront.getStoreByTenant(tenantId);
+    return store?.nome || tenant?.nome || tenant?.name || "Loja";
 }
 
 function menuLojas(relations) {
