@@ -64,6 +64,30 @@ body{overflow-x:hidden;background:radial-gradient(ellipse at 8% 0%,rgba(85,230,1
 .sectionHead h2{letter-spacing:-.02em}
 :focus-visible{outline:2px solid var(--green);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+/* UX Control Tower · identidade azul/violeta */
+:root{--bg:#080E1B;--panel:#111B2F;--panel2:#172541;--panel3:#1D2D4D;--line:#2A3F63;--line2:#425A83;--text:#F2F5FF;--muted:#9AAAC5;--green:#7DA8FF;--green2:#5E8EF0;--blue:#A7C4FF;--violet:#B5A0FF;--amber:#F0BB66;--red:#F28C9A;--coral:#F4A3B4}
+body{background:radial-gradient(circle at 7% -8%,rgba(125,168,255,.14),transparent 31%),radial-gradient(circle at 98% 12%,rgba(181,160,255,.13),transparent 29%),var(--bg)}
+.logo{border:1px solid #4B6694;color:#F4F6FF;background:linear-gradient(135deg,#1C3155 0%,#36568D 54%,#483D78 100%);box-shadow:0 8px 26px rgba(105,145,220,.14)}
+.hero{border-color:#344D77;background:radial-gradient(circle at 82% 16%,rgba(125,168,255,.17),transparent 28%),radial-gradient(circle at 70% 95%,rgba(181,160,255,.14),transparent 34%),linear-gradient(145deg,#14243D,#101A2D 62%,#211D3D)}
+.radarRing{border-color:#405A87;background:radial-gradient(circle,#1A2C4A 0 2px,transparent 3px),repeating-radial-gradient(circle,transparent 0 35px,#30486F 36px 37px);box-shadow:0 0 55px rgba(125,168,255,.10)}
+.radarRing:before{background:linear-gradient(90deg,rgba(125,168,255,.95),rgba(181,160,255,.65),transparent)}
+.radarRing:after{background:#AFC7FF;box-shadow:0 0 16px rgba(143,180,255,.85)}
+.resourceIcon{background:#172844;border-color:#3B5682;color:#AFC7FF}
+.badge.ok{color:#AFC7FF;border-color:#3B5682;background:#13233D}
+.badge.warn{color:#F0BB66;border-color:#66502C;background:#251E14}
+.badge.err{color:#F28C9A;border-color:#673846;background:#25151E}
+.badge.info{color:#AFC7FF;border-color:#3B5682;background:#13233D}
+.btn.primary,.primaryButton{border:0;color:#081224;background:linear-gradient(100deg,#7DA8FF 0%,#9B9EFF 55%,#B5A0FF 100%);box-shadow:0 8px 24px rgba(125,168,255,.16)}
+.input:focus,.select:focus{border-color:#8FB4FF;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
+.bottom{background:rgba(8,14,27,.95);border-top-color:#2A3F63}
+.nav.active{color:#B5C9FF;background:linear-gradient(135deg,rgba(125,168,255,.16),rgba(181,160,255,.14))}
+.loginCard,.sheet{background:linear-gradient(145deg,rgba(125,168,255,.06),rgba(181,160,255,.035)),var(--panel);border-color:var(--line)}
+.toast{background:#172844;border-color:#425A83}
+:focus-visible{outline:2px solid #AFC7FF;outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){.hero{animation:uxRise .45s ease both}.card{animation:uxRise .35s ease both}@keyframes uxRise{from{opacity:.35;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}}
+@media(prefers-reduced-motion:reduce){.radarRing:before{animation:none!important}}
+
 </style>
 </head>
 <body>
