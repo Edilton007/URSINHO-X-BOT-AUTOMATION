@@ -20,6 +20,18 @@ button,input,textarea,select{font:inherit}button,a{touch-action:manipulation}but
 @media(max-width:760px){.wrap{padding:12px 11px 75px}.hero{padding:20px}.grid{grid-template-columns:1fr}.metrics{gap:8px}.metric{padding:12px}.metric strong{font-size:19px}.card{padding:14px}.payrow{grid-template-columns:1fr 1fr}.payrow .kind{grid-column:1/-1}.payrow .remove{grid-column:1/-1;width:100%}}
 @media(max-width:440px){.top{align-items:flex-start}.actions{max-width:132px}.top .btn{min-height:37px;padding:8px 10px;font-size:9px}.brand b{font-size:11px}.brand small{font-size:8px}.metrics{grid-template-columns:1fr 1fr}.metric:last-child{grid-column:1/-1}.head{flex-direction:column}}
 @media(prefers-reduced-motion:no-preference){.hero{animation:rise .45s ease both}.card{animation:rise .42s ease both}@keyframes rise{from{opacity:.4;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}}
+
+/* UX Store Console · identidade azul/violeta */
+:root{--bg:#080E1B;--surface:#111B2F;--surface2:#172541;--line:#2A3F63;--text:#F2F5FF;--muted:#9AAAC5;--mint:#7DA8FF;--cyan:#B5A0FF;--amber:#F0BB66;--red:#F28C9A;--shadow:0 18px 48px rgba(0,0,0,.34)}
+body{background:radial-gradient(ellipse at 12% -10%,rgba(125,168,255,.14),transparent 42%),radial-gradient(ellipse at 100% 15%,rgba(181,160,255,.13),transparent 38%),var(--bg)}
+.logo{background:linear-gradient(135deg,#7DA8FF,#B5A0FF);color:#081224;box-shadow:0 0 28px rgba(125,168,255,.16)}
+.hero{background:linear-gradient(135deg,#172A49,#101A2D 66%,#211D3D);border-color:#344D77}
+.btn.primary{background:linear-gradient(100deg,#7DA8FF,#A58BFF);color:#081224;border-color:#7DA8FF}
+.price,.eyebrow,.sectionLabel{color:#AFC7FF}
+.card,.panel,.product{border-color:#2A3F63}
+.input:focus,textarea:focus,select:focus{border-color:#8FB4FF;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
 </style></head>
 <body><main class="wrap">
 <header class="top"><div class="brand"><div class="logo">UX</div><div><b>URSINHO X PORTAL</b><small>GESTÃO COMERCIAL DA LOJA</small></div></div><div class="actions"><a class="btn ghost" href="/tenant/">← PORTAL</a><button id="reload" class="btn" type="button">↻ ATUALIZAR</button></div></header>
