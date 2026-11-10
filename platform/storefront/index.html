@@ -17,6 +17,18 @@ h2{letter-spacing:-.025em}.muted{color:#a7bbce}.footer{color:#71879d}
 :focus-visible{outline:2px solid var(--green);outline-offset:3px}
 @media(max-width:560px){.wrap{padding:14px}.hero{margin:18px 0}.grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Public Storefront · identidade azul/violeta */
+:root{--bg:#080E1B;--card:#111B2F;--line:#2A3F63;--green:#7DA8FF;--text:#F2F5FF;--muted:#9AAAC5;--amber:#F0BB66}
+body{background:radial-gradient(800px 450px at 70% -10%,rgba(125,168,255,.18),transparent 60%),radial-gradient(650px 400px at 8% 0%,rgba(181,160,255,.12),transparent 60%),var(--bg)}
+.logo{border-color:#405A87;color:#C4D5FF;background:#172844}
+.hero{border-color:#344D77;background:linear-gradient(135deg,#172A49,#0F1A2D 70%,#211D3D)}
+.price{color:#AFC7FF}
+.btn{background:#172844;border-color:#344D77}
+.btn.primary{background:linear-gradient(100deg,#7DA8FF,#B5A0FF);color:#081224;border-color:#7DA8FF}
+.panel,.product{background:#111B2F;border-color:#2A3F63}
+.input:focus,textarea:focus,select:focus{border-color:#8FB4FF;outline:0;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
+
 </style></head><body><main class="wrap"><header class="top"><div class="brand"><div class="logo">UX</div><div><b id="brandName">LOJA</b><div class="muted">Compra segura • atendimento do tenant</div></div></div><button class="btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Meu pedido <span id="cartCount">0</span></button></header><section class="hero"><div class="muted">LOJA OFICIAL</div><h1 id="storeName">A carregar loja…</h1><p id="storeDesc" class="muted"></p><div id="contact" class="muted"></div></section><section><h2>Produtos disponíveis</h2><div id="products" class="grid"><div class="product">A carregar catálogo…</div></div></section><section id="checkout" class="panel"><h2>Finalizar pedido</h2><div id="cart"><p class="muted">O teu carrinho está vazio.</p></div><p id="total" class="price">0,00 MT</p><div class="fields"><div><label class="muted">Nome</label><input id="customerName" class="input" maxlength="100" placeholder="O teu nome"></div><div><label class="muted">Telefone</label><input id="phone" class="input" inputmode="tel" maxlength="18" placeholder="Ex.: 84xxxxxxx"></div><div style="grid-column:1/-1"><label class="muted">Observação (opcional)</label><textarea id="note" class="input" rows="2" maxlength="500"></textarea></div></div><button id="submit" class="btn primary" style="margin-top:14px;width:100%">ENVIAR PEDIDO</button><div id="result" class="alert hide"></div><div id="payment" class="alert hide"></div></section><div class="footer">✨ BY Edilton Ronaldo • Powered by URSINHO X BOT AUTOMATION</div></main>
 <script>
 'use strict';const slug=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'');const $=id=>document.getElementById(id);let store=null,products=[],cart=new Map();const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const money=n=>new Intl.NumberFormat('pt-MZ',{style:'currency',currency:'MZN'}).format(n);
