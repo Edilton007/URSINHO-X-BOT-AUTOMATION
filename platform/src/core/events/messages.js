@@ -15,7 +15,7 @@ async function processGroupPairing(sock, message) {
   if (!groupId || !groupId.endsWith("@g.us")) return false;
 
   const text = extractPairingText(message?.message);
-  const match = text.match(/^(?:!ursinho|\\.ursinho)\\s+(?:conectar|associar)\\s+([A-F0-9]{10})$/i);
+  const match = text.match(/^(?:!ursinho|\.ursinho)\s+(?:conectar|associar)\s+([A-F0-9]{10})$/i);
   if (!match) return false;
 
   const sender = message?.key?.participant || message?.key?.participantAlt;
