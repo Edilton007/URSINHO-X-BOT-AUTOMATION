@@ -55,6 +55,19 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/btnReload"
+            android:layout_width="46dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="7dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:contentDescription="Atualizar portal"
+            android:stateListAnimator="@null"
+            android:text="↻"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp" />
+
+        <Button
             android:id="@+id/btnSettings"
             android:layout_width="46dp"
             android:layout_height="44dp"
