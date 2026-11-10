@@ -255,3 +255,47 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
   assert.equal(db.operations[op.id].diferencaObservadaMB, 100);
   process.env.AUTOMATION_ALLOW_EXECUTION = "false";
 });
+
+
+test("chat privado escolhe Tenant sem misturar lojas e apresenta apenas o catálogo selecionado", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja Privada A" });
+  const b = tenants.criarTenant({ nome: "Loja Privada B" });
+  store.configurarLoja(a.id, {
+    slug: "privada-a", publicado: true,
+    metodosPagamento: [{ id: "mp-a", tipo: "MPESA", conta: "841111111", nome: "M-Pesa A" }]
+  });
+  store.configurarLoja(b.id, { slug: "privada-b", publicado: true });
+  store.criarProduto(a.id, { nome: "Pacote A", precoMT: 80 });
+  store.criarProduto(b.id, { nome: "Pacote B", precoMT: 120 });
+
+  const groupA = "120363000000011-1234567890@g.us";
+  const groupB = "120363000000012-1234567890@g.us";
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo);
+  identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo);
+  const jid = "258841234567@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Loja Privada A/);
+  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
+  assert.match(sent.at(-1)[1].text, /Responde com o número/);
+
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Pacote B/);
+  assert.doesNotMatch(sent.at(-1)[1].text, /Pacote A/);
+
+  assert.equal(await privateChat.handle(sock, message, jid, "lojas"), true);
+  assert.match(sent.at(-1)[1].text, /Loja Privada A/);
+  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
+});
