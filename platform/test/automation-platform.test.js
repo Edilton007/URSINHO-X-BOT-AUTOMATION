@@ -318,7 +318,7 @@ test("chat privado escolhe Tenant sem misturar lojas e apresenta apenas o catál
   assert.match(sent.at(-1)[1].text, /Responde com o número/);
 
   assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
-  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
+  assert.match(sent.at(-1)[1].text, /Loja selecionada:/);
   assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
   assert.match(sent.at(-1)[1].text, /Pacote B/);
   assert.doesNotMatch(sent.at(-1)[1].text, /Pacote A/);
