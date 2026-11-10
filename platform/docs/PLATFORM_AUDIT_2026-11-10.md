@@ -18,11 +18,11 @@ O sistema ainda **não está pronto para comercialização multitenant completa*
 | Emparelhamento seguro do Agent | PARCIALMENTE IMPLEMENTADO | `registrarDevice` recebe um `deviceId` fornecido pelo cliente e emite uma chave; falta fluxo de pairing code temporário, expiração e aprovação guiada. |
 | Isolamento comercial por Tenant | PARCIALMENTE IMPLEMENTADO | Produtos, lojas e pedidos filtram por Tenant. Necessário rever todas as rotas e serviços, incluindo superfícies Bot V2. |
 | Métodos de pagamento por Tenant | IMPLEMENTADO na camada Storefront, sujeito a testes | Métodos são normalizados por loja e copiados para o snapshot do pedido. O titular e o nome do método são campos separados; a interface deve apresentar literalmente o titular configurado. |
-| Catálogo e preços no WhatsApp | NÃO VERIFICADO / NÃO IMPLEMENTADO no fluxo consultado | A API pública da loja existe; não foi comprovada a leitura dinâmica deste catálogo pelo handler WhatsApp. |
+| Catálogo e preços no WhatsApp | PARCIALMENTE IMPLEMENTADO | O handler privado consulta a loja e o catálogo público do Tenant selecionado; ainda não cria pedidos, não recolhe comprovativos e não acompanha o estado do pedido. |
 | Um número WhatsApp para vários Tenants | NÃO IMPLEMENTADO no código consultado | A API do Bot V2 expõe uma sessão/socket global. Falta resolução determinística de Tenant para grupo e privado. |
 | Associação de grupo a Tenant | PARCIALMENTE IMPLEMENTADO | Existe pairing por código temporário, validação de administrador do grupo no evento `messages.upsert`, registo único de grupo por Tenant, listagem e desassociação. A integração está escrita, mas ainda não foi executada contra uma sessão WhatsApp real. |
 | Cliente global com relações por Tenant | PARCIALMENTE IMPLEMENTADO | Existem coleções `customers` e `customerTenantRelations`, identidade por JID normalizado e relações independentes; o listener `group-participants.update` atualiza entradas/saídas dos grupos associados. Falta ligar os pedidos comerciais e testar JID/LID em sessões reais. |
-| Atendimento privado multi-loja | PARCIALMENTE IMPLEMENTADO na camada de identidade | O serviço resolve uma única relação e devolve `TENANT_SELECTION_REQUIRED` quando existem várias. Ainda falta integrar estado da conversa, menus de escolha e links individuais no handler WhatsApp. |
+| Atendimento privado multi-loja | PARCIALMENTE IMPLEMENTADO | O handler privado está ligado ao Bot V2, exige seleção explícita em caso de múltiplas lojas, mantém seleção temporária com expiração de 20 minutos e apresenta catálogo/pagamentos apenas da loja selecionada. Faltam links individuais, pedidos, pagamentos e testes em sessão WhatsApp real. |
 | Upload e gestão de comprovativos | NÃO IMPLEMENTADO nas rotas Storefront consultadas | Rotas consultadas criam pedidos e consultam catálogo; não há endpoint de upload/armazenamento/retensão de comprovativos nessa camada. |
 | Validação automática por SMS/API | BLOQUEADO POR INTEGRAÇÃO EXTERNA / NÃO IMPLEMENTADO | Não foi encontrada integração de SMS de pagamento ou adaptadores oficiais nos ficheiros consultados. OCR/SMS não deve, isoladamente, confirmar pagamento. |
 | Revisão manual de pagamento | IMPLEMENTADO parcialmente | Serviço permite decisão manual auditada, mas a rota de revisão consultada é administrativa; falta definir permissões e experiência do Tenant. |
@@ -36,7 +36,7 @@ O sistema ainda **não está pronto para comercialização multitenant completa*
 1. **Fronteira entre Bot V2 e Automation:** não permitir que uma rota autenticada apenas pela chave global do Bot V2 faça operações comerciais em nome de um Tenant sem contexto autenticado e validado.
 2. **Mapeamento WhatsApp:** validar em sessão real o pairing já ligado ao socket Bot V2; confirmar presença do Bot no grupo, privilégio de administrador do utilizador e uso único do código. Garantir unicidade de `groupId` e auditoria de associação/desassociação.
 3. **Privado ambíguo:** uma conversa privada não pode herdar automaticamente o Tenant do último grupo. Se o cliente estiver relacionado com várias lojas, exigir seleção explícita ou ligação de entrada com token válido.
-4. **Identidade de cliente:** ligar o serviço `customerIdentityService` ao handler de conversas privadas e aos pedidos comerciais; testar resolução de JID/LID e impedir exposição cruzada. Não expor histórico ou dados de outro Tenant.
+4. **Identidade de cliente:** a identidade já está ligada ao handler privado e à sincronização de membros. Testar resolução de JID/LID em sessão real, ligar pedidos comerciais e impedir exposição cruzada. Não expor histórico ou dados de outro Tenant.
 5. **Provisionamento:** substituir o fluxo manual de criar Tenant, emitir licença e registar Device por um fluxo administrativo consistente, com pairing code de uso único, prazo curto, limite de dispositivos e auditoria.
 6. **Pagamentos:** manter snapshot imutável de método/titular/conta por pedido. Adicionar upload seguro de comprovativo e adaptadores de confirmação sem aceitar OCR/SMS do cliente como confirmação definitiva.
 7. **SMS:** distinguir SMS do cliente, notificação recebida da operadora e confirmação via API. Exigir validação de origem, conta destinatária, referência, valor, unicidade e idempotência.
@@ -49,7 +49,7 @@ O sistema ainda **não está pronto para comercialização multitenant completa*
 - Fase A: fechar inventário de código e contratos entre Bot V2, Backend, Tenant App e Android Agent.
 - Fase B: corrigir modelo multitenant e autenticação/contexto.
 - Fase C: provisionamento e pairing de licenças/dispositivos.
-- Fase D: concluir a integração WhatsApp do serviço de identidade já criado, incluindo eventos de grupo, estado de conversa privada e seleção de Tenant.
+- Fase D: ampliar a integração WhatsApp já iniciada para pedidos, links individuais, acompanhamento comercial e testes de sessão real; pairing de grupo e seleção privada já têm implementação no código.
 - Fase E: métodos de pagamento, comprovativos, revisão e adaptadores de SMS/API.
 - Fase F: experiência simplificada do Tenant App e Master Admin.
 - Fase G: retenção, observabilidade, segurança, testes integrados e preparação de release.
