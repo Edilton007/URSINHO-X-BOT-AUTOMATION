@@ -48,6 +48,7 @@ async function canonicalSender(sock, sender) {
 async function handle(sock, message, sender, text) {
     const cleanText = String(text || "").trim();
     if (!cleanText) return false;
+    const normalizedCommand = cleanText.toLowerCase();
     sender = await canonicalSender(sock, sender);
 
     const relations = identity.listarTenantsDoCliente(sender)
