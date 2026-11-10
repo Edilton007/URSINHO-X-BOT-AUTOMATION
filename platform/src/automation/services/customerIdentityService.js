@@ -107,6 +107,15 @@ function criarCodigoAssociacaoGrupo(tenantId, ttlMs = 10 * 60 * 1000) {
     return { ok: true, codigo: code, expiraEmMs: agora + ttl };
 }
 
+
+function associarGrupoPorCodigo(groupId, groupName = "", pairingCode) {
+    ensureCollections();
+    const code = clean(pairingCode, 40).toUpperCase();
+    const challenge = db.system?.whatsappGroupPairings?.[code];
+    if (!challenge) return { error: "Código de associação inválido ou expirado." };
+    return associarGrupo(challenge.tenantId, groupId, groupName, code);
+}
+
 function listarGruposDoTenant(tenantId) {
     ensureCollections();
     return Object.values(db.whatsappTenantGroups)
@@ -180,6 +189,7 @@ module.exports = {
     registarContacto,
     criarCodigoAssociacaoGrupo,
     associarGrupo,
+    associarGrupoPorCodigo,
     listarGruposDoTenant,
     removerGrupo,
     atualizarMembroGrupo,
