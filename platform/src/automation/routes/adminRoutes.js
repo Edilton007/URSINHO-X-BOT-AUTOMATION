@@ -21,9 +21,28 @@ router.post("/tenants", (req, res) => {
 
 router.post("/licencas", (req, res) => {
     const { dias } = req.body || {};
-    const licenca = tenantService.gerarCodigoLicenca(dias);
-    if (licenca.error) return res.status(400).json({ ok: false, error: licenca.error });
-    res.status(201).json({ ok: true, licenca });
+    const quantidade = req.body?.quantidade === undefined ? 1 : Number(req.body.quantidade);
+    if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 100) {
+        return res.status(400).json({ ok: false, error: "A quantidade deve estar entre 1 e 100." });
+    }
+    const licencas = [];
+    for (let i = 0; i < quantidade; i++) {
+        const licenca = tenantService.gerarCodigoLicenca(dias);
+        if (licenca.error) return res.status(400).json({ ok: false, error: licenca.error });
+        licencas.push(licenca);
+    }
+    res.status(201).json({ ok: true, total: licencas.length, licencas, licenca: licencas[0] });
+});
+
+router.get("/licencas", (req, res) => {
+    const licencas = tenantService.listarCodigosLicenca();
+    res.json({ ok: true, total: licencas.length, licencas });
+});
+
+router.delete("/licencas/:codigo", (req, res) => {
+    const result = tenantService.revogarCodigoLicenca(req.params.codigo, "admin");
+    if (result.error) return res.status(result.status || 400).json({ ok: false, error: result.error });
+    res.json(result);
 });
 
 router.post("/tenants/:tenantId/devices", (req, res) => {
