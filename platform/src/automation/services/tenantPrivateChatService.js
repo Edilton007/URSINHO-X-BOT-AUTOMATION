@@ -133,7 +133,7 @@ async function handle(sock, message, sender, text) {
         }
         const products = catalog.produtos || [];
         const lines = products.map((p, i) => `${i + 1}. *${p.nome}*\n   ${p.precoMT} MT${p.descricao ? `\n   ${p.descricao}` : ""}`);
-        const payment = (catalog.loja.metodosPagamento || []).map(m => `• ${m.nome}: ${m.conta}`).join("\n");
+        const payment = (catalog.loja.metodosPagamento || []).filter(m => m.ativo !== false).map(m => `• ${m.nome}: ${m.conta || m.numero || m.banco || m.instrucoes || "Contacta a loja"}`).join("\n");
         const body = [
             `🛍️ *${catalog.loja.nome}*`,
             catalog.loja.descricao || "",
