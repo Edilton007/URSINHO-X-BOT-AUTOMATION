@@ -29,9 +29,23 @@ function menuLojas(relations) {
     ].join("\n");
 }
 
+async function canonicalSender(sock, sender) {
+    const value = String(sender || "").trim().toLowerCase();
+    if (value.endsWith("@lid")) {
+        try {
+            const mapped = await sock?.signalRepository?.lidMapping?.getPNForLID(value);
+            if (mapped) return mapped;
+        } catch (error) {
+            console.error("[TENANT PRIVATE] Falha ao resolver LID:", error?.message || error);
+        }
+    }
+    return value;
+}
+
 async function handle(sock, message, sender, text) {
     const cleanText = String(text || "").trim();
     if (!cleanText) return false;
+    sender = await canonicalSender(sock, sender);
 
     const relations = identity.listarTenantsDoCliente(sender)
         .filter(r => db.tenants?.[r.tenantId] && db.tenants[r.tenantId].ativo !== false);
