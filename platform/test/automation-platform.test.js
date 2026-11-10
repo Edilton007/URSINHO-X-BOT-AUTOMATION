@@ -183,6 +183,34 @@ test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo
     "Identificador de grupo WhatsApp inválido.");
 });
 
+test("sessão privada de seleção de loja expira e não aceita escolha numérica antiga", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja TTL A" });
+  const b = tenants.criarTenant({ nome: "Loja TTL B" });
+  const groupA = "120363000000021-1234567890@g.us";
+  const groupB = "120363000000022-1234567890@g.us";
+  const ca = identity.criarCodigoAssociacaoGrupo(a.id);
+  const cb = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "A", ca.codigo);
+  identity.associarGrupo(b.id, groupB, "B", cb.codigo);
+  const jid = "258849876543@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  await privateChat.handle(sock, message, jid, "lojas");
+  const key = "WPS-" + require("node:crypto").createHash("sha256").update(jid).digest("hex").slice(0, 32);
+  db.system.whatsappPrivateSessions[key].atualizadoEmMs = Date.now() - 21 * 60 * 1000;
+  db.save();
+
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.match(sent.at(-1)[1].text, /Responde com o número/);
+  assert.equal(db.system.whatsappPrivateSessions[key].estado, "SELECIONAR_LOJA");
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
