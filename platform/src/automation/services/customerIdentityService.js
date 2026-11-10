@@ -14,8 +14,12 @@ function clean(value, max = 120) {
 }
 
 function normalizarJid(value) {
-    const jid = clean(value, 180).toLowerCase();
-    if (!jid || !/@(s\.whatsapp\.net|lid)$/.test(jid)) return null;
+    let jid = clean(value, 180).toLowerCase();
+    if (!jid) return null;
+    // Alguns eventos do Baileys entregam o número sem sufixo JID.
+    const digits = jid.replace(/^\+/, "");
+    if (/^\d{8,15}$/.test(digits)) jid = digits + "@s.whatsapp.net";
+    if (!/@(s\.whatsapp\.net|lid)$/.test(jid)) return null;
     return jid;
 }
 
