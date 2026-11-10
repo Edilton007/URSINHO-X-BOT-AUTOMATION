@@ -161,7 +161,7 @@ test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo
     "Este grupo já está associado a outra loja.");
   assert.equal(identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo).ok, true);
 
-  const jid = "258841234567@s.whatsapp.net";
+  const jid = `25884${String(Date.now()).slice(-8)}@s.whatsapp.net`;
   assert.equal(identity.atualizarMembroGrupo(groupA, jid, "Cliente", true).tenantId, a.id);
   assert.equal(identity.atualizarMembroGrupo(groupB, jid, "Cliente", true).tenantId, b.id);
 
