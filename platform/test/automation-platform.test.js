@@ -143,6 +143,46 @@ test("métodos de pagamento pertencem ao tenant, são publicados sem segredos e 
   assert.deepEqual(store.listarPedidos(b.id), []);
 });
 
+
+test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo exige pairing", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const a = tenants.criarTenant({ nome: "Tenant Grupo A" });
+  const b = tenants.criarTenant({ nome: "Tenant Grupo B" });
+
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  assert.equal(codeA.ok, true);
+  assert.equal(codeB.ok, true);
+
+  const groupA = "120363000000001-1234567890@g.us";
+  const groupB = "120363000000002-1234567890@g.us";
+  assert.equal(identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo).ok, true);
+  assert.equal(identity.associarGrupo(b.id, groupA, "Tentativa cruzada", codeB.codigo).error,
+    "Este grupo já está associado a outra loja.");
+  assert.equal(identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo).ok, true);
+
+  const jid = "258841234567@s.whatsapp.net";
+  assert.equal(identity.atualizarMembroGrupo(groupA, jid, "Cliente", true).tenantId, a.id);
+  assert.equal(identity.atualizarMembroGrupo(groupB, jid, "Cliente", true).tenantId, b.id);
+
+  const relations = identity.listarTenantsDoCliente(jid);
+  assert.equal(relations.length, 2);
+  assert.deepEqual(new Set(relations.map(r => r.tenantId)), new Set([a.id, b.id]));
+
+  const ambiguous = identity.resolverTenantPrivado(jid);
+  assert.equal(ambiguous.code, "TENANT_SELECTION_REQUIRED");
+  assert.equal(identity.resolverTenantPrivado(jid, b.id).tenantId, b.id);
+
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", false);
+  const afterLeave = identity.resolverTenantPrivado(jid);
+  assert.equal(afterLeave.code, "TENANT_SELECTION_REQUIRED");
+  assert.equal(identity.listarTenantsDoCliente(jid).find(r => r.tenantId === a.id).estado,
+    "RELACAO_COMERCIAL");
+
+  assert.equal(identity.associarGrupo(a.id, "invalid@g.us", "Inválido", "BADCODE").error,
+    "Identificador de grupo WhatsApp inválido.");
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
