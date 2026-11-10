@@ -193,22 +193,24 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
     }
     if (totalMT <= 0 || totalMT > 1000000000) return { error: "Valor total do pedido inválido." };
 
-    const key = cleanText(idempotencyKey, 120);
-    if (key.length < 8) return { error: "Cabeçalho x-idempotency-key obrigatório (mínimo 8 caracteres)." };
-    const previous = Object.values(db.storeOrders).find(o => o.tenantId === loja.tenantId && o.idempotencyKey === key);
-    if (previous) {
-        const same = previous.telefone === telefone && previous.nome === nome && JSON.stringify(previous.items) === JSON.stringify(items);
-        if (!same) return { error: "A referência de idempotência já foi usada com outros dados.", code: "IDEMPOTENCY_CONFLICT", status: 409 };
-        return { ok: true, idempotente: true, pedido: previous };
-    }
-
-    const now = Date.now();
     const metodosAtivos = (loja.metodosPagamento || []).filter(m => m.ativo === true);
     const paymentMethodId = cleanText(input.paymentMethodId, 60);
     if (metodosAtivos.length && !paymentMethodId) return { error: "Selecione um método de pagamento." };
     const metodoPagamento = metodosAtivos.find(m => m.id === paymentMethodId);
     if (metodosAtivos.length && !metodoPagamento) return { error: "Método de pagamento indisponível para esta loja." };
 
+    const key = cleanText(idempotencyKey, 120);
+    if (key.length < 8) return { error: "Cabeçalho x-idempotency-key obrigatório (mínimo 8 caracteres)." };
+    const previous = Object.values(db.storeOrders).find(o => o.tenantId === loja.tenantId && o.idempotencyKey === key);
+    if (previous) {
+        const same = previous.telefone === telefone && previous.nome === nome &&
+            JSON.stringify(previous.items) === JSON.stringify(items) &&
+            (previous.pagamentoMetodo?.id || null) === (metodoPagamento?.id || null);
+        if (!same) return { error: "A referência de idempotência já foi usada com outros dados.", code: "IDEMPOTENCY_CONFLICT", status: 409 };
+        return { ok: true, idempotente: true, pedido: previous };
+    }
+
+    const now = Date.now();
     const order = {
         id: id("ORDER"), reference: `UX-${crypto.randomBytes(5).toString("hex").toUpperCase()}`,
         tenantId: loja.tenantId, storefrontId: loja.id, storeSlug: loja.slug,
