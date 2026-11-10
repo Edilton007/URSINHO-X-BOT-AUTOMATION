@@ -214,13 +214,16 @@ test("sessão privada de seleção de loja expira e não aceita escolha numéric
 
 test("produto conserva quantidade em MB no catálogo e no snapshot do pedido", () => {
   const tenant = tenants.criarTenant({ nome: "Tenant MB" });
-  store.configurarLoja(tenant.id, { slug: "loja-mb", publicado: true });
+  store.configurarLoja(tenant.id, {
+    slug: "loja-mb", publicado: true,
+    metodosPagamento: [{ id: "mp-mb", tipo: "MPESA", conta: "841234567", nome: "M-Pesa" }]
+  });
   const invalid = store.criarProduto(tenant.id, { nome: "Pacote inválido", precoMT: 10, quantidadeMB: 0 });
   assert.equal(invalid.error, "Quantidade em MB inválida.");
   const product = store.criarProduto(tenant.id, { nome: "1 GB", precoMT: 100, quantidadeMB: 1024 }).produto;
   assert.equal(store.catalogoPublico("loja-mb").produtos[0].quantidadeMB, 1024);
   const order = store.criarPedidoPublico("loja-mb", {
-    nome: "Cliente MB", telefone: "258841234567",
+    nome: "Cliente MB", telefone: "258841234567", paymentMethodId: "mp-mb",
     items: [{ productId: product.id, quantity: 1 }]
   }, "order-mb-0001").pedido;
   assert.equal(order.items[0].quantidadeMB, 1024);
