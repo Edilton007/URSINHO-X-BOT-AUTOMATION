@@ -24,6 +24,43 @@ function cleanText(value, max) {
     return String(value ?? "").replace(/[<>]/g, "").trim().slice(0, max);
 }
 
+const TIPOS_PAGAMENTO = new Set(["MPESA", "EMOLA", "BANCO", "OUTRO"]);
+
+function normalizarMetodosPagamento(value) {
+    if (!Array.isArray(value)) return { error: "A lista de métodos de pagamento é inválida." };
+    if (value.length > 10) return { error: "É permitido configurar até 10 métodos de pagamento." };
+
+    const metodos = [];
+    for (const item of value) {
+        const tipo = String(item?.tipo || "OUTRO").trim().toUpperCase();
+        if (!TIPOS_PAGAMENTO.has(tipo)) return { error: "Tipo de pagamento não suportado." };
+
+        const metodo = {
+            id: cleanText(item?.id || id("PAY"), 40),
+            tipo,
+            nome: cleanText(item?.nome || tipo, 80),
+            numero: cleanText(item?.numero, 40),
+            titular: cleanText(item?.titular, 100),
+            banco: cleanText(item?.banco, 80),
+            instrucoes: cleanText(item?.instrucoes, 300),
+            ativo: item?.ativo !== false
+        };
+
+        if (metodo.ativo && !metodo.numero && !metodo.banco && !metodo.instrucoes) {
+            return { error: "Cada método ativo precisa de número, banco ou instruções." };
+        }
+        metodos.push(metodo);
+    }
+    return { metodos };
+}
+
+function metodosLegados(loja) {
+    const metodos = [];
+    if (loja?.mpesa) metodos.push({ id: id("PAY"), tipo: "MPESA", nome: "M-Pesa", numero: loja.mpesa, titular: "", banco: "", instrucoes: "", ativo: true });
+    if (loja?.emola) metodos.push({ id: id("PAY"), tipo: "EMOLA", nome: "e-Mola", numero: loja.emola, titular: "", banco: "", instrucoes: "", ativo: true });
+    return metodos;
+}
+
 function getStoreByTenant(tenantId) {
     ensureCollections();
     return Object.values(db.storefronts).find(x => x.tenantId === tenantId) || null;
@@ -46,7 +83,20 @@ function configurarLoja(tenantId, input = {}) {
     const collision = Object.values(db.storefronts).find(x => x.slug === requestedSlug && x.tenantId !== tenantId);
     if (collision) return { error: "Este endereço já está a ser utilizado por outra loja." };
 
+    let metodosPagamento;
+    if (input.metodosPagamento !== undefined) {
+        const normalized = normalizarMetodosPagamento(input.metodosPagamento);
+        if (normalized.error) return normalized;
+        metodosPagamento = normalized.metodos;
+    } else {
+        metodosPagamento = Array.isArray(atual?.metodosPagamento)
+            ? atual.metodosPagamento.map(item => ({ ...item }))
+            : metodosLegados(atual);
+    }
+
     const agora = Date.now();
+    const mpesaAtual = metodosPagamento.find(item => item.tipo === "MPESA" && item.ativo)?.numero;
+    const emolaAtual = metodosPagamento.find(item => item.tipo === "EMOLA" && item.ativo)?.numero;
     const loja = {
         id: atual?.id || id("STORE"),
         tenantId,
@@ -54,8 +104,9 @@ function configurarLoja(tenantId, input = {}) {
         nome: cleanText(input.nome || atual?.nome || tenant.nome, 80),
         descricao: cleanText(input.descricao ?? atual?.descricao ?? "", 500),
         contacto: cleanText(input.contacto ?? atual?.contacto ?? "", 30),
-        mpesa: cleanText(input.mpesa ?? atual?.mpesa ?? "", 30),
-        emola: cleanText(input.emola ?? atual?.emola ?? "", 30),
+        mpesa: input.metodosPagamento !== undefined ? (mpesaAtual || "") : cleanText(input.mpesa ?? atual?.mpesa ?? "", 30),
+        emola: input.metodosPagamento !== undefined ? (emolaAtual || "") : cleanText(input.emola ?? atual?.emola ?? "", 30),
+        metodosPagamento,
         instrucoesPagamento: cleanText(input.instrucoesPagamento ?? atual?.instrucoesPagamento ?? "", 500),
         publicado: input.publicado === undefined ? (atual?.publicado === true) : input.publicado === true,
         criadoEmMs: atual?.criadoEmMs || agora,
@@ -79,8 +130,13 @@ function criarProduto(tenantId, input = {}) {
     if (!tenantAtivo(tenantId)) return { error: "Tenant inexistente ou desativado." };
     const nome = cleanText(input.nome, 100);
     const precoMT = Number(input.precoMT);
+    const quantidadeMB = input.quantidadeMB === undefined || input.quantidadeMB === null || input.quantidadeMB === ""
+        ? null : Number(input.quantidadeMB);
     if (nome.length < 2) return { error: "Informe um nome de produto válido." };
     if (!Number.isFinite(precoMT) || precoMT <= 0 || precoMT > 100000000) return { error: "Preço inválido. Informe um valor positivo em MT." };
+    if (quantidadeMB !== null && (!Number.isSafeInteger(quantidadeMB) || quantidadeMB < 1 || quantidadeMB > 10485760)) {
+        return { error: "O volume do pacote deve estar entre 1 MB e 10.485.760 MB." };
+    }
 
     const agora = Date.now();
     const product = {
@@ -88,6 +144,7 @@ function criarProduto(tenantId, input = {}) {
         nome,
         descricao: cleanText(input.descricao, 500),
         precoMT: Math.round(precoMT * 100) / 100,
+        quantidadeMB,
         sku: cleanText(input.sku, 50) || null,
         ativo: input.ativo !== false,
         criadoEmMs: agora, atualizadoEmMs: agora
@@ -113,6 +170,13 @@ function atualizarProduto(tenantId, productId, input = {}) {
         if (!Number.isFinite(price) || price <= 0 || price > 100000000) return { error: "Preço inválido." };
         product.precoMT = Math.round(price * 100) / 100;
     }
+    if (input.quantidadeMB !== undefined) {
+        const volume = input.quantidadeMB === null || input.quantidadeMB === "" ? null : Number(input.quantidadeMB);
+        if (volume !== null && (!Number.isSafeInteger(volume) || volume < 1 || volume > 10485760)) {
+            return { error: "O volume do pacote deve estar entre 1 MB e 10.485.760 MB." };
+        }
+        product.quantidadeMB = volume;
+    }
     if (input.ativo !== undefined) product.ativo = input.ativo === true;
     if (input.sku !== undefined) product.sku = cleanText(input.sku, 50) || null;
     product.atualizadoEmMs = Date.now();
@@ -128,10 +192,12 @@ function catalogoPublico(slug) {
         loja: {
             slug: loja.slug, nome: loja.nome, descricao: loja.descricao,
             contacto: loja.contacto, mpesa: loja.mpesa, emola: loja.emola,
+            metodosPagamento: Array.isArray(loja.metodosPagamento) ? loja.metodosPagamento : metodosLegados(loja),
             instrucoesPagamento: loja.instrucoesPagamento
         },
         produtos: listarProdutos(loja.tenantId, false).map(p => ({
-            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT, sku: p.sku
+            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT,
+            quantidadeMB: Number.isSafeInteger(p.quantidadeMB) ? p.quantidadeMB : null, sku: p.sku
         }))
     };
 }
@@ -157,7 +223,11 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return { error: "Quantidade inválida." };
         const lineTotal = Math.round(product.precoMT * quantity * 100) / 100;
         totalMT = Math.round((totalMT + lineTotal) * 100) / 100;
-        items.push({ productId, nome: product.nome, precoUnitarioMT: product.precoMT, quantity, totalMT: lineTotal });
+        items.push({
+            productId, nome: product.nome, precoUnitarioMT: product.precoMT,
+            quantidadeMB: Number.isSafeInteger(product.quantidadeMB) ? product.quantidadeMB : null,
+            quantity, totalMT: lineTotal
+        });
     }
     if (totalMT <= 0 || totalMT > 1000000000) return { error: "Valor total do pedido inválido." };
 
