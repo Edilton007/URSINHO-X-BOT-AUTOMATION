@@ -294,7 +294,7 @@ test("chat privado escolhe Tenant sem misturar lojas e apresenta apenas o catál
     slug: "privada-a", publicado: true,
     metodosPagamento: [{ id: "mp-a", tipo: "MPESA", conta: "841111111", nome: "M-Pesa A" }]
   });
-  store.configurarLoja(b.id, { slug: "privada-b", publicado: true });
+  store.configurarLoja(b.id, { slug: "privada-b", nome: "Loja Privada B", publicado: true });
   store.criarProduto(a.id, { nome: "Pacote A", precoMT: 80 });
   store.criarProduto(b.id, { nome: "Pacote B", precoMT: 120 });
 
