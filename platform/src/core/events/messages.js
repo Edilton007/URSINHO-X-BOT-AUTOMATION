@@ -1,3 +1,58 @@
+const customerIdentityService = require("../../automation/services/customerIdentityService");
+
+function extractPairingText(message) {
+  return String(
+    message?.conversation ||
+    message?.extendedTextMessage?.text ||
+    message?.imageMessage?.caption ||
+    message?.videoMessage?.caption ||
+    ""
+  ).trim();
+}
+
+async function processGroupPairing(sock, message) {
+  const groupId = message?.key?.remoteJid;
+  if (!groupId || !groupId.endsWith("@g.us")) return false;
+
+  const text = extractPairingText(message?.message);
+  const match = text.match(/^(?:!ursinho|\\.ursinho)\\s+(?:conectar|associar)\\s+([A-F0-9]{10})$/i);
+  if (!match) return false;
+
+  const sender = message?.key?.participant || message?.key?.participantAlt;
+  if (!sender) {
+    await sock.sendMessage(groupId, { text: "Não consegui validar quem enviou o código. Tenta novamente como administrador do grupo." });
+    return true;
+  }
+
+  let metadata;
+  try {
+    metadata = await sock.groupMetadata(groupId);
+  } catch {
+    await sock.sendMessage(groupId, { text: "Não consegui verificar as permissões deste grupo. Nenhuma associação foi feita." });
+    return true;
+  }
+
+  const participant = (metadata?.participants || []).find(p =>
+    p?.id === sender || p?.phoneNumber === sender || p?.lid === sender
+  );
+  if (!participant || !["admin", "superadmin"].includes(participant.admin)) {
+    await sock.sendMessage(groupId, { text: "Por segurança, apenas um administrador do grupo pode associá-lo a uma loja." });
+    return true;
+  }
+
+  const result = customerIdentityService.associarGrupoPorCodigo(
+    groupId,
+    metadata?.subject || "",
+    match[1]
+  );
+  await sock.sendMessage(groupId, {
+    text: result.ok
+      ? "✅ Grupo associado ao URSINHO X BOT. O atendimento desta conversa será encaminhado para a loja configurada."
+      : `Não foi possível associar este grupo: ${result.error}`
+  });
+  return true;
+}
+
 function registerMessages(sock, handle) {
 
   sock.ev.on(
