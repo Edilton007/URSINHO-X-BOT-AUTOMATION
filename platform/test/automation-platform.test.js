@@ -211,6 +211,34 @@ test("sessão privada de seleção de loja expira e não aceita escolha numéric
   assert.equal(db.system.whatsappPrivateSessions[key].estado, "SELECIONAR_LOJA");
 });
 
+
+test("produto conserva quantidade em MB no catálogo e no snapshot do pedido", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant MB" });
+  store.configurarLoja(tenant.id, { slug: "loja-mb", publicado: true });
+  const invalid = store.criarProduto(tenant.id, { nome: "Pacote inválido", precoMT: 10, quantidadeMB: 0 });
+  assert.equal(invalid.error, "Quantidade em MB inválida.");
+  const product = store.criarProduto(tenant.id, { nome: "1 GB", precoMT: 100, quantidadeMB: 1024 }).produto;
+  assert.equal(store.catalogoPublico("loja-mb").produtos[0].quantidadeMB, 1024);
+  const order = store.criarPedidoPublico("loja-mb", {
+    nome: "Cliente MB", telefone: "258841234567",
+    items: [{ productId: product.id, quantity: 1 }]
+  }, "order-mb-0001").pedido;
+  assert.equal(order.items[0].quantidadeMB, 1024);
+  store.atualizarProduto(tenant.id, product.id, { quantidadeMB: 2048 });
+  assert.equal(store.listarPedidos(tenant.id)[0].items[0].quantidadeMB, 1024);
+});
+
+test("inventário de licenças permite lote e revoga apenas códigos por ativar", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Licenças Admin" });
+  const first = tenants.gerarCodigoLicenca(10);
+  const second = tenants.gerarCodigoLicenca(20);
+  assert.equal(tenants.listarCodigosLicenca().length >= 2, true);
+  assert.equal(tenants.revogarCodigoLicenca(first.codigo).ok, true);
+  assert.equal(tenants.ativarLicenca(tenant.id, first.codigo).error.includes("revogado"), true);
+  assert.equal(tenants.ativarLicenca(tenant.id, second.codigo).ok, true);
+  assert.equal(tenants.revogarCodigoLicenca(second.codigo).status, 409);
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
