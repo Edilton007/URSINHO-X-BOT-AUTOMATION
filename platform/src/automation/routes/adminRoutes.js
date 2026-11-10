@@ -38,7 +38,8 @@ router.post("/licencas", (req, res) => {
 
 router.get("/licencas", (req, res) => {
     res.set("Cache-Control", "no-store");
-    res.json({ ok: true, total: tenantService.listarCodigosLicenca().length, licencas: tenantService.listarCodigosLicenca() });
+    const licencas = tenantService.listarCodigosLicenca();
+    res.json({ ok: true, total: licencas.length, licencas });
 });
 
 router.delete("/licencas/:codigo", (req, res) => {
