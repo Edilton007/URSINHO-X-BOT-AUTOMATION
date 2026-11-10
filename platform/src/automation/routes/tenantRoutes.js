@@ -158,4 +158,31 @@ router.get("/:tenantId/store-orders", (req, res) => {
 });
 
 
+
+const customerIdentityService = require("../services/customerIdentityService");
+
+// Associação de grupos: o Tenant gera um código temporário;
+// o Bot só conclui a associação depois de observar esse código no grupo.
+router.post("/:tenantId/whatsapp/groups/pairing", (req, res) => {
+    const result = customerIdentityService.criarCodigoAssociacaoGrupo(
+        req.params.tenantId,
+        req.body?.ttlMs
+    );
+    if (result.error) return res.status(400).json({ ok: false, error: result.error });
+    res.status(201).json(result);
+});
+
+router.get("/:tenantId/whatsapp/groups", (req, res) => {
+    res.json({
+        ok: true,
+        grupos: customerIdentityService.listarGruposDoTenant(req.params.tenantId)
+    });
+});
+
+router.delete("/:tenantId/whatsapp/groups/:groupId", (req, res) => {
+    const result = customerIdentityService.removerGrupo(req.params.tenantId, req.params.groupId);
+    if (result.error) return res.status(404).json({ ok: false, error: result.error });
+    res.json(result);
+});
+
 module.exports = router;
