@@ -29,7 +29,7 @@ function menuLojas(relations) {
     ].join("\n");
 }
 
-function handle(sock, message, sender, text) {
+async function handle(sock, message, sender, text) {
     const cleanText = String(text || "").trim();
     if (!cleanText) return false;
 
@@ -48,14 +48,14 @@ function handle(sock, message, sender, text) {
             estado: "SELECIONAR_LOJA", atualizadoEmMs: Date.now()
         };
         db.save();
-        sock.sendMessage(message.key.remoteJid, { text: menuLojas(relations) }, { quoted: message });
+        await sock.sendMessage(message.key.remoteJid, { text: menuLojas(relations) }, { quoted: message });
         return true;
     }
 
     if (session.estado === "SELECIONAR_LOJA" && /^\d{1,2}$/.test(cleanText)) {
         const selected = relations[Number(cleanText) - 1];
         if (!selected) {
-            sock.sendMessage(message.key.remoteJid, { text: "Número inválido. Escolhe uma das lojas apresentadas." }, { quoted: message });
+            await sock.sendMessage(message.key.remoteJid, { text: "Número inválido. Escolhe uma das lojas apresentadas." }, { quoted: message });
             return true;
         }
         db.system.whatsappPrivateSessions[sessionKey] = {
@@ -63,7 +63,7 @@ function handle(sock, message, sender, text) {
             atualizadoEmMs: Date.now()
         };
         db.save();
-        sock.sendMessage(message.key.remoteJid, {
+        await sock.sendMessage(message.key.remoteJid, {
             text: `✅ Loja selecionada: *${tenantLabel(selected.tenantId)}*\n\nComandos disponíveis:\n• *catalogo* ou *.catalogo* para ver produtos\n• *lojas* para trocar de loja\n• *ajuda loja* para ver esta ajuda`
         }, { quoted: message });
         return true;
@@ -86,14 +86,14 @@ function handle(sock, message, sender, text) {
             estado: "SELECIONAR_LOJA", atualizadoEmMs: Date.now()
         };
         db.save();
-        sock.sendMessage(message.key.remoteJid, { text: menuLojas(relations) }, { quoted: message });
+        await sock.sendMessage(message.key.remoteJid, { text: menuLojas(relations) }, { quoted: message });
         return true;
     }
 
     if (!tenantId) return false;
 
     if (/^(?:\.ursinho\s+)?(?:ajuda loja|ajuda da loja)$/i.test(cleanText)) {
-        sock.sendMessage(message.key.remoteJid, {
+        await sock.sendMessage(message.key.remoteJid, {
             text: `🏬 *${tenantLabel(tenantId)}*\n\n• *catalogo* para consultar produtos\n• *lojas* para trocar de loja\n\nPara pagamentos, segue apenas as instruções apresentadas no pedido. Nunca envies PIN ou código secreto.`
         }, { quoted: message });
         return true;
@@ -102,12 +102,12 @@ function handle(sock, message, sender, text) {
     if (/^(?:\.ursinho\s+)?(?:catalogo|catálogo|produtos)$/i.test(cleanText)) {
         const store = storefront.getStoreByTenant(tenantId);
         if (!store || store.publicado !== true) {
-            sock.sendMessage(message.key.remoteJid, { text: "A loja selecionada ainda não está disponível." }, { quoted: message });
+            await sock.sendMessage(message.key.remoteJid, { text: "A loja selecionada ainda não está disponível." }, { quoted: message });
             return true;
         }
         const catalog = storefront.catalogoPublico(store.slug);
         if (!catalog) {
-            sock.sendMessage(message.key.remoteJid, { text: "Não foi possível carregar o catálogo desta loja." }, { quoted: message });
+            await sock.sendMessage(message.key.remoteJid, { text: "Não foi possível carregar o catálogo desta loja." }, { quoted: message });
             return true;
         }
         const products = catalog.produtos || [];
@@ -123,12 +123,12 @@ function handle(sock, message, sender, text) {
             "",
             "Para trocar de loja, escreve *lojas*."
         ].filter(Boolean).join("\n");
-        sock.sendMessage(message.key.remoteJid, { text: body }, { quoted: message });
+        await sock.sendMessage(message.key.remoteJid, { text: body }, { quoted: message });
         return true;
     }
 
     if (normalizedCommand === "loja" || normalizedCommand === ".loja") {
-        sock.sendMessage(message.key.remoteJid, {
+        await sock.sendMessage(message.key.remoteJid, {
             text: `Estás a falar com *${tenantLabel(tenantId)}*. Escreve *catalogo* para ver os produtos ou *lojas* para trocar de loja.`
         }, { quoted: message });
         return true;
