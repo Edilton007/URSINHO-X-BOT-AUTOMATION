@@ -108,11 +108,6 @@ function registerParticipants(sock) {
                 }
 
                 const group = getGroup(chat);
-
-                if (!group) {
-                    return;
-                }
-
                 const action = String(update.action || "").toLowerCase();
 
                 // Sincroniza a relação cliente-Tenant também para grupos que
@@ -136,6 +131,11 @@ function registerParticipants(sock) {
                         }
                     }
                 }
+
+                // O módulo legado só processa os seus próprios grupos.
+                // A sincronização de identidade acima também atende grupos
+                // associados exclusivamente a um Tenant Automation.
+                if (!group) continue;
 
                 /*
                  * ============================================================
