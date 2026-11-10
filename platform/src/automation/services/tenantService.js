@@ -116,8 +116,11 @@ function gerarCodigoLicenca(dias) {
         tenantId: null,
         criadoEmMs: Date.now(),
         ativadaEmMs: null,
-        expiraEmMs: null
+        expiraEmMs: null,
+        revogadaEmMs: null,
+        revogadaPor: null
     };
+    db.auditar?.({ acao: "LICENCA_CRIADA", codigo, dias: periodoDias });
 
     db.save();
 
@@ -194,6 +197,25 @@ function getLicenca(tenantId) {
     }
 
     return licenca;
+}
+
+
+function listarCodigosLicenca() {
+    return Object.values(db.licenseCodes || {})
+        .map(x => ({ ...x }))
+        .sort((a, b) => (b.criadoEmMs || 0) - (a.criadoEmMs || 0));
+}
+
+function revogarCodigoLicenca(codigo, por = "admin") {
+    const licenca = db.licenseCodes[String(codigo || "")];
+    if (!licenca) return { error: "Código de licença não encontrado.", status: 404 };
+    if (licenca.estado !== "POR_ATIVAR") return { error: "Só é possível revogar códigos ainda disponíveis.", status: 409 };
+    licenca.estado = "REVOGADA";
+    licenca.revogadaEmMs = Date.now();
+    licenca.revogadaPor = String(por || "admin").slice(0, 80);
+    db.auditar?.({ acao: "LICENCA_REVOGADA", codigo: licenca.codigo, por: licenca.revogadaPor });
+    db.save();
+    return { ok: true, licenca: { ...licenca } };
 }
 
 // ------------------------------------------------------------
@@ -309,6 +331,8 @@ module.exports = {
     autenticarTenant,
     resumoTenant,
     gerarCodigoLicenca,
+    listarCodigosLicenca,
+    revogarCodigoLicenca,
     ativarLicenca,
     getLicenca,
     registrarDevice,
