@@ -5,6 +5,8 @@ const db = require("../database/automationDb");
 const identity = require("./customerIdentityService");
 const storefront = require("./storefrontService");
 
+const SESSION_TTL_MS = 20 * 60 * 1000;
+
 function ensureSessions() {
     db.system.whatsappPrivateSessions ||= {};
 }
@@ -16,7 +18,7 @@ function keyFor(jid) {
 
 function tenantLabel(tenantId) {
     const tenant = db.tenants?.[tenantId];
-    return tenant?.nome || "Loja";
+    return tenant?.nome || tenant?.name || "Loja";
 }
 
 function menuLojas(relations) {
@@ -53,8 +55,12 @@ async function handle(sock, message, sender, text) {
 
     ensureSessions();
     const sessionKey = keyFor(sender);
-    const session = db.system.whatsappPrivateSessions[sessionKey] || {};
-    const normalizedCommand = cleanText.toLowerCase();
+    let session = db.system.whatsappPrivateSessions[sessionKey] || {};
+    if (session.atualizadoEmMs && Date.now() - session.atualizadoEmMs > SESSION_TTL_MS) {
+        delete db.system.whatsappPrivateSessions[sessionKey];
+        db.save();
+        session = {};
+    }
 
     if (/^(?:\.ursinho\s+)?(?:lojas|minhas lojas)$/i.test(cleanText)) {
         db.system.whatsappPrivateSessions[sessionKey] = {
