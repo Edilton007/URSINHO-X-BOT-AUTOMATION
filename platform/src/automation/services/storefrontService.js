@@ -41,15 +41,16 @@ function normalizarMetodosPagamento(input, atual = []) {
     const metodos = [];
     for (const item of input) {
         const tipo = String(item?.tipo || "").trim().toUpperCase();
-        if (!["MPESA", "EMOLA", "MKESH", "TRANSFERENCIA", "MANUAL"].includes(tipo)) return { error: "Tipo de pagamento não suportado." };
+        if (!["MPESA", "EMOLA", "MKESH", "TRANSFERENCIA", "BANCO", "MANUAL"].includes(tipo)) return { error: "Tipo de pagamento não suportado." };
         const nome = cleanText(item?.nome || tipo, 60);
         const conta = String(item?.conta || item?.numero || "").replace(/[^0-9+]/g, "").slice(0, 30);
+        const banco = cleanText(item?.banco, 80);
         const idMetodo = cleanText(item?.id || id("PAY"), 60);
         if (ids.has(idMetodo)) return { error: "IDs de métodos de pagamento duplicados." };
         if (conta.length < 5) return { error: "Cada método precisa de um número ou conta válida." };
         ids.add(idMetodo);
         metodos.push({
-            id: idMetodo, tipo, nome, conta,
+            id: idMetodo, tipo, nome, conta, numero: conta, banco,
             titular: cleanText(item?.titular, 100),
             instrucoes: cleanText(item?.instrucoes, 300),
             ativo: item?.ativo !== false
@@ -158,7 +159,7 @@ function catalogoPublico(slug) {
             contacto: loja.contacto, mpesa: loja.mpesa, emola: loja.emola,
             instrucoesPagamento: loja.instrucoesPagamento,
             metodosPagamento: (loja.metodosPagamento || []).filter(m => m.ativo === true).map(m => ({
-                id: m.id, tipo: m.tipo, nome: m.nome, conta: m.conta,
+                id: m.id, tipo: m.tipo, nome: m.nome, conta: m.conta, numero: m.conta, banco: m.banco || "",
                 titular: m.titular, instrucoes: m.instrucoes
             }))
         },
@@ -217,7 +218,7 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
         nome, telefone, nota: cleanText(input.nota, 500), items, totalMT,
         pagamentoMetodo: metodoPagamento ? {
             id: metodoPagamento.id, tipo: metodoPagamento.tipo, nome: metodoPagamento.nome,
-            conta: metodoPagamento.conta, titular: metodoPagamento.titular,
+            conta: metodoPagamento.conta, numero: metodoPagamento.conta, banco: metodoPagamento.banco || "", titular: metodoPagamento.titular,
             instrucoes: metodoPagamento.instrucoes
         } : null,
         estado: "AGUARDANDO_PAGAMENTO", pagamentoEstado: "PENDENTE_VERIFICACAO",
