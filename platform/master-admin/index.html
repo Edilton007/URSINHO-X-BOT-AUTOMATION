@@ -22,6 +22,15 @@ body{background:radial-gradient(ellipse at 10% -8%,rgba(87,230,191,.14),transpar
 :focus-visible{outline:2px solid var(--green);outline-offset:3px}
 @media(max-width:560px){.top{flex-wrap:wrap}.tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}.tab{white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Master Control · identidade azul/violeta */
+:root{--bg:#080E1B;--panel:#111B2F;--panel2:#172541;--line:#2A3F63;--text:#F2F5FF;--muted:#9AAAC5;--green:#7DA8FF;--amber:#F0BB66;--red:#F28C9A}
+body{background:radial-gradient(900px 500px at 80% -10%,rgba(125,168,255,.18),transparent 55%),radial-gradient(650px 400px at 8% 0%,rgba(181,160,255,.12),transparent 60%),var(--bg)}
+.logo{border-color:#425A83;color:#C4D5FF;background:linear-gradient(135deg,#172844,#30294F)}
+.btn.primary{background:linear-gradient(100deg,#7DA8FF,#B5A0FF);color:#081224;border-color:#7DA8FF}
+.input:focus,textarea:focus,select:focus{border-color:#8FB4FF;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
+.card,.panel,.stat{border-color:#2A3F63}
+
 </style></head>
 <body><main class="wrap">
 <div id="login" class="card login"><div class="logo">UX</div><h1>Master Control</h1><p>Console global de administração do URSINHO X BOT AUTOMATION. O acesso é protegido por chave administrativa exclusiva.</p><label>ADMIN API KEY</label><input id="adminKey" class="input" type="password" autocomplete="current-password" placeholder="Chave administrativa"><div class="row" style="margin-top:12px"><button id="loginBtn" class="btn primary">ENTRAR</button></div><div id="loginMsg" class="alert hide"></div></div>
