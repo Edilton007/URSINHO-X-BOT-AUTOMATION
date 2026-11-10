@@ -135,7 +135,7 @@ function registerParticipants(sock) {
                 // O módulo legado só processa os seus próprios grupos.
                 // A sincronização de identidade acima também atende grupos
                 // associados exclusivamente a um Tenant Automation.
-                if (!group) continue;
+                if (!group) return;
 
                 /*
                  * ============================================================
