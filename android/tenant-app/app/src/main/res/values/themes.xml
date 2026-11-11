@@ -1,15 +1,15 @@
 <resources>
     <style name="Theme.UrsinhoXTenant" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#55E6C1</item>
-        <item name="colorPrimaryVariant">#0D8A78</item>
-        <item name="colorSecondary">#67BFFF</item>
-        <item name="colorSecondaryVariant">#8F8BFA</item>
-        <item name="colorAccent">#55E6C1</item>
+        <item name="colorPrimary">#8B7BFF</item>
+        <item name="colorPrimaryVariant">#51478F</item>
+        <item name="colorSecondary">#7DA8FF</item>
+        <item name="colorSecondaryVariant">#6E7BFF</item>
+        <item name="colorAccent">#B5A0FF</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowBackground">#070B14</item>
+        <item name="android:windowBackground">#07090F</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#070B14</item>
-        <item name="android:navigationBarColor">#070B14</item>
-        <item name="android:colorAccent">#55E6C1</item>
+        <item name="android:statusBarColor">#07090F</item>
+        <item name="android:navigationBarColor">#07090F</item>
+        <item name="android:colorAccent">#B5A0FF</item>
     </style>
 </resources>

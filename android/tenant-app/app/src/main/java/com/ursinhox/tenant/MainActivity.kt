@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webview)
         swipeRefresh = findViewById(R.id.swipeRefresh)
         swipeRefresh.setColorSchemeResources(
-            R.color.accent_mint,
+            R.color.accent_lilac,
             R.color.accent_blue,
             R.color.accent_violet
         )
