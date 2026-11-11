@@ -183,6 +183,63 @@ test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo
     "Identificador de grupo WhatsApp inválido.");
 });
 
+test("pairing persistido liga grupo ao Automation sem ENV legado e mantém execução desativada", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const tenant = tenants.criarTenant({ nome: "Tenant Bridge WhatsApp" });
+  const license = tenants.gerarCodigoLicenca(30);
+  assert.equal(tenants.ativarLicenca(tenant.id, license.codigo).ok, true);
+  const device = tenants.registrarDevice(tenant.id, "device-whatsapp-bridge");
+  assert.ok(device.apiKey);
+
+  const groupId = "120363000000501-1234567890@g.us";
+  const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
+  assert.equal(identity.associarGrupo(tenant.id, groupId, "Grupo Bridge", pairing.codigo).ok, true);
+
+  process.env.AUTOMATION_ALLOW_EXECUTION = "false";
+  process.env.AUTOMATION_ORDERS_FILE = path.join(temp, "automation-orders-whatsapp-bridge.json");
+  const previousMappings = process.env.AUTOMATION_GROUPS_JSON;
+  delete process.env.AUTOMATION_GROUPS_JSON;
+
+  try {
+    const bridge = require("../src/services/automationBridgeService");
+    assert.equal(bridge.isAutomationEnabledForGroup(groupId), true);
+
+    const payload = {
+      groupId,
+      customerJid: "258849876599@s.whatsapp.net",
+      recipientNumber: "258841234567",
+      paymentReference: "WAPP-TEST-IDENTITY-BRIDGE",
+      paymentOperator: "MPESA",
+      megas: 1024,
+      pacote: "1 GB",
+      approvedBy: "admin-test"
+    };
+
+    const first = bridge.criarTransferenciaAprovada(payload);
+    assert.equal(first.error, undefined);
+    assert.equal(first.operation.tenantId, tenant.id);
+    assert.equal(first.operation.deviceId, device.id);
+    assert.equal(first.operation.estado, "PENDENTE");
+    assert.match(first.operation.motivoPendente, /AUTOMATION_ALLOW_EXECUTION=false/);
+
+    const taskCount = Object.keys(db.pendingTasks).length;
+    const duplicate = bridge.criarTransferenciaAprovada(payload);
+    assert.equal(duplicate.idempotente, true);
+    assert.equal(duplicate.operation.id, first.operation.id);
+    assert.equal(Object.keys(db.pendingTasks).length, taskCount);
+
+    assert.equal(identity.removerGrupo(tenant.id, groupId).ok, true);
+    const blocked = bridge.criarTransferenciaAprovada({
+      ...payload,
+      paymentReference: "WAPP-TEST-DISABLED-GROUP"
+    });
+    assert.match(blocked.error, /desassociado/i);
+  } finally {
+    if (previousMappings === undefined) delete process.env.AUTOMATION_GROUPS_JSON;
+    else process.env.AUTOMATION_GROUPS_JSON = previousMappings;
+  }
+});
+
 test("cada Tenant pode associar no máximo três grupos WhatsApp", () => {
   const identity = require("../src/automation/services/customerIdentityService");
   const tenant = tenants.criarTenant({ nome: "Tenant Limite WhatsApp" });
