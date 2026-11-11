@@ -243,6 +243,49 @@ test("WhatsApp privado exige escolha explícita e apresenta apenas o catálogo d
   assert.doesNotMatch(catalogMessage, /Produto confidencial A/);
 });
 
+test("pairing WhatsApp sincroniza membros que já estavam no grupo", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const { registerMessages } = require("../src/core/events/messages");
+  const tenant = tenants.criarTenant({ nome: "Tenant WhatsApp Membros Existentes" });
+  store.configurarLoja(tenant.id, { slug: "whatsapp-membros-existentes", publicado: true });
+  store.criarProduto(tenant.id, { nome: "Produto do grupo existente", precoMT: 40, quantidadeMB: 1024 });
+
+  const groupId = "120363000000121-1234567890@g.us";
+  const adminJid = "258849876521@s.whatsapp.net";
+  const existingMemberJid = "258849876522@s.whatsapp.net";
+  const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
+  const listeners = {};
+  const sent = [];
+  const sock = {
+    ev: { on: (event, callback) => { listeners[event] = callback; } },
+    groupMetadata: async () => ({
+      subject: "Grupo de clientes",
+      participants: [
+        { id: adminJid, admin: "admin" },
+        { id: existingMemberJid, admin: null }
+      ]
+    }),
+    sendMessage: async (...args) => sent.push(args)
+  };
+
+  registerMessages(sock, async () => {});
+  await listeners["messages.upsert"]({
+    type: "notify",
+    messages: [{
+      key: { remoteJid: groupId, participant: adminJid, fromMe: false },
+      message: { conversation: `!ursinho conectar ${pairing.codigo}` }
+    }]
+  });
+
+  assert.equal(identity.resolverTenantPrivado(existingMemberJid).tenantId, tenant.id);
+  assert.match(sent.at(-1)[1].text, /membros atuais foram sincronizados/i);
+
+  const privateMessage = { key: { remoteJid: existingMemberJid } };
+  assert.equal(await privateChat.handle(sock, privateMessage, existingMemberJid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Produto do grupo existente/);
+});
+
 test("sessão privada de seleção de loja expira e não aceita escolha numérica antiga", async () => {
   const identity = require("../src/automation/services/customerIdentityService");
   const privateChat = require("../src/automation/services/tenantPrivateChatService");

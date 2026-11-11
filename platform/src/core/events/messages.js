@@ -45,9 +45,20 @@ async function processGroupPairing(sock, message) {
     metadata?.subject || "",
     match[1]
   );
+  if (result.ok) {
+    const sync = customerIdentityService.sincronizarMembrosGrupo(
+      groupId,
+      metadata?.participants || []
+    );
+    if (!sync.ok) {
+      console.error("[TENANT IDENTITY] Associação feita, mas a sincronização inicial dos membros falhou:", sync.error);
+    } else {
+      console.log(`[TENANT IDENTITY] ${sync.sincronizados} membros sincronizados para o grupo ${groupId}.`);
+    }
+  }
   await sock.sendMessage(groupId, {
     text: result.ok
-      ? "✅ Grupo associado ao URSINHO X BOT. O atendimento desta conversa será encaminhado para a loja configurada."
+      ? "✅ Grupo associado ao URSINHO X BOT. Os membros atuais foram sincronizados e o atendimento desta conversa será encaminhado para a loja configurada."
       : `Não foi possível associar este grupo: ${result.error}`
   });
   return true;
