@@ -53,6 +53,17 @@ body{background:
 .footer{color:#718399}
 @media(prefers-reduced-motion:reduce){.radarRing:before{animation:none!important}.btn,.iconbtn{transition:none}}
 
+/* UX refinement: stronger hierarchy, larger touch targets and restrained aurora */
+body{overflow-x:hidden;background:radial-gradient(ellipse at 8% 0%,rgba(85,230,191,.075),transparent 34%),radial-gradient(ellipse at 100% 12%,rgba(103,191,255,.07),transparent 32%),var(--bg)}
+.btn,.iconbtn,.nav{min-height:42px}
+.input,.select{min-height:44px}
+.btn{transition:transform .18s ease,border-color .18s ease,filter .18s ease}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.card{border-color:#2b4058;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+.hero{border-color:#31566a}
+.sectionHead h2{letter-spacing:-.02em}
+:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -80,7 +91,7 @@ body{background:
     <div class="topActions">
       <div class="status"><i id="backendDot" class="dot"></i><span id="backendText">AGUARDANDO</span></div>
       <button id="refreshBtn" class="iconbtn" title="Atualizar">↻</button>
-      <a class="btn ghost" href="/tenant/loja.html" style="text-decoration:none">LOJA ↗</a>
+      <a class="btn ghost" href="/tenant/loja.html" style="text-decoration:none">GERIR LOJA ↗</a>
     </div>
   </header>
 
@@ -340,14 +351,14 @@ function logout(){clearSession();location.reload()}
 async function loadPanel(){
   const tid=encodeURIComponent(session.tenantId);
   const tenantR=await api(`/automation/tenants/${tid}`);
-  const licenseR=await api(`/automation/tenants/${tid}/licenca`);
-  let deviceR=null,simsR=[],healthR=null;
+  let licenseR=null,deviceR=null,simsR=[],healthR=null;
+  try{licenseR=await api(`/automation/tenants/${tid}/licenca`)}catch(e){if(e.status!==404)throw e}
   try{deviceR=await api(`/automation/tenants/${tid}/device`)}catch(e){if(e.status!==404)throw e}
   try{healthR=await api(`/automation/tenants/${tid}/saude`)}catch(e){if(e.status!==404)console.warn('Saúde do Agent indisponível:',e.message)}
   const opsR=await api(`/automation/tenants/${tid}/operacoes`);
   try{simsR=await api(`/automation/tenants/${tid}/sims`)}catch(e){if(e.status!==404)throw e}
   state.tenant=tenantR?.tenant||tenantR?.data||tenantR;
-  state.license=licenseR?.licenca||licenseR?.license||licenseR?.data||licenseR;
+  state.license=licenseR?.licenca||licenseR?.license||licenseR?.data||null;
   state.device=normalizeDevice(deviceR?.device||deviceR?.data||deviceR);
   state.health=healthR?.saude||null;
   state.operations=asArray(opsR).map(normalizeOperation);
@@ -401,9 +412,9 @@ function renderDashboard(){
 
   const [em,es]=engine();$('engineMain').textContent=em;$('engineSub').textContent=es;
   const lic=state.license||{};
-  const licenseStatus=String(lic.status||'').toUpperCase();
+  const licenseStatus=String(firstDefined(lic.estado,lic.status,'')).toUpperCase();
   const active=lic.ativa===true||lic.active===true||['ATIVA','ACTIVE'].includes(licenseStatus);
-  $('licenseBadge').outerHTML=`<span id="licenseBadge" class="badge ${active?'ok':'warn'}">${esc(lic.status||(active?'ATIVA':'SEM DADOS'))}</span>`;
+  $('licenseBadge').outerHTML=`<span id="licenseBadge" class="badge ${active?'ok':'warn'}">${esc(licenseStatus||'SEM LICENÇA')}</span>`;
 
   const sim=state.sims.find(s=>String(s.operator).toLowerCase().includes('vodacom'))||state.sims[0];
   if(sim){
@@ -475,7 +486,8 @@ function renderSims(){
 function renderSystem(){
   const lic=state.license||{};const tenant=state.tenant||{};const connected=deviceIsConnected();
   $('systemStatus').innerHTML=`<div class="kv"><span>Backend</span><span>${badge('ONLINE','SISTEMA ONLINE')}</span></div><div class="kv"><span>Saúde operacional</span><span>${badge(state.health?.estado||'SEM LEITURA',state.health?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Execução telecom</span><span>${state.health?.execucaoPermitida===true?badge('ATIVA','ATIVA'):badge('BLOQUEADA','BLOQUEADA')}</span></div><div class="kv"><span>Tenant</span><span>${esc(firstDefined(tenant.id,tenant.tenantId,session.tenantId))}</span></div><div class="kv"><span>Engine</span><span>${esc(engine()[0])}</span></div><div class="kv"><span>Telemetria</span><span>${state.sims.length?'Disponível':'Aguardando'}</span></div><div class="kv"><span>Agent</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div>`;
-  $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(lic.status||'SEM DADOS',lic.status||'SEM DADOS')}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.code,lic.codigo,'Não disponível'))}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
+  const licenseStatus=String(firstDefined(lic.estado,lic.status,'SEM LICENÇA')).toUpperCase();
+  $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(licenseStatus,licenseStatus)}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.codigo,lic.code,'Não disponível'))}</span></div><div class="kv"><span>Duração</span><span>${Number.isFinite(Number(lic.dias))?esc(lic.dias+' dias'):'Não disponível'}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiraEmMs,lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
   $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td>${esc(s.simId||'SIM')}</td><td>${esc(s.operator||'Não informado')}</td><td><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td>${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
   $('sessionPanel').innerHTML=`<div class="kv"><span>Tenant</span><span>${esc(session?.tenantId||'')}</span></div><div class="kv"><span>Endpoint</span><span>${esc(location.origin)}</span></div><div class="kv"><span>Atualização automática</span><span>30 segundos</span></div><div class="kv"><span>Assinatura</span><span>✨ BY Edilton Ronaldo</span></div><div style="margin-top:12px"><button id="logoutBtn" class="btn">SAIR DA SESSÃO</button></div>`;
   $('logoutBtn').onclick=logout;
@@ -516,7 +528,22 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('newOpBtn').onclick=openModal;$('newOpBtn2').onclick=openModal;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
   const saved=loadSession();
-  if(saved?.tenantId&&saved?.apiKey){session=saved;try{await loadPanel();openApp()}catch(e){clearSession();$('loginKey').value='';showLoginMsg('Sessão expirada ou sem acesso ao Backend. Entre novamente.',true)}}
+  if(saved?.tenantId&&saved?.apiKey){
+    session=saved;
+    try{await loadPanel();openApp()}
+    catch(e){
+      if(e.status===401||e.status===403){
+        clearSession();
+        $('loginTenant').value=saved.tenantId;
+        $('loginKey').value='';
+        showLoginMsg('A sessão já não está autorizada. Introduza a nova chave de acesso.',true);
+      }else{
+        openApp();
+        backendState(false);
+        showToast('Sem ligação ao Backend. A sessão foi preservada e a aplicação tentará novamente.');
+      }
+    }
+  }
 });
 </script>
 </body>

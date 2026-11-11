@@ -64,6 +64,9 @@ class MainActivity : AppCompatActivity() {
             R.color.accent_blue,
             R.color.accent_violet
         )
+        // A loja/painel tem páginas longas: gesto vertical deve continuar a fazer scroll,
+        // nunca ser interpretado como pedido de atualização.
+        swipeRefresh.isEnabled = false
         progressLoading = findViewById(R.id.progressLoading)
         offlinePanel = findViewById(R.id.offlinePanel)
         txtOfflineMessage = findViewById(R.id.txtOfflineMessage)
@@ -117,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        swipeRefresh.setOnRefreshListener { webView.reload() }
+        findViewById<Button>(R.id.btnReload).setOnClickListener { webView.reload() }
         findViewById<Button>(R.id.btnRetry).setOnClickListener { webView.reload() }
 
         findViewById<Button>(R.id.btnSettings).setOnClickListener { showServerDialog() }

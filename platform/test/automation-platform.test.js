@@ -103,6 +103,63 @@ test("pagamento não é confirmado automaticamente e exige revisão administrati
   assert.equal(reviewed.pedido.revisaoPagamento.por, "admin");
 });
 
+
+test("inventário mantém códigos gerados, revoga apenas os disponíveis e preserva histórico", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Inventário" });
+  const available = tenants.gerarCodigoLicenca(14);
+  assert.ok(tenants.listarCodigosLicenca().some(x => x.codigo === available.codigo));
+
+  const revoked = tenants.revogarCodigoLicenca(available.codigo, "teste");
+  assert.equal(revoked.ok, true);
+  assert.equal(db.licenseCodes[available.codigo].estado, "REVOGADA");
+  assert.ok(tenants.listarCodigosLicenca().some(x => x.codigo === available.codigo));
+  assert.match(tenants.ativarLicenca(tenant.id, available.codigo).error, /revogado/);
+
+  const active = tenants.gerarCodigoLicenca(30);
+  assert.equal(tenants.ativarLicenca(tenant.id, active.codigo).ok, true);
+  const blocked = tenants.revogarCodigoLicenca(active.codigo, "teste");
+  assert.equal(blocked.status, 409);
+  assert.equal(db.licenseCodes[active.codigo].estado, "ATIVA");
+});
+
+test("loja guarda volume de pacote e vários meios de pagamento sem confundir saldo ou quantidade do carrinho", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Loja Multi Pagamento" });
+  const configured = store.configurarLoja(tenant.id, {
+    slug: "loja-multimeios",
+    nome: "Loja Multi",
+    publicado: true,
+    metodosPagamento: [
+      { tipo: "MPESA", nome: "M-Pesa principal", numero: "841111111", titular: "Loja Multi" },
+      { tipo: "MPESA", nome: "M-Pesa alternativo", numero: "851111111", titular: "Loja Multi" },
+      { tipo: "EMOLA", nome: "e-Mola", numero: "861111111" },
+      { tipo: "BANCO", nome: "BCI", banco: "BCI", numero: "Conta 12345", titular: "Loja Multi" }
+    ]
+  });
+  assert.equal(configured.ok, true);
+
+  const product = store.criarProduto(tenant.id, {
+    nome: "Pacote 1 GB",
+    quantidadeMB: 1024,
+    precoMT: 75
+  });
+  assert.equal(product.produto.quantidadeMB, 1024);
+
+  const catalog = store.catalogoPublico("loja-multimeios");
+  assert.equal(catalog.loja.metodosPagamento.length, 4);
+  assert.equal(catalog.produtos[0].quantidadeMB, 1024);
+
+  const order = store.criarPedidoPublico("loja-multimeios", {
+    nome: "Cliente Multi",
+    telefone: "258841234567",
+    items: [{ productId: product.produto.id, quantity: 2 }]
+  }, "store-multi-methods-001");
+  assert.equal(order.ok, true);
+  assert.equal(order.pedido.items[0].quantity, 2);
+  assert.equal(order.pedido.items[0].quantidadeMB, 1024);
+  assert.equal(order.pedido.totalMT, 150);
+  assert.equal(order.pedido.pagamentoEstado, "PENDENTE_VERIFICACAO");
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
