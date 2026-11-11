@@ -265,6 +265,7 @@ const {
 } = require("./services/commandSuggestionService");
 
 const groupBuffer = require("./services/groupBufferService");
+const tenantPrivateChatService = require("./automation/services/tenantPrivateChatService");
 const alertasDono = require("./services/alertService");
 const { temPermissao, mensagemNegado } = require("./services/commandPermissionService");
 const { verificarCooldown } = require("./services/cooldownService");
@@ -919,6 +920,18 @@ ${targetJid}
                 extractText(
                     m.message
                 );
+
+            // Conversas privadas associadas a lojas são encaminhadas
+            // pelo contexto comercial do Tenant, sem misturar históricos.
+            if (!isGroup) {
+                const handledByTenant = await tenantPrivateChatService.handle(
+                    sock,
+                    m,
+                    sender,
+                    text
+                );
+                if (handledByTenant) return;
+            }
 
             /* ========================================================
                ESTATÍSTICAS / UTILIZADOR

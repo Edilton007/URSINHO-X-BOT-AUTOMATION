@@ -1,4 +1,5 @@
 const { getGroup } = require("../../services/groupService");
+const customerIdentityService = require("../../automation/services/customerIdentityService");
 const { linhaCanal } = require("../../services/channelService");
 
 const {
@@ -107,12 +108,34 @@ function registerParticipants(sock) {
                 }
 
                 const group = getGroup(chat);
+                const action = String(update.action || "").toLowerCase();
 
-                if (!group) {
-                    return;
+                // Sincroniza a relação cliente-Tenant também para grupos que
+                // não estão registados no módulo legado do Bot V2.
+                if (["add", "remove", "leave"].includes(action)) {
+                    for (const participant of update.participants || []) {
+                        try {
+                            const user = await resolveParticipantUser(sock, participant);
+                            if (!user) continue;
+                            customerIdentityService.atualizarMembroGrupo(
+                                chat,
+                                user,
+                                participant?.notify || "",
+                                action === "add"
+                            );
+                        } catch (identityError) {
+                            console.error(
+                                "[TENANT IDENTITY] Erro ao sincronizar membro:",
+                                identityError?.message || identityError
+                            );
+                        }
+                    }
                 }
 
-                const action = String(update.action || "").toLowerCase();
+                // O módulo legado só processa os seus próprios grupos.
+                // A sincronização de identidade acima também atende grupos
+                // associados exclusivamente a um Tenant Automation.
+                if (!group) return;
 
                 /*
                  * ============================================================

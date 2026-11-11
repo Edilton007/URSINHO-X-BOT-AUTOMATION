@@ -34,6 +34,31 @@ function tenantAtivo(tenantId) {
     return !!tenant && tenant.ativo !== false;
 }
 
+function normalizarMetodosPagamento(input, atual = []) {
+    if (input === undefined) return atual;
+    if (!Array.isArray(input) || input.length > 10) return { error: "Informe até 10 métodos de pagamento." };
+    const ids = new Set();
+    const metodos = [];
+    for (const item of input) {
+        const tipo = String(item?.tipo || "").trim().toUpperCase();
+        if (!["MPESA", "EMOLA", "MKESH", "TRANSFERENCIA", "BANCO", "MANUAL"].includes(tipo)) return { error: "Tipo de pagamento não suportado." };
+        const nome = cleanText(item?.nome || tipo, 60);
+        const conta = String(item?.conta || item?.numero || "").replace(/[^0-9+]/g, "").slice(0, 30);
+        const banco = cleanText(item?.banco, 80);
+        const idMetodo = cleanText(item?.id || id("PAY"), 60);
+        if (ids.has(idMetodo)) return { error: "IDs de métodos de pagamento duplicados." };
+        if (conta.length < 5) return { error: "Cada método precisa de um número ou conta válida." };
+        ids.add(idMetodo);
+        metodos.push({
+            id: idMetodo, tipo, nome, conta, numero: conta, banco,
+            titular: cleanText(item?.titular, 100),
+            instrucoes: cleanText(item?.instrucoes, 300),
+            ativo: item?.ativo !== false
+        });
+    }
+    return metodos;
+}
+
 function configurarLoja(tenantId, input = {}) {
     ensureCollections();
     if (!tenantAtivo(tenantId)) return { error: "Tenant inexistente ou desativado." };
@@ -46,6 +71,9 @@ function configurarLoja(tenantId, input = {}) {
     const collision = Object.values(db.storefronts).find(x => x.slug === requestedSlug && x.tenantId !== tenantId);
     if (collision) return { error: "Este endereço já está a ser utilizado por outra loja." };
 
+    const metodosPagamento = normalizarMetodosPagamento(input.metodosPagamento, atual?.metodosPagamento || []);
+    if (metodosPagamento?.error) return { error: metodosPagamento.error };
+
     const agora = Date.now();
     const loja = {
         id: atual?.id || id("STORE"),
@@ -57,6 +85,7 @@ function configurarLoja(tenantId, input = {}) {
         mpesa: cleanText(input.mpesa ?? atual?.mpesa ?? "", 30),
         emola: cleanText(input.emola ?? atual?.emola ?? "", 30),
         instrucoesPagamento: cleanText(input.instrucoesPagamento ?? atual?.instrucoesPagamento ?? "", 500),
+        metodosPagamento,
         publicado: input.publicado === undefined ? (atual?.publicado === true) : input.publicado === true,
         criadoEmMs: atual?.criadoEmMs || agora,
         atualizadoEmMs: agora
@@ -128,7 +157,11 @@ function catalogoPublico(slug) {
         loja: {
             slug: loja.slug, nome: loja.nome, descricao: loja.descricao,
             contacto: loja.contacto, mpesa: loja.mpesa, emola: loja.emola,
-            instrucoesPagamento: loja.instrucoesPagamento
+            instrucoesPagamento: loja.instrucoesPagamento,
+            metodosPagamento: (loja.metodosPagamento || []).filter(m => m.ativo === true).map(m => ({
+                id: m.id, tipo: m.tipo, nome: m.nome, conta: m.conta, numero: m.conta, banco: m.banco || "",
+                titular: m.titular, instrucoes: m.instrucoes
+            }))
         },
         produtos: listarProdutos(loja.tenantId, false).map(p => ({
             id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT, sku: p.sku
@@ -161,11 +194,19 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
     }
     if (totalMT <= 0 || totalMT > 1000000000) return { error: "Valor total do pedido inválido." };
 
+    const metodosAtivos = (loja.metodosPagamento || []).filter(m => m.ativo === true);
+    const paymentMethodId = cleanText(input.paymentMethodId, 60);
+    if (metodosAtivos.length && !paymentMethodId) return { error: "Selecione um método de pagamento." };
+    const metodoPagamento = metodosAtivos.find(m => m.id === paymentMethodId);
+    if (metodosAtivos.length && !metodoPagamento) return { error: "Método de pagamento indisponível para esta loja." };
+
     const key = cleanText(idempotencyKey, 120);
     if (key.length < 8) return { error: "Cabeçalho x-idempotency-key obrigatório (mínimo 8 caracteres)." };
     const previous = Object.values(db.storeOrders).find(o => o.tenantId === loja.tenantId && o.idempotencyKey === key);
     if (previous) {
-        const same = previous.telefone === telefone && previous.nome === nome && JSON.stringify(previous.items) === JSON.stringify(items);
+        const same = previous.telefone === telefone && previous.nome === nome &&
+            JSON.stringify(previous.items) === JSON.stringify(items) &&
+            (previous.pagamentoMetodo?.id || null) === (metodoPagamento?.id || null);
         if (!same) return { error: "A referência de idempotência já foi usada com outros dados.", code: "IDEMPOTENCY_CONFLICT", status: 409 };
         return { ok: true, idempotente: true, pedido: previous };
     }
@@ -175,6 +216,11 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
         id: id("ORDER"), reference: `UX-${crypto.randomBytes(5).toString("hex").toUpperCase()}`,
         tenantId: loja.tenantId, storefrontId: loja.id, storeSlug: loja.slug,
         nome, telefone, nota: cleanText(input.nota, 500), items, totalMT,
+        pagamentoMetodo: metodoPagamento ? {
+            id: metodoPagamento.id, tipo: metodoPagamento.tipo, nome: metodoPagamento.nome,
+            conta: metodoPagamento.conta, numero: metodoPagamento.conta, banco: metodoPagamento.banco || "", titular: metodoPagamento.titular,
+            instrucoes: metodoPagamento.instrucoes
+        } : null,
         estado: "AGUARDANDO_PAGAMENTO", pagamentoEstado: "PENDENTE_VERIFICACAO",
         idempotencyKey: key || null, criadoEmMs: now, atualizadoEmMs: now,
         revisaoPagamento: null

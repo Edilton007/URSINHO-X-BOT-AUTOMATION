@@ -47,6 +47,9 @@ const defaultDB = {
   storefronts: {},
   storeProducts: {},
   storeOrders: {},
+  customers: {},
+  customerTenantRelations: {},
+  whatsappTenantGroups: {},
   auditoria: [],
   system: {}
 };
@@ -108,7 +111,7 @@ function persist(data) {
   fs.renameSync(tmp, DB_FILE);
 }
 
-const COLECOES_OBJETO = ["tenants", "licenseCodes", "devices", "sims", "simCounters", "pendingTasks", "operations", "pedidos", "storefronts", "storeProducts", "storeOrders", "system"];
+const COLECOES_OBJETO = ["tenants", "licenseCodes", "devices", "sims", "simCounters", "pendingTasks", "operations", "pedidos", "storefronts", "storeProducts", "storeOrders", "customers", "customerTenantRelations", "whatsappTenantGroups", "system"];
 
 function lerJsonValido(caminho) {
   let bruto = fs.readFileSync(caminho);

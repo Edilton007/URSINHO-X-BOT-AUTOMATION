@@ -103,6 +103,114 @@ test("pagamento não é confirmado automaticamente e exige revisão administrati
   assert.equal(reviewed.pedido.revisaoPagamento.por, "admin");
 });
 
+
+test("métodos de pagamento pertencem ao tenant, são publicados sem segredos e ficam congelados no pedido", () => {
+  const a = tenants.criarTenant({ nome: "Tenant Pagamentos A" });
+  const b = tenants.criarTenant({ nome: "Tenant Pagamentos B" });
+  const configA = store.configurarLoja(a.id, {
+    slug: "pagamentos-a", publicado: true,
+    metodosPagamento: [{
+      id: "mpesa-a", tipo: "MPESA", nome: "M-Pesa da Loja A",
+      conta: "841234567", titular: "Loja A", instrucoes: "Use a referência do pedido."
+    }]
+  });
+  assert.equal(configA.ok, true);
+  assert.equal(store.configurarLoja(b.id, { slug: "pagamentos-b", publicado: true, metodosPagamento: [] }).ok, true);
+
+  const productA = store.criarProduto(a.id, { nome: "1 GB", precoMT: 100 }).produto;
+  const publicCatalog = store.catalogoPublico("pagamentos-a");
+  assert.equal(publicCatalog.loja.metodosPagamento.length, 1);
+  assert.equal(publicCatalog.loja.metodosPagamento[0].conta, "841234567");
+  assert.equal(Object.hasOwn(publicCatalog.loja.metodosPagamento[0], "apiKey"), false);
+
+  const payload = {
+    nome: "Cliente A", telefone: "258841234567",
+    paymentMethodId: "mpesa-a",
+    items: [{ productId: productA.id, quantity: 1 }]
+  };
+  const created = store.criarPedidoPublico("pagamentos-a", payload, "tenant-payment-001");
+  assert.equal(created.ok, true);
+  assert.equal(created.pedido.pagamentoMetodo.id, "mpesa-a");
+  assert.equal(created.pedido.pagamentoMetodo.conta, "841234567");
+
+  assert.equal(store.criarPedidoPublico("pagamentos-a", { ...payload, paymentMethodId: "metodo-de-b" }, "tenant-payment-002").error,
+    "Método de pagamento indisponível para esta loja.");
+  assert.equal(store.configurarLoja(a.id, { metodosPagamento: [{ id: "x", tipo: "MPESA", conta: "123" }] }).error,
+    "Cada método precisa de um número ou conta válida.");
+
+  store.configurarLoja(a.id, { metodosPagamento: [{ id: "mpesa-a", tipo: "MPESA", nome: "Conta atualizada", conta: "849999999" }] });
+  assert.equal(store.listarPedidos(a.id).find(o => o.id === created.pedido.id).pagamentoMetodo.conta, "841234567");
+  assert.deepEqual(store.listarPedidos(b.id), []);
+});
+
+
+test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo exige pairing", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const a = tenants.criarTenant({ nome: "Tenant Grupo A" });
+  const b = tenants.criarTenant({ nome: "Tenant Grupo B" });
+
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  assert.equal(codeA.ok, true);
+  assert.equal(codeB.ok, true);
+
+  const groupA = "120363000000001-1234567890@g.us";
+  const groupB = "120363000000002-1234567890@g.us";
+  assert.equal(identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo).ok, true);
+  assert.equal(identity.associarGrupo(b.id, groupA, "Tentativa cruzada", codeB.codigo).error,
+    "Este grupo já está associado a outra loja.");
+  assert.equal(identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo).ok, true);
+
+  const jid = `25884${String(Date.now()).slice(-8)}@s.whatsapp.net`;
+  assert.equal(identity.atualizarMembroGrupo(groupA, jid, "Cliente", true).tenantId, a.id);
+  assert.equal(identity.atualizarMembroGrupo(groupB, jid, "Cliente", true).tenantId, b.id);
+
+  const relations = identity.listarTenantsDoCliente(jid);
+  assert.equal(relations.length, 2);
+  assert.deepEqual(new Set(relations.map(r => r.tenantId)), new Set([a.id, b.id]));
+
+  const ambiguous = identity.resolverTenantPrivado(jid);
+  assert.equal(ambiguous.code, "TENANT_SELECTION_REQUIRED");
+  assert.equal(identity.resolverTenantPrivado(jid, b.id).tenantId, b.id);
+
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", false);
+  const afterLeave = identity.resolverTenantPrivado(jid);
+  assert.equal(afterLeave.code, "TENANT_SELECTION_REQUIRED");
+  assert.equal(identity.listarTenantsDoCliente(jid).find(r => r.tenantId === a.id).estado,
+    "RELACAO_COMERCIAL");
+
+  assert.equal(identity.associarGrupo(a.id, "invalid@g.us", "Inválido", "BADCODE").error,
+    "Identificador de grupo WhatsApp inválido.");
+});
+
+test("sessão privada de seleção de loja expira e não aceita escolha numérica antiga", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja TTL A" });
+  const b = tenants.criarTenant({ nome: "Loja TTL B" });
+  const groupA = "120363000000021-1234567890@g.us";
+  const groupB = "120363000000022-1234567890@g.us";
+  const ca = identity.criarCodigoAssociacaoGrupo(a.id);
+  const cb = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "A", ca.codigo);
+  identity.associarGrupo(b.id, groupB, "B", cb.codigo);
+  const jid = "258849876543@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  await privateChat.handle(sock, message, jid, "lojas");
+  const key = "WPS-" + require("node:crypto").createHash("sha256").update(jid).digest("hex").slice(0, 32);
+  db.system.whatsappPrivateSessions[key].atualizadoEmMs = Date.now() - 21 * 60 * 1000;
+  db.save();
+
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.match(sent.at(-1)[1].text, /Responde com o número/);
+  assert.equal(db.system.whatsappPrivateSessions[key].estado, "SELECIONAR_LOJA");
+});
+
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
 });
@@ -174,4 +282,48 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
   assert.equal(db.operations[op.id].estado, "CONCLUIDA");
   assert.equal(db.operations[op.id].diferencaObservadaMB, 100);
   process.env.AUTOMATION_ALLOW_EXECUTION = "false";
+});
+
+
+test("chat privado escolhe Tenant sem misturar lojas e apresenta apenas o catálogo selecionado", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja Privada A" });
+  const b = tenants.criarTenant({ nome: "Loja Privada B" });
+  store.configurarLoja(a.id, {
+    slug: "privada-a", publicado: true,
+    metodosPagamento: [{ id: "mp-a", tipo: "MPESA", conta: "841111111", nome: "M-Pesa A" }]
+  });
+  store.configurarLoja(b.id, { slug: "privada-b", nome: "Loja Privada B", publicado: true });
+  store.criarProduto(a.id, { nome: "Pacote A", precoMT: 80 });
+  store.criarProduto(b.id, { nome: "Pacote B", precoMT: 120 });
+
+  const groupA = "120363000000011-1234567890@g.us";
+  const groupB = "120363000000012-1234567890@g.us";
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo);
+  identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo);
+  const jid = "258841234567@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Loja Privada A/);
+  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
+  assert.match(sent.at(-1)[1].text, /Responde com o número/);
+
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.match(sent.at(-1)[1].text, /Loja selecionada:/);
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Pacote B/);
+  assert.doesNotMatch(sent.at(-1)[1].text, /Pacote A/);
+
+  assert.equal(await privateChat.handle(sock, message, jid, "lojas"), true);
+  assert.match(sent.at(-1)[1].text, /Loja Privada A/);
+  assert.match(sent.at(-1)[1].text, /Loja Privada B/);
 });
