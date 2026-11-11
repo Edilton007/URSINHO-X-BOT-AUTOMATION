@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const tenantService = require("../automation/services/tenantService");
 const operationService = require("../automation/services/operationService");
+const customerIdentityService = require("../automation/services/customerIdentityService");
 const salesService = require("./salesService");
 
 const TRACK_FILE = process.env.AUTOMATION_ORDERS_FILE
@@ -66,21 +67,34 @@ function getGroupMappings() {
 }
 
 function isAutomationEnabledForGroup(groupId) {
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+
+    // A associação persistida por pairing é a fonte preferencial.
+    // Registos desativados/órfãos também bloqueiam o fluxo antigo,
+    // em vez de permitir que uma venda manual anuncie uma entrega.
+    if (association.ok || association.error) return true;
+
+    // Compatibilidade temporária com grupos antigos configurados por ENV.
     const raw = String(process.env.AUTOMATION_GROUPS_JSON || "").trim();
     if (!raw) return false;
     const mappings = getGroupMappings();
-    // Configuração presente mas inválida: falha fechada em vez de
-    // deixar .compra cair no fluxo antigo que anunciava entrega imediata.
     if (warnedBadJson) return true;
     return Object.prototype.hasOwnProperty.call(mappings, String(groupId || ""));
 }
 
 function getGroupMapping(groupId) {
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+    if (association.ok) return { tenantId: association.tenantId };
+    if (association.error && association.code !== "GROUP_NOT_LINKED") {
+        return { error: association.error };
+    }
+
+    // Fallback legado apenas quando nunca houve pairing persistido.
     const config = getGroupMappings()[String(groupId || "")];
     if (!config || typeof config !== "object") return null;
     const tenantId = String(config.tenantId || "").trim();
     const apiKey = String(config.apiKey || "").trim();
-    if (!tenantId || !apiKey) return { error: "Mapeamento do grupo incompleto: tenantId/apiKey em falta." };
+    if (!tenantId || !apiKey) return { error: "Mapeamento legado do grupo incompleto: tenantId/apiKey em falta." };
     if (!tenantService.autenticarTenant(tenantId, apiKey)) {
         return { error: "A apiKey configurada para este grupo não corresponde ao tenant." };
     }

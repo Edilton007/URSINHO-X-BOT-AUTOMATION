@@ -183,6 +183,166 @@ test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo
     "Identificador de grupo WhatsApp inválido.");
 });
 
+test("pairing persistido liga grupo ao Automation sem ENV legado e mantém execução desativada", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const tenant = tenants.criarTenant({ nome: "Tenant Bridge WhatsApp" });
+  const license = tenants.gerarCodigoLicenca(30);
+  assert.equal(tenants.ativarLicenca(tenant.id, license.codigo).ok, true);
+  const device = tenants.registrarDevice(tenant.id, "device-whatsapp-bridge");
+  assert.ok(device.apiKey);
+
+  const groupId = "120363000000501-1234567890@g.us";
+  const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
+  assert.equal(identity.associarGrupo(tenant.id, groupId, "Grupo Bridge", pairing.codigo).ok, true);
+
+  process.env.AUTOMATION_ALLOW_EXECUTION = "false";
+  process.env.AUTOMATION_ORDERS_FILE = path.join(temp, "automation-orders-whatsapp-bridge.json");
+  const previousMappings = process.env.AUTOMATION_GROUPS_JSON;
+  delete process.env.AUTOMATION_GROUPS_JSON;
+
+  try {
+    const bridge = require("../src/services/automationBridgeService");
+    assert.equal(bridge.isAutomationEnabledForGroup(groupId), true);
+
+    const payload = {
+      groupId,
+      customerJid: "258849876599@s.whatsapp.net",
+      recipientNumber: "258841234567",
+      paymentReference: "WAPP-TEST-IDENTITY-BRIDGE",
+      paymentOperator: "MPESA",
+      megas: 1024,
+      pacote: "1 GB",
+      approvedBy: "admin-test"
+    };
+
+    const first = bridge.criarTransferenciaAprovada(payload);
+    assert.equal(first.error, undefined);
+    assert.equal(first.operation.tenantId, tenant.id);
+    assert.equal(first.operation.deviceId, device.id);
+    assert.equal(first.operation.estado, "PENDENTE");
+    assert.match(first.operation.motivoPendente, /AUTOMATION_ALLOW_EXECUTION=false/);
+
+    const taskCount = Object.keys(db.pendingTasks).length;
+    const duplicate = bridge.criarTransferenciaAprovada(payload);
+    assert.equal(duplicate.idempotente, true);
+    assert.equal(duplicate.operation.id, first.operation.id);
+    assert.equal(Object.keys(db.pendingTasks).length, taskCount);
+
+    assert.equal(identity.removerGrupo(tenant.id, groupId).ok, true);
+    const blocked = bridge.criarTransferenciaAprovada({
+      ...payload,
+      paymentReference: "WAPP-TEST-DISABLED-GROUP"
+    });
+    assert.match(blocked.error, /desassociado/i);
+  } finally {
+    if (previousMappings === undefined) delete process.env.AUTOMATION_GROUPS_JSON;
+    else process.env.AUTOMATION_GROUPS_JSON = previousMappings;
+  }
+});
+
+test("cada Tenant pode associar no máximo três grupos WhatsApp", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const tenant = tenants.criarTenant({ nome: "Tenant Limite WhatsApp" });
+  const groups = [
+    "120363000000101-1234567890@g.us",
+    "120363000000102-1234567890@g.us",
+    "120363000000103-1234567890@g.us",
+    "120363000000104-1234567890@g.us"
+  ];
+  const codes = groups.map(() => identity.criarCodigoAssociacaoGrupo(tenant.id));
+  assert.ok(codes.every(code => code.ok === true));
+
+  for (let i = 0; i < 3; i++) {
+    assert.equal(identity.associarGrupo(tenant.id, groups[i], `Grupo ${i + 1}`, codes[i].codigo).ok, true);
+  }
+
+  const limitError = "Este Tenant já atingiu o limite de 3 grupos WhatsApp.";
+  assert.equal(identity.criarCodigoAssociacaoGrupo(tenant.id).error, limitError);
+  assert.equal(identity.associarGrupo(tenant.id, groups[3], "Grupo 4", codes[3].codigo).error, limitError);
+  assert.equal(identity.listarGruposDoTenant(tenant.id).length, 3);
+
+  assert.equal(identity.removerGrupo(tenant.id, groups[1]).ok, true);
+  assert.equal(identity.associarGrupo(tenant.id, groups[3], "Grupo 4", codes[3].codigo).ok, true);
+  assert.equal(identity.listarGruposDoTenant(tenant.id).length, 3);
+});
+
+test("WhatsApp privado exige escolha explícita e apresenta apenas o catálogo da loja escolhida", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja Privada A" });
+  const b = tenants.criarTenant({ nome: "Loja Privada B" });
+  store.configurarLoja(a.id, { slug: "whatsapp-loja-a", publicado: true });
+  store.configurarLoja(b.id, { slug: "whatsapp-loja-b", publicado: true });
+  store.criarProduto(a.id, { nome: "Produto confidencial A", precoMT: 20, quantidadeMB: 100 });
+  store.criarProduto(b.id, { nome: "Produto visível B", precoMT: 30, quantidadeMB: 500 });
+
+  const groupA = "120363000000111-1234567890@g.us";
+  const groupB = "120363000000112-1234567890@g.us";
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo);
+  identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo);
+
+  const jid = "258849876511@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /As tuas lojas/);
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+
+  const catalogMessage = sent.at(-1)[1].text;
+  assert.match(catalogMessage, /Produto visível B/);
+  assert.doesNotMatch(catalogMessage, /Produto confidencial A/);
+});
+
+test("pairing WhatsApp sincroniza membros que já estavam no grupo", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const { registerMessages } = require("../src/core/events/messages");
+  const tenant = tenants.criarTenant({ nome: "Tenant WhatsApp Membros Existentes" });
+  store.configurarLoja(tenant.id, { slug: "whatsapp-membros-existentes", publicado: true });
+  store.criarProduto(tenant.id, { nome: "Produto do grupo existente", precoMT: 40, quantidadeMB: 1024 });
+
+  const groupId = "120363000000121-1234567890@g.us";
+  const adminJid = "258849876521@s.whatsapp.net";
+  const existingMemberJid = "258849876522@s.whatsapp.net";
+  const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
+  const listeners = {};
+  const sent = [];
+  const sock = {
+    ev: { on: (event, callback) => { listeners[event] = callback; } },
+    groupMetadata: async () => ({
+      subject: "Grupo de clientes",
+      participants: [
+        { id: adminJid, admin: "admin" },
+        { id: existingMemberJid, admin: null }
+      ]
+    }),
+    sendMessage: async (...args) => sent.push(args)
+  };
+
+  registerMessages(sock, async () => {});
+  await listeners["messages.upsert"]({
+    type: "notify",
+    messages: [{
+      key: { remoteJid: groupId, participant: adminJid, fromMe: false },
+      message: { conversation: `!ursinho conectar ${pairing.codigo}` }
+    }]
+  });
+
+  assert.equal(identity.resolverTenantPrivado(existingMemberJid).tenantId, tenant.id);
+  assert.match(sent.at(-1)[1].text, /membros atuais foram sincronizados/i);
+
+  const privateMessage = { key: { remoteJid: existingMemberJid } };
+  assert.equal(await privateChat.handle(sock, privateMessage, existingMemberJid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /Produto do grupo existente/);
+});
+
 test("sessão privada de seleção de loja expira e não aceita escolha numérica antiga", async () => {
   const identity = require("../src/automation/services/customerIdentityService");
   const privateChat = require("../src/automation/services/tenantPrivateChatService");
@@ -209,6 +369,37 @@ test("sessão privada de seleção de loja expira e não aceita escolha numéric
   assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
   assert.match(sent.at(-1)[1].text, /Responde com o número/);
   assert.equal(db.system.whatsappPrivateSessions[key].estado, "SELECIONAR_LOJA");
+});
+
+
+test("produto conserva quantidade em MB no catálogo e no snapshot do pedido", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant MB" });
+  store.configurarLoja(tenant.id, {
+    slug: "loja-mb", publicado: true,
+    metodosPagamento: [{ id: "mp-mb", tipo: "MPESA", conta: "841234567", nome: "M-Pesa" }]
+  });
+  const invalid = store.criarProduto(tenant.id, { nome: "Pacote inválido", precoMT: 10, quantidadeMB: 0 });
+  assert.equal(invalid.error, "Quantidade em MB inválida.");
+  const product = store.criarProduto(tenant.id, { nome: "1 GB", precoMT: 100, quantidadeMB: 1024 }).produto;
+  assert.equal(store.catalogoPublico("loja-mb").produtos[0].quantidadeMB, 1024);
+  const order = store.criarPedidoPublico("loja-mb", {
+    nome: "Cliente MB", telefone: "258841234567", paymentMethodId: "mp-mb",
+    items: [{ productId: product.id, quantity: 1 }]
+  }, "order-mb-0001").pedido;
+  assert.equal(order.items[0].quantidadeMB, 1024);
+  store.atualizarProduto(tenant.id, product.id, { quantidadeMB: 2048 });
+  assert.equal(store.listarPedidos(tenant.id)[0].items[0].quantidadeMB, 1024);
+});
+
+test("inventário de licenças permite lote e revoga apenas códigos por ativar", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Licenças Admin" });
+  const first = tenants.gerarCodigoLicenca(10);
+  const second = tenants.gerarCodigoLicenca(20);
+  assert.equal(tenants.listarCodigosLicenca().length >= 2, true);
+  assert.equal(tenants.revogarCodigoLicenca(first.codigo).ok, true);
+  assert.equal(tenants.ativarLicenca(tenant.id, first.codigo).error.includes("revogado"), true);
+  assert.equal(tenants.ativarLicenca(tenant.id, second.codigo).ok, true);
+  assert.equal(tenants.revogarCodigoLicenca(second.codigo).status, 409);
 });
 
 test.after(() => {

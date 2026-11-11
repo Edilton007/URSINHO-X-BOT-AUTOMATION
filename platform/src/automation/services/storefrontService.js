@@ -111,12 +111,16 @@ function criarProduto(tenantId, input = {}) {
     if (nome.length < 2) return { error: "Informe um nome de produto válido." };
     if (!Number.isFinite(precoMT) || precoMT <= 0 || precoMT > 100000000) return { error: "Preço inválido. Informe um valor positivo em MT." };
 
+    const quantidadeMB = input.quantidadeMB == null || input.quantidadeMB === "" ? null : Number(input.quantidadeMB);
+    if (quantidadeMB !== null && (!Number.isSafeInteger(quantidadeMB) || quantidadeMB < 1 || quantidadeMB > 10485760)) return { error: "Quantidade em MB inválida." };
+
     const agora = Date.now();
     const product = {
         id: id("PROD"), tenantId,
         nome,
         descricao: cleanText(input.descricao, 500),
         precoMT: Math.round(precoMT * 100) / 100,
+        quantidadeMB,
         sku: cleanText(input.sku, 50) || null,
         ativo: input.ativo !== false,
         criadoEmMs: agora, atualizadoEmMs: agora
@@ -142,6 +146,11 @@ function atualizarProduto(tenantId, productId, input = {}) {
         if (!Number.isFinite(price) || price <= 0 || price > 100000000) return { error: "Preço inválido." };
         product.precoMT = Math.round(price * 100) / 100;
     }
+    if (input.quantidadeMB !== undefined) {
+        const quantidadeMB = input.quantidadeMB == null || input.quantidadeMB === "" ? null : Number(input.quantidadeMB);
+        if (quantidadeMB !== null && (!Number.isSafeInteger(quantidadeMB) || quantidadeMB < 1 || quantidadeMB > 10485760)) return { error: "Quantidade em MB inválida." };
+        product.quantidadeMB = quantidadeMB;
+    }
     if (input.ativo !== undefined) product.ativo = input.ativo === true;
     if (input.sku !== undefined) product.sku = cleanText(input.sku, 50) || null;
     product.atualizadoEmMs = Date.now();
@@ -164,7 +173,7 @@ function catalogoPublico(slug) {
             }))
         },
         produtos: listarProdutos(loja.tenantId, false).map(p => ({
-            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT, sku: p.sku
+            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT, quantidadeMB: p.quantidadeMB ?? null, sku: p.sku
         }))
     };
 }
@@ -190,7 +199,7 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return { error: "Quantidade inválida." };
         const lineTotal = Math.round(product.precoMT * quantity * 100) / 100;
         totalMT = Math.round((totalMT + lineTotal) * 100) / 100;
-        items.push({ productId, nome: product.nome, precoUnitarioMT: product.precoMT, quantity, totalMT: lineTotal });
+        items.push({ productId, nome: product.nome, quantidadeMB: product.quantidadeMB ?? null, precoUnitarioMT: product.precoMT, quantity, totalMT: lineTotal });
     }
     if (totalMT <= 0 || totalMT > 1000000000) return { error: "Valor total do pedido inválido." };
 

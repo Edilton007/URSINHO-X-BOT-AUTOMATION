@@ -1,6 +1,8 @@
 "use strict";
 
 const crypto = require("crypto");
+
+const MAX_GROUPS_PER_TENANT = 3;
 const db = require("../database/automationDb");
 
 function ensureCollections() {
@@ -35,7 +37,7 @@ function tenantExiste(tenantId) {
     return !!db.tenants?.[tenantId] && db.tenants[tenantId].ativo !== false;
 }
 
-function registarContacto(jidInput, nome = "") {
+function registarContacto(jidInput, nome = "", persist = true) {
     ensureCollections();
     const jid = normalizarJid(jidInput);
     if (!jid) return { error: "Identificador WhatsApp inválido." };
@@ -51,7 +53,7 @@ function registarContacto(jidInput, nome = "") {
         atualizadoEmMs: agora,
         ultimaAtividadeEmMs: agora
     };
-    db.save();
+    if (persist) db.save();
     return { ok: true, cliente: { ...db.customers[customerId] } };
 }
 
@@ -82,6 +84,13 @@ function associarGrupo(tenantId, groupIdInput, groupName = "", pairingCode) {
         return { error: "Este grupo já está associado a outra loja." };
     }
 
+    const alreadyActiveForTenant = existing && existing.tenantId === tenantId && existing.ativo !== false;
+    const activeGroupCount = Object.values(db.whatsappTenantGroups)
+        .filter(group => group.tenantId === tenantId && group.ativo !== false).length;
+    if (!alreadyActiveForTenant && activeGroupCount >= MAX_GROUPS_PER_TENANT) {
+        return { error: "Este Tenant já atingiu o limite de 3 grupos WhatsApp." };
+    }
+
     const agora = Date.now();
     db.whatsappTenantGroups[groupId] = {
         groupId, tenantId, nome: clean(groupName, 100),
@@ -97,6 +106,11 @@ function associarGrupo(tenantId, groupIdInput, groupName = "", pairingCode) {
 function criarCodigoAssociacaoGrupo(tenantId, ttlMs = 10 * 60 * 1000) {
     ensureCollections();
     if (!tenantExiste(tenantId)) return { error: "Tenant inexistente ou desativado." };
+    const activeGroupCount = Object.values(db.whatsappTenantGroups)
+        .filter(group => group.tenantId === tenantId && group.ativo !== false).length;
+    if (activeGroupCount >= MAX_GROUPS_PER_TENANT) {
+        return { error: "Este Tenant já atingiu o limite de 3 grupos WhatsApp." };
+    }
     const ttl = Number(ttlMs);
     if (!Number.isSafeInteger(ttl) || ttl < 60_000 || ttl > 15 * 60 * 1000) {
         return { error: "Validade do código deve estar entre 1 e 15 minutos." };
@@ -127,6 +141,30 @@ function listarGruposDoTenant(tenantId) {
         .map(g => ({ ...g }));
 }
 
+/**
+ * Resolve a associação já validada por pairing para uso interno do Backend.
+ * Um registo desativado não é tratado como grupo desconhecido: isso impede
+ * que uma configuração antiga em variável de ambiente reative o grupo.
+ */
+function resolverTenantGrupo(groupIdInput) {
+    ensureCollections();
+    const groupId = clean(groupIdInput, 180).toLowerCase();
+    if (!groupId || !/^\d{5,25}-\d{5,25}@g\.us$/.test(groupId)) {
+        return { error: "Identificador de grupo WhatsApp inválido.", code: "GROUP_ID_INVALID" };
+    }
+
+    const group = db.whatsappTenantGroups[groupId];
+    if (!group) return { ok: false, code: "GROUP_NOT_LINKED" };
+    if (group.ativo === false) {
+        return { error: "Este grupo está desassociado do Tenant.", code: "GROUP_DISABLED" };
+    }
+    if (!tenantExiste(group.tenantId)) {
+        return { error: "O Tenant associado ao grupo está desativado ou não existe.", code: "TENANT_DISABLED" };
+    }
+
+    return { ok: true, tenantId: group.tenantId, grupo: { ...group } };
+}
+
 function removerGrupo(tenantId, groupIdInput) {
     ensureCollections();
     const groupId = clean(groupIdInput, 180).toLowerCase();
@@ -138,13 +176,8 @@ function removerGrupo(tenantId, groupIdInput) {
     return { ok: true };
 }
 
-function atualizarMembroGrupo(groupIdInput, jidInput, nome = "", membroAtivo = true) {
-    ensureCollections();
-    const groupId = clean(groupIdInput, 180).toLowerCase();
-    const group = db.whatsappTenantGroups[groupId];
-    if (!group || group.ativo === false) return { error: "Grupo não associado a uma loja." };
-
-    const contacto = registarContacto(jidInput, nome);
+function aplicarMembroGrupo(groupId, group, jidInput, nome = "", membroAtivo = true) {
+    const contacto = registarContacto(jidInput, nome, false);
     if (contacto.error) return contacto;
     const customerId = contacto.cliente.id;
     const key = relationKey(customerId, group.tenantId);
@@ -157,8 +190,49 @@ function atualizarMembroGrupo(groupIdInput, jidInput, nome = "", membroAtivo = t
     atual.estado = atual.groupIds.length ? "MEMBRO_GRUPO" : "RELACAO_COMERCIAL";
     atual.ultimaAtualizacaoEmMs = Date.now();
     db.customerTenantRelations[key] = atual;
-    db.save();
     return { ok: true, customerId, tenantId: group.tenantId, estado: atual.estado };
+}
+
+function atualizarMembroGrupo(groupIdInput, jidInput, nome = "", membroAtivo = true) {
+    ensureCollections();
+    const groupId = clean(groupIdInput, 180).toLowerCase();
+    const group = db.whatsappTenantGroups[groupId];
+    if (!group || group.ativo === false) return { error: "Grupo não associado a uma loja." };
+
+    const result = aplicarMembroGrupo(groupId, group, jidInput, nome, membroAtivo);
+    if (result.ok) db.save();
+    return result;
+}
+
+function sincronizarMembrosGrupo(groupIdInput, participants = []) {
+    ensureCollections();
+    const groupId = clean(groupIdInput, 180).toLowerCase();
+    const group = db.whatsappTenantGroups[groupId];
+    if (!group || group.ativo === false) return { error: "Grupo não associado a uma loja." };
+    if (!Array.isArray(participants) || participants.length > 5000) {
+        return { error: "Lista de membros inválida para sincronização." };
+    }
+
+    let sincronizados = 0;
+    let ignorados = 0;
+    for (const participant of participants) {
+        const jid = typeof participant === "string"
+            ? participant
+            : participant?.phoneNumber || participant?.id || participant?.jid || participant?.lid;
+        const nome = typeof participant === "string"
+            ? ""
+            : participant?.notify || participant?.name || "";
+        if (!jid) {
+            ignorados++;
+            continue;
+        }
+        const result = aplicarMembroGrupo(groupId, group, jid, nome, true);
+        if (result.ok) sincronizados++;
+        else ignorados++;
+    }
+
+    if (sincronizados > 0) db.save();
+    return { ok: true, sincronizados, ignorados };
 }
 
 function listarTenantsDoCliente(jidInput) {
@@ -195,8 +269,10 @@ module.exports = {
     associarGrupo,
     associarGrupoPorCodigo,
     listarGruposDoTenant,
+    resolverTenantGrupo,
     removerGrupo,
     atualizarMembroGrupo,
+    sincronizarMembrosGrupo,
     listarTenantsDoCliente,
     resolverTenantPrivado
 };
