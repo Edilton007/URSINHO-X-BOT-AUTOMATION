@@ -6,7 +6,7 @@
     --panel-2: #0e121b;
     --border: rgba(255,255,255,.09);
     --text: #b5a0ff;
-    --muted: #91a39a;
+    --muted: #9AA4B5;
     --ux-accent: #8b7bff;
     --ux-accent-soft: rgba(139,123,255,.10);
     --red: #ff7777;
@@ -64,7 +64,7 @@ body {
 .systemInfo span { color:var(--muted); font-size:11px; }
 .systemInfo strong { font-size:14px; }
 footer { text-align:center; padding:35px 0 15px; color:var(--muted); font-size:10px; letter-spacing:1px; }
-footer small { display:block; margin-top:7px; color:#61756a; letter-spacing:.5px; }
+footer small { display:block; margin-top:7px; color:#687386; letter-spacing:.5px; }
 @media(max-width:800px){.statsGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.app{padding:18px}.topbar{align-items:flex-start}.topbarActions{align-items:flex-end;flex-direction:column}.statsGrid,.systemInfo{grid-template-columns:1fr}.card{min-height:125px}.authCard{padding:26px}}
 
