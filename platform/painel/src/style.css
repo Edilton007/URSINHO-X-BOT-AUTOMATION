@@ -71,7 +71,11 @@ footer small { display:block; margin-top:7px; color:#61756a; letter-spacing:.5px
 /* URSINHO X Design System: paleta grafite e lilás */
 :root{
  --bg:#07090F;--panel:#0E121B;--panel-2:#1C2331;--panel2:#1C2331;
- --border:#30374A;--text:#F3F5F9;--muted:#9AA4B5;
+ --border:#30374A;--line:#30374A;--line2:#45405F;--text:#F3F5F9;--muted:#9AA4B5;
  --ux-accent:#8B7BFF;--ux-accent-strong:#6E7BFF;--ux-accent-lilac:#B5A0FF;
  --amber:#F5B544;--red:#F26B6B;
 }
+
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}
+@keyframes ux-lilac-breathe{0%,100%{box-shadow:0 0 0 rgba(139,123,255,0)}50%{box-shadow:0 0 24px rgba(139,123,255,.18)}}
+.brand .logo,.brandMark{animation:ux-lilac-breathe 4.2s ease-in-out infinite}

@@ -93,7 +93,7 @@ body{background:radial-gradient(circle at 7% -8%,rgba(125,168,255,.14),transpare
 <style id="ux-design-system">
 :root{
   --ux-bg:#07090F;--ux-surface:#0E121B;--ux-surface-raised:#1C2331;
-  --ux-line:#30374A;--ux-line-strong:#45405F;
+  --ux-line:#30374A;--ux-line-strong:#45405F;--line:#30374A;--line2:#45405F;--border:#30374A;--border-strong:#45405F;
   --ux-text:#F3F5F9;--ux-muted:#9AA4B5;
   --ux-accent:#8B7BFF;--ux-accent-strong:#6E7BFF;--ux-accent-lilac:#B5A0FF;
   --ux-accent-blue:#7DA8FF;--ux-warning:#F5B544;--ux-danger:#F26B6B;
@@ -126,7 +126,9 @@ input:focus,textarea:focus,select:focus,.input:focus,.select:focus{
 .bottom{grid-template-columns:repeat(5,minmax(0,1fr))}
 .bottom .nav{padding-left:4px;padding-right:4px;font-size:9px}
 :focus-visible{outline:2px solid #B5A0FF!important;outline-offset:3px}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif!important}
 @keyframes ux-lilac-breathe{0%,100%{box-shadow:0 0 0 rgba(139,123,255,0)}50%{box-shadow:0 0 24px rgba(139,123,255,.18)}}
+.brand .logo,.brandMark{animation:ux-lilac-breathe 4.2s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
