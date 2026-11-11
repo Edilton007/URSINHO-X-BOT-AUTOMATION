@@ -141,6 +141,30 @@ function listarGruposDoTenant(tenantId) {
         .map(g => ({ ...g }));
 }
 
+/**
+ * Resolve a associação já validada por pairing para uso interno do Backend.
+ * Um registo desativado não é tratado como grupo desconhecido: isso impede
+ * que uma configuração antiga em variável de ambiente reative o grupo.
+ */
+function resolverTenantGrupo(groupIdInput) {
+    ensureCollections();
+    const groupId = clean(groupIdInput, 180).toLowerCase();
+    if (!groupId || !/^\\d{5,25}-\\d{5,25}@g\\.us$/.test(groupId)) {
+        return { error: "Identificador de grupo WhatsApp inválido.", code: "GROUP_ID_INVALID" };
+    }
+
+    const group = db.whatsappTenantGroups[groupId];
+    if (!group) return { ok: false, code: "GROUP_NOT_LINKED" };
+    if (group.ativo === false) {
+        return { error: "Este grupo está desassociado do Tenant.", code: "GROUP_DISABLED" };
+    }
+    if (!tenantExiste(group.tenantId)) {
+        return { error: "O Tenant associado ao grupo está desativado ou não existe.", code: "TENANT_DISABLED" };
+    }
+
+    return { ok: true, tenantId: group.tenantId, grupo: { ...group } };
+}
+
 function removerGrupo(tenantId, groupIdInput) {
     ensureCollections();
     const groupId = clean(groupIdInput, 180).toLowerCase();
@@ -245,6 +269,7 @@ module.exports = {
     associarGrupo,
     associarGrupoPorCodigo,
     listarGruposDoTenant,
+    resolverTenantGrupo,
     removerGrupo,
     atualizarMembroGrupo,
     sincronizarMembrosGrupo,
