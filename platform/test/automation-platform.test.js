@@ -183,6 +183,66 @@ test("identidade WhatsApp é global, relações são isoladas por Tenant e grupo
     "Identificador de grupo WhatsApp inválido.");
 });
 
+test("cada Tenant pode associar no máximo três grupos WhatsApp", () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const tenant = tenants.criarTenant({ nome: "Tenant Limite WhatsApp" });
+  const groups = [
+    "120363000000101-1234567890@g.us",
+    "120363000000102-1234567890@g.us",
+    "120363000000103-1234567890@g.us",
+    "120363000000104-1234567890@g.us"
+  ];
+  const codes = groups.map(() => identity.criarCodigoAssociacaoGrupo(tenant.id));
+  assert.ok(codes.every(code => code.ok === true));
+
+  for (let i = 0; i < 3; i++) {
+    assert.equal(identity.associarGrupo(tenant.id, groups[i], `Grupo ${i + 1}`, codes[i].codigo).ok, true);
+  }
+
+  const limitError = "Este Tenant já atingiu o limite de 3 grupos WhatsApp.";
+  assert.equal(identity.criarCodigoAssociacaoGrupo(tenant.id).error, limitError);
+  assert.equal(identity.associarGrupo(tenant.id, groups[3], "Grupo 4", codes[3].codigo).error, limitError);
+  assert.equal(identity.listarGruposDoTenant(tenant.id).length, 3);
+
+  assert.equal(identity.removerGrupo(tenant.id, groups[1]).ok, true);
+  assert.equal(identity.associarGrupo(tenant.id, groups[3], "Grupo 4", codes[3].codigo).ok, true);
+  assert.equal(identity.listarGruposDoTenant(tenant.id).length, 3);
+});
+
+test("WhatsApp privado exige escolha explícita e apresenta apenas o catálogo da loja escolhida", async () => {
+  const identity = require("../src/automation/services/customerIdentityService");
+  const privateChat = require("../src/automation/services/tenantPrivateChatService");
+  const a = tenants.criarTenant({ nome: "Loja Privada A" });
+  const b = tenants.criarTenant({ nome: "Loja Privada B" });
+  store.configurarLoja(a.id, { slug: "whatsapp-loja-a", publicado: true });
+  store.configurarLoja(b.id, { slug: "whatsapp-loja-b", publicado: true });
+  store.criarProduto(a.id, { nome: "Produto confidencial A", precoMT: 20, quantidadeMB: 100 });
+  store.criarProduto(b.id, { nome: "Produto visível B", precoMT: 30, quantidadeMB: 500 });
+
+  const groupA = "120363000000111-1234567890@g.us";
+  const groupB = "120363000000112-1234567890@g.us";
+  const codeA = identity.criarCodigoAssociacaoGrupo(a.id);
+  const codeB = identity.criarCodigoAssociacaoGrupo(b.id);
+  identity.associarGrupo(a.id, groupA, "Grupo A", codeA.codigo);
+  identity.associarGrupo(b.id, groupB, "Grupo B", codeB.codigo);
+
+  const jid = "258849876511@s.whatsapp.net";
+  identity.atualizarMembroGrupo(groupA, jid, "Cliente", true);
+  identity.atualizarMembroGrupo(groupB, jid, "Cliente", true);
+  const sent = [];
+  const sock = { sendMessage: async (...args) => sent.push(args) };
+  const message = { key: { remoteJid: jid } };
+
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+  assert.match(sent.at(-1)[1].text, /As tuas lojas/);
+  assert.equal(await privateChat.handle(sock, message, jid, "2"), true);
+  assert.equal(await privateChat.handle(sock, message, jid, "catalogo"), true);
+
+  const catalogMessage = sent.at(-1)[1].text;
+  assert.match(catalogMessage, /Produto visível B/);
+  assert.doesNotMatch(catalogMessage, /Produto confidencial A/);
+});
+
 test("sessão privada de seleção de loja expira e não aceita escolha numérica antiga", async () => {
   const identity = require("../src/automation/services/customerIdentityService");
   const privateChat = require("../src/automation/services/tenantPrivateChatService");

@@ -1,6 +1,8 @@
 "use strict";
 
 const crypto = require("crypto");
+
+const MAX_GROUPS_PER_TENANT = 3;
 const db = require("../database/automationDb");
 
 function ensureCollections() {
@@ -82,6 +84,13 @@ function associarGrupo(tenantId, groupIdInput, groupName = "", pairingCode) {
         return { error: "Este grupo já está associado a outra loja." };
     }
 
+    const alreadyActiveForTenant = existing && existing.tenantId === tenantId && existing.ativo !== false;
+    const activeGroupCount = Object.values(db.whatsappTenantGroups)
+        .filter(group => group.tenantId === tenantId && group.ativo !== false).length;
+    if (!alreadyActiveForTenant && activeGroupCount >= MAX_GROUPS_PER_TENANT) {
+        return { error: "Este Tenant já atingiu o limite de 3 grupos WhatsApp." };
+    }
+
     const agora = Date.now();
     db.whatsappTenantGroups[groupId] = {
         groupId, tenantId, nome: clean(groupName, 100),
@@ -97,6 +106,11 @@ function associarGrupo(tenantId, groupIdInput, groupName = "", pairingCode) {
 function criarCodigoAssociacaoGrupo(tenantId, ttlMs = 10 * 60 * 1000) {
     ensureCollections();
     if (!tenantExiste(tenantId)) return { error: "Tenant inexistente ou desativado." };
+    const activeGroupCount = Object.values(db.whatsappTenantGroups)
+        .filter(group => group.tenantId === tenantId && group.ativo !== false).length;
+    if (activeGroupCount >= MAX_GROUPS_PER_TENANT) {
+        return { error: "Este Tenant já atingiu o limite de 3 grupos WhatsApp." };
+    }
     const ttl = Number(ttlMs);
     if (!Number.isSafeInteger(ttl) || ttl < 60_000 || ttl > 15 * 60 * 1000) {
         return { error: "Validade do código deve estar entre 1 e 15 minutos." };
