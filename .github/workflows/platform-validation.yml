@@ -37,3 +37,41 @@ jobs:
         run: npm test
       - name: Check source
         run: npm run check
+
+  android-build:
+    name: Testar e compilar Agent e Tenant
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Instalar SDK e Build Tools 35
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Configurar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Testar Kotlin e compilar APK do Agent
+        working-directory: android/agent
+        run: gradle testDebugUnitTest assembleDebug
+      - name: Compilar APK do Tenant
+        working-directory: android/tenant-app
+        run: gradle assembleDebug
+      - name: Publicar APKs de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: URSINHO-X-APKs-DEBUG-TESTE
+          path: |
+            android/agent/app/build/outputs/apk/debug/*.apk
+            android/tenant-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7

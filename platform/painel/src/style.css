@@ -68,7 +68,7 @@ footer small { display:block; margin-top:7px; color:#61756a; letter-spacing:.5px
 @media(max-width:800px){.statsGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.app{padding:18px}.topbar{align-items:flex-start}.topbarActions{align-items:flex-end;flex-direction:column}.statsGrid,.systemInfo{grid-template-columns:1fr}.card{min-height:125px}.authCard{padding:26px}}
 
-/* URSINHO X Design System: graphite + lilac, no green palette */
+/* URSINHO X Design System: paleta grafite e lilás */
 :root{
  --bg:#07090F;--panel:#0E121B;--panel-2:#1C2331;--panel2:#1C2331;
  --border:#30374A;--text:#F3F5F9;--muted:#9AA4B5;
