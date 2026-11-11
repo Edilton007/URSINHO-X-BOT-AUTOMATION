@@ -1,40 +1,81 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07100b"><title>Loja | URSINHO X</title><style>
-:root{--bg:#07100b;--card:#0e1912;--line:#23402e;--green:#27da8e;--text:#eff8f2;--muted:#9aada0;--amber:#e8b451}*{box-sizing:border-box}body{margin:0;background:radial-gradient(800px 450px at 70% -10%,#17422b,transparent 60%),var(--bg);color:var(--text);font:15px system-ui,Arial}.wrap{max-width:1050px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.brand{display:flex;align-items:center;gap:11px}.logo{width:42px;height:42px;border:1px solid #287c52;border-radius:13px;display:grid;place-items:center;color:var(--green);font-weight:900}.muted{color:var(--muted);font-size:12px;line-height:1.5}.hero{margin:24px 0;padding:25px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,#10231a,#0a120d)}h1{font-size:clamp(28px,6vw,48px);margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.product{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:17px;display:flex;flex-direction:column;gap:10px}.product h3{margin:0;font-size:17px}.price{font-size:23px;font-weight:800;color:var(--green)}.btn{border:1px solid var(--line);background:#122119;color:var(--text);padding:11px 14px;border-radius:11px;font-weight:700}.btn.primary{background:var(--green);color:#031109;border-color:var(--green)}.panel{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.input,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#080f0b;color:var(--text);font:inherit}.cartline{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:10px 0;font-size:13px}.alert{padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}.footer{text-align:center;padding:25px;color:#708477;font-size:11px}.hide{display:none!important}@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:13px}}@media(max-width:470px){.grid,.fields{grid-template-columns:1fr}.top{align-items:flex-start}}
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0e121b"><title>Loja | URSINHO X</title><style>
+:root{--bg:#0e121b;--card:#0e121b;--line:#1c2331;--ux-accent:#b5a0ff;--text:#b5a0ff;--muted:#9aada0;--amber:#f5b544}*{box-sizing:border-box}body{margin:0;background:radial-gradient(800px 450px at 70% -10%,#1c2331,transparent 60%),var(--bg);color:var(--text);font:15px system-ui,Arial}.wrap{max-width:1050px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.brand{display:flex;align-items:center;gap:11px}.logo{width:42px;height:42px;border:1px solid #3d365b;border-radius:13px;display:grid;place-items:center;color:var(--ux-accent);font-weight:900}.muted{color:var(--muted);font-size:12px;line-height:1.5}.hero{margin:24px 0;padding:25px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,#0e121b,#0e121b)}h1{font-size:clamp(28px,6vw,48px);margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.product{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:17px;display:flex;flex-direction:column;gap:10px}.product h3{margin:0;font-size:17px}.price{font-size:23px;font-weight:800;color:var(--ux-accent)}.btn{border:1px solid var(--line);background:#0e121b;color:var(--text);padding:11px 14px;border-radius:11px;font-weight:700}.btn.primary{background:var(--ux-accent);color:#0e121b;border-color:var(--ux-accent)}.panel{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.input,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#0e121b;color:var(--text);font:inherit}.cartline{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:10px 0;font-size:13px}.alert{padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}.footer{text-align:center;padding:25px;color:#708477;font-size:11px}.hide{display:none!important}@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:13px}}@media(max-width:470px){.grid,.fields{grid-template-columns:1fr}.top{align-items:flex-start}}
 /* URSINHO X storefront visual system */
-body{background:radial-gradient(ellipse at 10% -6%,rgba(87,230,191,.16),transparent 38%),radial-gradient(ellipse at 98% 8%,rgba(103,191,255,.14),transparent 34%),var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-.wrap{padding:24px 20px}.logo{background:linear-gradient(145deg,#83f3d5,#48c8b7);color:#06131b;box-shadow:0 0 28px rgba(87,230,191,.18)}
+body{background:radial-gradient(ellipse at 10% -6%,rgba(181,160,255,.16),transparent 38%),radial-gradient(ellipse at 98% 8%,rgba(103,191,255,.14),transparent 34%),var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{padding:24px 20px}.logo{background:linear-gradient(145deg,#b5a0ff,#8b7bff);color:#06131b;box-shadow:0 0 28px rgba(181,160,255,.18)}
 .hero{position:relative;overflow:hidden;margin:26px 0;padding:clamp(22px,5vw,40px);border-radius:24px;background:linear-gradient(120deg,rgba(19,46,62,.98),rgba(10,26,42,.96));border-color:#31556a;box-shadow:0 20px 50px rgba(0,0,0,.24)}
-.hero:after{content:"";position:absolute;width:250px;height:250px;right:-75px;top:-115px;border:1px solid rgba(87,230,191,.2);border-radius:50%;box-shadow:0 0 0 28px rgba(87,230,191,.035),0 0 0 58px rgba(87,230,191,.02);pointer-events:none}
+.hero:after{content:"";position:absolute;width:250px;height:250px;right:-75px;top:-115px;border:1px solid rgba(181,160,255,.2);border-radius:50%;box-shadow:0 0 0 28px rgba(181,160,255,.035),0 0 0 58px rgba(181,160,255,.02);pointer-events:none}
 .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
-.product,.panel{background:linear-gradient(150deg,rgba(103,191,255,.035),rgba(87,230,191,.025)),var(--card);border-color:#2b4157;border-radius:18px;box-shadow:0 13px 34px rgba(0,0,0,.18)}
-.product{transition:transform .18s ease,border-color .18s ease}.product:hover{transform:translateY(-2px);border-color:#398a7a}
-.product h3{font-size:16px;line-height:1.35}.price{color:var(--green);font-size:25px;letter-spacing:-.03em}
+.product,.panel{background:linear-gradient(150deg,rgba(103,191,255,.035),rgba(181,160,255,.025)),var(--card);border-color:#2b4157;border-radius:18px;box-shadow:0 13px 34px rgba(0,0,0,.18)}
+.product{transition:transform .18s ease,border-color .18s ease}.product:hover{transform:translateY(-2px);border-color:#3d365b}
+.product h3{font-size:16px;line-height:1.35}.price{color:var(--ux-accent);font-size:25px;letter-spacing:-.03em}
 .btn{min-height:43px;border-radius:12px;background:#14263a;border-color:#344e68;transition:transform .18s ease,filter .18s ease}.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
-.btn.primary{background:linear-gradient(100deg,#55e6c1,#68c9f1 75%,#a995ff);border-color:transparent;color:#06131d}
-.input,textarea{background:#091522;border-color:#31465d;border-radius:12px}.input:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(87,230,191,.12)}
+.btn.primary{background:linear-gradient(100deg,#b5a0ff,#7da8ff 75%,#a995ff);border-color:transparent;color:#06131d}
+.input,textarea{background:#091522;border-color:#31465d;border-radius:12px}.input:focus,textarea:focus{outline:none;border-color:var(--ux-accent);box-shadow:0 0 0 3px rgba(181,160,255,.12)}
 .cartline{padding:13px 0}.alert{background:#0c1a29;border-color:#30475e;border-radius:12px}
 h2{letter-spacing:-.025em}.muted{color:#a7bbce}.footer{color:#71879d}
-:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+:focus-visible{outline:2px solid var(--ux-accent);outline-offset:3px}
 @media(max-width:560px){.wrap{padding:14px}.hero{margin:18px 0}.grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 /* Public Storefront · identidade azul/violeta */
-:root{--bg:#080E1B;--card:#111B2F;--line:#2A3F63;--green:#7DA8FF;--text:#F2F5FF;--muted:#9AAAC5;--amber:#F0BB66}
+:root{--bg:#080e1b;--card:#111b2f;--line:#2a3f63;--ux-accent:#7da8ff;--text:#f2f5ff;--muted:#9aaac5;--amber:#f5b544}
 body{background:radial-gradient(800px 450px at 70% -10%,rgba(125,168,255,.18),transparent 60%),radial-gradient(650px 400px at 8% 0%,rgba(181,160,255,.12),transparent 60%),var(--bg)}
-.logo{border-color:#405A87;color:#C4D5FF;background:#172844}
-.hero{border-color:#344D77;background:linear-gradient(135deg,#172A49,#0F1A2D 70%,#211D3D)}
-.price{color:#AFC7FF}
-.btn{background:#172844;border-color:#344D77}
-.btn.primary{background:linear-gradient(100deg,#7DA8FF,#B5A0FF);color:#081224;border-color:#7DA8FF}
-.panel,.product{background:#111B2F;border-color:#2A3F63}
-.input:focus,textarea:focus,select:focus{border-color:#8FB4FF;outline:0;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
+.logo{border-color:#405a87;color:#c4d5ff;background:#172844}
+.hero{border-color:#344d77;background:linear-gradient(135deg,#172a49,#0f1a2d 70%,#211d3d)}
+.price{color:#afc7ff}
+.btn{background:#172844;border-color:#344d77}
+.btn.primary{background:linear-gradient(100deg,#7da8ff,#b5a0ff);color:#081224;border-color:#7da8ff}
+.panel,.product{background:#111b2f;border-color:#2a3f63}
+.input:focus,textarea:focus,select:focus{border-color:#8fb4ff;outline:0;box-shadow:0 0 0 3px rgba(125,168,255,.13)}
 
-</style></head><body><main class="wrap"><header class="top"><div class="brand"><div class="logo">UX</div><div><b id="brandName">LOJA</b><div class="muted">Compra segura • atendimento do tenant</div></div></div><button class="btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Meu pedido <span id="cartCount">0</span></button></header><section class="hero"><div class="muted">LOJA OFICIAL</div><h1 id="storeName">A carregar loja…</h1><p id="storeDesc" class="muted"></p><div id="contact" class="muted"></div></section><section><h2>Produtos disponíveis</h2><div id="products" class="grid"><div class="product">A carregar catálogo…</div></div></section><section id="checkout" class="panel"><h2>Finalizar pedido</h2><div id="cart"><p class="muted">O teu carrinho está vazio.</p></div><p id="total" class="price">0,00 MT</p><div class="fields"><div><label class="muted">Nome</label><input id="customerName" class="input" maxlength="100" placeholder="O teu nome"></div><div><label class="muted">Telefone</label><input id="phone" class="input" inputmode="tel" maxlength="18" placeholder="Ex.: 84xxxxxxx"></div><div style="grid-column:1/-1"><label class="muted">Observação (opcional)</label><textarea id="note" class="input" rows="2" maxlength="500"></textarea></div></div><button id="submit" class="btn primary" style="margin-top:14px;width:100%">ENVIAR PEDIDO</button><div id="result" class="alert hide"></div><div id="payment" class="alert hide"></div></section><div class="footer">✨ BY Edilton Ronaldo • Powered by URSINHO X BOT AUTOMATION</div></main>
+</style>
+<style id="ux-design-system-no-green">
+:root{
+  --ux-bg:#07090F;--ux-surface:#0E121B;--ux-surface-raised:#1C2331;
+  --ux-line:#30374A;--ux-line-strong:#45405F;
+  --ux-text:#F3F5F9;--ux-muted:#9AA4B5;
+  --ux-accent:#8B7BFF;--ux-accent-strong:#6E7BFF;--ux-accent-lilac:#B5A0FF;
+  --ux-accent-blue:#7DA8FF;--ux-warning:#F5B544;--ux-danger:#F26B6B;
+  --bg:#07090F;--panel:#0E121B;--panel2:#1C2331;--panel-2:#1C2331;
+  --surface:#0E121B;--surface2:#1C2331;--card:#0E121B;
+  --text:#F3F5F9;--muted:#9AA4B5;
+  --ux-accent:#8B7BFF;--ux-accent-strong:#6E7BFF;--ux-accent-lilac:#B5A0FF;
+  --amber:#F5B544;--red:#F26B6B;--blue:#7DA8FF;--violet:#B5A0FF;
+}
+.btn.primary,.primaryButton,.navCta{
+  background:linear-gradient(120deg,#6E7BFF,#8B7BFF)!important;
+  border-color:transparent!important;color:#F7F6FF!important;
+  box-shadow:0 8px 24px rgba(139,123,255,.22);
+}
+.nav.active,.tab.active,.sectionTab.active{
+  color:#C8BCFF!important;border-color:rgba(181,160,255,.48)!important;
+  background:rgba(139,123,255,.13)!important;
+}
+.badge.ok,.badge.good,.pill.ok,.status.online,.badge.online,.event.ok{
+  color:#C8BCFF!important;border-color:rgba(181,160,255,.42)!important;
+  background:rgba(139,123,255,.12)!important;
+}
+input:focus,textarea:focus,select:focus,.input:focus,.select:focus{
+  border-color:#9B8CFF!important;box-shadow:0 0 0 3px rgba(139,123,255,.16)!important;
+}
+.brand .logo,.logo{
+  border-color:rgba(181,160,255,.42)!important;
+  box-shadow:0 0 24px rgba(139,123,255,.18);
+}
+:focus-visible{outline:2px solid #B5A0FF!important;outline-offset:3px}
+@keyframes ux-lilac-breathe{0%,100%{box-shadow:0 0 0 rgba(139,123,255,0)}50%{box-shadow:0 0 24px rgba(139,123,255,.18)}}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+</style>
+
+</head><body><main class="wrap"><header class="top"><div class="brand"><div class="logo">UX</div><div><b id="brandName">LOJA</b><div class="muted">Compra segura • atendimento do tenant</div></div></div><button class="btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Meu pedido <span id="cartCount">0</span></button></header><section class="hero"><div class="muted">LOJA OFICIAL</div><h1 id="storeName">A carregar loja…</h1><p id="storeDesc" class="muted"></p><div id="contact" class="muted"></div></section><section><h2>Produtos disponíveis</h2><div id="products" class="grid"><div class="product">A carregar catálogo…</div></div></section><section id="checkout" class="panel"><h2>Finalizar pedido</h2><div id="cart"><p class="muted">O teu carrinho está vazio.</p></div><p id="total" class="price">0,00 MT</p><div class="fields"><div><label class="muted">Nome</label><input id="customerName" class="input" maxlength="100" placeholder="O teu nome"></div><div><label class="muted">Telefone</label><input id="phone" class="input" inputmode="tel" maxlength="18" placeholder="Ex.: 84xxxxxxx"></div><div style="grid-column:1/-1"><label class="muted">Observação (opcional)</label><textarea id="note" class="input" rows="2" maxlength="500"></textarea></div></div><button id="submit" class="btn primary" style="margin-top:14px;width:100%">ENVIAR PEDIDO</button><div id="result" class="alert hide"></div><div id="payment" class="alert hide"></div></section><div class="footer">✨ BY Edilton Ronaldo • Powered by URSINHO X BOT AUTOMATION</div></main>
 <script>
 'use strict';const slug=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'');const $=id=>document.getElementById(id);let store=null,products=[],cart=new Map();const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const money=n=>new Intl.NumberFormat('pt-MZ',{style:'currency',currency:'MZN'}).format(n);
 async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json().catch(()=>({error:'Resposta inválida'}));if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);return d}
 function render(){const entries=[...cart.entries()];$('cartCount').textContent=entries.reduce((n,[,q])=>n+q,0);$('cart').innerHTML=entries.length?entries.map(([id,q])=>{const p=products.find(x=>x.id===id);return p?`<div class="cartline"><span>${esc(p.nome)} × ${q}</span><b>${money(p.precoMT*q)}</b><button class="btn" data-remove="${esc(id)}">−</button></div>`:''}).join(''):'<p class="muted">O teu carrinho está vazio.</p>';const total=entries.reduce((n,[id,q])=>n+(products.find(x=>x.id===id)?.precoMT||0)*q,0);$('total').textContent=money(total)}
-function show(el,text,ok=false){el.textContent=text;el.classList.remove('hide');el.style.borderColor=ok?'#276b49':'#6d4d21'}
+function show(el,text,ok=false){el.textContent=text;el.classList.remove('hide');el.style.borderColor=ok?'#3d365b':'#f5b544'}
 async function init(){try{const d=await api(`/api/storefront/${encodeURIComponent(slug)}`);store=d.loja;products=d.produtos||[];$('brandName').textContent=store.nome;$('storeName').textContent=store.nome;$('storeDesc').textContent=store.descricao||'Escolhe os produtos e envia o teu pedido.';$('contact').textContent=store.contacto?`Contacto: ${store.contacto}`:'';$('products').innerHTML=products.length?products.map(p=>`<article class="product"><div class="muted">${esc(p.sku||'PACOTE')}</div><h3>${esc(p.nome)}</h3><p class="muted">${esc(p.descricao)}</p><div class="muted">${Number.isSafeInteger(p.quantidadeMB)&&p.quantidadeMB>0?("Volume: "+(p.quantidadeMB>=1024?(p.quantidadeMB/1024)+" GB":p.quantidadeMB+" MB")):"Produto sem volume especificado"}</div><div class="price">${money(p.precoMT)}</div><button class="btn primary" data-add="${esc(p.id)}">ADICIONAR AO PEDIDO</button></article>`).join(''):'<div class="product">Esta loja ainda não publicou produtos.</div>';render()}catch(e){$('storeName').textContent='Loja indisponível';$('storeDesc').textContent=e.message;$('products').innerHTML=''}}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.add){cart.set(b.dataset.add,Math.min(99,(cart.get(b.dataset.add)||0)+1));render()}if(b.dataset.remove){const n=(cart.get(b.dataset.remove)||0)-1;if(n<=0)cart.delete(b.dataset.remove);else cart.set(b.dataset.remove,n);render()}});
 $('submit').onclick=async()=>{const items=[...cart.entries()].map(([productId,quantity])=>({productId,quantity}));if(!items.length)return show($('result'),'Adiciona pelo menos um produto ao carrinho.');const key=crypto.randomUUID();$('submit').disabled=true;try{const d=await api(`/api/storefront/${encodeURIComponent(slug)}/orders`,{method:'POST',headers:{'x-idempotency-key':key},body:JSON.stringify({nome:$('customerName').value,telefone:$('phone').value,nota:$('note').value,items})});show($('result'),`Pedido registado: ${d.pedido.reference}\nTotal: ${money(d.pedido.totalMT)}\nEstado: AGUARDANDO PAGAMENTO.`,true);const configured=Array.isArray(store.metodosPagamento)?store.metodosPagamento.filter(m=>m.ativo!==false):[];const methods=configured.length?configured.map(m=>[m.nome||m.tipo,m.numero?("Número/conta: "+m.numero):"",m.banco?("Banco: "+m.banco):"",m.titular?("Titular: "+m.titular):"",m.instrucoes||""].filter(Boolean).join('\n')).join('\n\n'):[store.mpesa?`M-Pesa: ${store.mpesa}`:'',store.emola?`e-Mola: ${store.emola}`:'',store.instrucoesPagamento||''].filter(Boolean).join('\n');if(methods)show($('payment'),`Instruções de pagamento. A confirmação será verificada manualmente pelo vendedor:\n\n${methods}`);cart.clear();render()}catch(e){show($('result'),e.message)}finally{$('submit').disabled=false}};
