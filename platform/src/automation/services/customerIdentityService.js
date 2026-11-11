@@ -149,7 +149,7 @@ function listarGruposDoTenant(tenantId) {
 function resolverTenantGrupo(groupIdInput) {
     ensureCollections();
     const groupId = clean(groupIdInput, 180).toLowerCase();
-    if (!groupId || !/^\\d{5,25}-\\d{5,25}@g\\.us$/.test(groupId)) {
+    if (!groupId || !/^\d{5,25}-\d{5,25}@g\.us$/.test(groupId)) {
         return { error: "Identificador de grupo WhatsApp inválido.", code: "GROUP_ID_INVALID" };
     }
 
