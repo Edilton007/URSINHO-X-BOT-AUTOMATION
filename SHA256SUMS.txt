@@ -74,7 +74,7 @@ d545691b6ec03a5060c4afab544215c10ac83f26b96db1aa49e7cfaaae710bc3  ./platform/.en
 c9524f5e5ef3cbeb1e0c0124ce808b2917b6341f0cb5dcbf9e29a431362cd2f4  ./platform/.gitignore
 a9a3d59a794bd55f40c05b83cf3d1fb4c4f25a523d5f4cfd5b118e5bbf42dfe4  ./platform/LEIA-PRIMEIRO-URSINHO-X-BOT-V2.md
 42d07b21693a60f3ffbf0b118853c06042d7c66bd974c95b944ab8736c2d2916  ./platform/README.md
-11e0abd38461930cec43a4da77be1a28330bb44bcbf43df80072a9dd31d6ef00  ./platform/automation/painel/index.html
+34e9103997e65647b24fe3929843987ceed3a5d60543c12d87fcb2f8e54ddeed  ./platform/automation/painel/index.html
 ea3c69fe7b2334884f4ebd95f6c97d5534d05cec8512b2df890a1bdd5973f12b  ./platform/automation/painel/loja.html
 5dc5d8d640a212c9d6184921ba103b186f50e0fed9ee716c53e6b312b400d747  ./platform/eng.traineddata
 ec1871a1cb8fed71f8dff0ef7284a973275ad047f8923e29d9b69d417a5cd6f0  ./platform/master-admin/index.html
