@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "platform/**"
+      - "android/**"
       - ".github/workflows/platform-validation.yml"
   push:
     branches:
