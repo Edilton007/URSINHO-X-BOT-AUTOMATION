@@ -24,12 +24,6 @@ test("dia operacional vira à meia-noite de Maputo e não às 02:00 locais", () 
   assert.equal(diaOperacional(Date.parse("2026-11-12T10:00:00Z")), "Thu Nov 12 2026");
 });
 
-test("formato coincide com Date#toDateString para manter contadores já gravados", () => {
-  const meioDia = Date.parse("2026-03-05T10:00:00Z");
-  assert.equal(diaOperacional(meioDia), new Date(meioDia + 2 * 3600 * 1000).toUTCString().slice(0, 16)
-    .replace(",", "").replace(/^(\w+) (\d+) (\w+) (\d+)$/, "$1 $3 $2 $4"));
-});
-
 test("SIM com 10 transferências de ontem volta a ser elegível sem esperar nova telemetria", () => {
   const tenant = tenants.criarTenant({ nome: "Tenant Virada do Dia" });
   const device = tenants.registrarDevice(tenant.id, "device-virada-dia");

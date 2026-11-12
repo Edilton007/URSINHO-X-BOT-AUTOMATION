@@ -10,14 +10,28 @@
  * para que os contadores já gravados no JSON continuem a ser reconhecidos depois
  * da atualização.
  *
- * OPERATION_DAY_OFFSET_MIN permite ajustar o desvio em minutos (padrão 120).
+ * OPERATION_DAY_OFFSET_MIN permite ajustar o desvio em minutos (padrão 120);
+ * valores ausentes, vazios ou inválidos usam o padrão.
  */
 const DIAS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MESES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+const DESVIO_PADRAO_MIN = 120;
+
+/**
+ * Lê OPERATION_DAY_OFFSET_MIN. Ausente, vazia, só com espaços, não inteira ou
+ * fora de -720..840 usa o padrão de Maputo (120). Number("") vale 0, por isso
+ * uma variável criada e deixada em branco no painel do servidor viraria UTC
+ * em silêncio se o valor fosse convertido sem verificar o texto antes.
+ * Um "0" escrito de propósito continua a ser aceite.
+ */
 function desvioMs() {
-    const minutos = Number(process.env.OPERATION_DAY_OFFSET_MIN);
-    return Number.isFinite(minutos) && minutos >= -720 && minutos <= 840 ? minutos * 60 * 1000 : 120 * 60 * 1000;
+    const texto = String(process.env.OPERATION_DAY_OFFSET_MIN ?? "").trim();
+    if (!/^[+-]?\d+$/.test(texto)) return DESVIO_PADRAO_MIN * 60 * 1000;
+
+    const minutos = Number(texto);
+    if (minutos < -720 || minutos > 840) return DESVIO_PADRAO_MIN * 60 * 1000;
+    return minutos * 60 * 1000;
 }
 
 function diaOperacional(ms = Date.now()) {
