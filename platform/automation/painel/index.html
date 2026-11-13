@@ -88,6 +88,19 @@ body{background:radial-gradient(circle at 7% -8%,rgba(125,168,255,.14),transpare
 @media(prefers-reduced-motion:no-preference){.hero{animation:uxRise .45s ease both}.card{animation:uxRise .35s ease both}@keyframes uxRise{from{opacity:.35;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}}
 @media(prefers-reduced-motion:reduce){.radarRing:before{animation:none!important}}
 
+/* Tabelas em cartões no telemóvel: sem colunas cortadas. */
+@media(max-width:760px){
+.table{min-width:0}
+.table thead{display:none}
+.table,.table tbody,.table tr,.table td{display:block;width:100%}
+.table tbody tr{padding:12px 14px;border-bottom:1px solid var(--line)}
+.table tbody tr:last-child{border-bottom:0}
+.table td{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;border:0;font-size:12px;white-space:normal;overflow-wrap:anywhere;text-align:right}
+.table td::before{content:attr(data-label);flex:0 0 auto;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;text-align:left}
+.table td[colspan]::before{content:none}
+.table td[data-label="Operação"],.table td[data-label="SIM"]:first-child{display:block;text-align:left;font-size:12px;padding-bottom:8px}
+.table td[data-label="Operação"]::before,.table td[data-label="SIM"]:first-child::before{content:none}
+}
 </style>
 
 <style id="ux-design-system">
@@ -578,7 +591,7 @@ function renderDashboard(){
   $('statToday').textContent=String(todayOps.length);
   $('statDone').textContent=String(operations.filter(o=>o.state==='CONCLUIDA').length);
   $('statExec').textContent=String(operations.filter(o=>['CRIADA','AGUARDANDO_EXECUCAO','EXECUTANDO'].includes(o.state)).length);
-  $('statReview').textContent=String(operations.filter(o=>['PENDENTE','PENDENTE_REVISAO'].includes(o.state)).length);
+  $('statReview').textContent=String(operations.filter(o=>o.state==='PENDENTE_REVISAO').length);
 
   const [em,es]=engine();$('engineMain').textContent=em;$('engineSub').textContent=es;
   const lic=state.license||{};
@@ -637,7 +650,7 @@ function renderOperations(){
   const f=$('opFilter').value;
   let list=state.operations.filter(o=>f==='ALL'||o.state===f).filter(o=>!q||`${o.id} ${o.destination} ${o.simId}`.toLowerCase().includes(q));
   list.sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0));
-  $('operationsTable').innerHTML=list.length?list.map(o=>{const v=formatMB(o.requestedMB);return`<tr data-op="${esc(o.id)}"><td><b>${esc(o.id||'Sem ID')}</b></td><td><span class="valueStack"><b>${esc(v.main)}</b>${v.secondary?`<small>${esc(v.secondary)}</small>`:''}</span></td><td>${esc(o.destination||'Não disponível')}</td><td>${esc(o.simId||'Não disponível')}</td><td>${badge(o.state,o.state)}</td><td>${esc(fmtDate(o.updatedAt||o.createdAt))}</td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty"><b>Sem operações</b>Nenhum registro corresponde aos filtros.</div></td></tr>';
+  $('operationsTable').innerHTML=list.length?list.map(o=>{const v=formatMB(o.requestedMB);return`<tr data-op="${esc(o.id)}"><td data-label="Operação"><b>${esc(o.id||'Sem ID')}</b></td><td data-label="Volume"><span class="valueStack"><b>${esc(v.main)}</b>${v.secondary?`<small>${esc(v.secondary)}</small>`:''}</span></td><td data-label="Destino">${esc(o.destination||'Não disponível')}</td><td data-label="SIM">${esc(o.simId||'Não disponível')}</td><td data-label="Estado">${badge(o.state,o.state)}</td><td data-label="Data">${esc(fmtDate(o.updatedAt||o.createdAt))}</td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty"><b>Sem operações</b>Nenhum registro corresponde aos filtros.</div></td></tr>';
   document.querySelectorAll('#operationsTable tr[data-op]').forEach(row=>row.addEventListener('click',()=>openDetail(row.dataset.op)));
 }
 
@@ -658,7 +671,7 @@ function renderSystem(){
   $('systemStatus').innerHTML=`<div class="kv"><span>Backend</span><span>${badge('ONLINE','SISTEMA ONLINE')}</span></div><div class="kv"><span>Saúde operacional</span><span>${badge(state.health?.estado||'SEM LEITURA',state.health?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Execução telecom</span><span>${state.health?.execucaoPermitida===true?badge('ATIVA','ATIVA'):badge('BLOQUEADA','BLOQUEADA')}</span></div><div class="kv"><span>Tenant</span><span>${esc(firstDefined(tenant.id,tenant.tenantId,session.tenantId))}</span></div><div class="kv"><span>Engine</span><span>${esc(engine()[0])}</span></div><div class="kv"><span>Telemetria</span><span>${state.sims.length?'Disponível':'Aguardando'}</span></div><div class="kv"><span>Agent</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div>`;
   const licenseStatus=String(firstDefined(lic.estado,lic.status,'SEM LICENÇA')).toUpperCase();
   $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(licenseStatus,licenseStatus)}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.codigo,lic.code,'Não disponível'))}</span></div><div class="kv"><span>Duração</span><span>${Number.isFinite(Number(lic.dias))?esc(lic.dias+' dias'):'Não disponível'}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiraEmMs,lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
-  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td>${esc(s.simId||'SIM')}</td><td>${esc(s.operator||'Não informado')}</td><td><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td>${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
+  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td data-label="SIM">${esc(s.simId||'SIM')}</td><td data-label="Operadora">${esc(s.operator||'Não informado')}</td><td data-label="Internet"><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td data-label="Saldo">${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td data-label="Atualização">${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
   $('sessionPanel').innerHTML=`<div class="kv"><span>Tenant</span><span>${esc(session?.tenantId||'')}</span></div><div class="kv"><span>Endpoint</span><span>${esc(location.origin)}</span></div><div class="kv"><span>Atualização automática</span><span>30 segundos</span></div><div class="kv"><span>Assinatura</span><span>✨ BY Edilton Ronaldo</span></div><div style="margin-top:12px"><button id="logoutBtn" class="btn">SAIR DA SESSÃO</button></div>`;
   $('logoutBtn').onclick=logout;
 }
