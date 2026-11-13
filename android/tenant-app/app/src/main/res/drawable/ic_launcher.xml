@@ -18,23 +18,20 @@
         </aapt:attr>
     </path>
     <path
-        android:pathData="M30,27 L30,57 C30,77 78,77 78,57 L78,27"
-        android:fillColor="#00000000"
-        android:strokeColor="#07090F"
-        android:strokeWidth="8"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M40,41 L68,69 M68,41 L40,69"
+        android:pathData="M54.0,14.4 L93.6,54.0 L60.7,86.9 L27.8,54.0 L47.3,34.6 L66.7,54.0 L60.7,60.0"
         android:fillColor="#00000000"
         android:strokeColor="#F3F5F9"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
+        android:strokeWidth="6"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="10" />
     <path
-        android:pathData="M36,86 L72,86"
+        android:pathData="M54.0,93.6 L14.4,54.0 L47.3,21.1 L80.2,54.0 L60.7,73.4 L41.3,54.0 L47.3,48.0"
         android:fillColor="#00000000"
-        android:strokeColor="#07090F"
-        android:strokeAlpha="0.55"
-        android:strokeWidth="4"
-        android:strokeLineCap="round" />
+        android:strokeColor="#0E121B"
+        android:strokeWidth="6"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="10" />
+    <path android:pathData="M54,47.5 L60.5,54 L54,60.5 L47.5,54 Z" android:fillColor="#F3F5F9" />
 </vector>
