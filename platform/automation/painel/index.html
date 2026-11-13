@@ -101,6 +101,7 @@ body{background:radial-gradient(circle at 7% -8%,rgba(125,168,255,.14),transpare
 .table td[data-label="Operação"],.table td[data-label="SIM"]:first-child{display:block;text-align:left;font-size:12px;padding-bottom:8px}
 .table td[data-label="Operação"]::before,.table td[data-label="SIM"]:first-child::before{content:none}
 }
+.engineState{z-index:2;text-shadow:0 0 6px #0e121b,0 0 14px #0e121b}
 </style>
 
 <style id="ux-design-system">
@@ -173,7 +174,6 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
     <div class="topActions">
       <div class="status"><i id="backendDot" class="dot"></i><span id="backendText">AGUARDANDO</span></div>
       <button id="refreshBtn" class="iconbtn" title="Atualizar">↻</button>
-      <a class="btn ghost" href="/tenant/loja.html" style="text-decoration:none">GERIR LOJA ↗</a>
     </div>
   </header>
 
