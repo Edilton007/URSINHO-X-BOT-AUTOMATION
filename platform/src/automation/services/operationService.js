@@ -87,7 +87,8 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
     const opId = genId("OP");
     const agora = Date.now();
     const permitido = execucaoPermitida();
-    const simEscolhido = permitido
+    const destinoOk = destinoPermitido(destino);
+    const simEscolhido = permitido && destinoOk
         ? simTelemetryService.escolherSimElegivel(tenantId, deviceId, megas, LIMITE_DIARIO_PADRAO)
         : null;
 
@@ -112,9 +113,11 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
                 { estado: "PENDENTE", emMs: agora }
             ],
             taskId: null,
-            motivoPendente: permitido
-                ? "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível."
-                : "Execução desativada no servidor (AUTOMATION_ALLOW_EXECUTION=false)."
+            motivoPendente: !permitido
+                ? "Execução desativada no servidor (AUTOMATION_ALLOW_EXECUTION=false)."
+                : (!destinoOk
+                    ? MOTIVO_DESTINO_FORA_DA_LISTA
+                    : "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível.")
         };
         Object.assign(db.operations[opId], extra);
         db.save();
@@ -200,6 +203,7 @@ function tarefasPendentes(deviceId) {
             if (task.estado && task.estado !== "AGUARDANDO_EXECUCAO") return false;
             const op = db.operations[task.opId];
             if (!op || op.estado !== "AGUARDANDO_EXECUCAO") return false;
+            if (!destinoPermitido(op.destino)) return false;
 
             const sim = simTelemetryService.obterSimOperacional(task.deviceId, task.simSlot);
             if (!sim || sim.tenantId !== task.tenantId) return false;
@@ -256,6 +260,10 @@ function iniciarTarefa(deviceId, taskId) {
     if (!op) return { error: "Operação associada não encontrada.", code: "OPERATION_NOT_FOUND" };
     if (op.deviceId !== deviceId || op.tenantId !== task.tenantId) {
         return { error: "Associação Tenant/Device da operação inválida.", code: "OWNERSHIP_MISMATCH" };
+    }
+
+    if (!destinoPermitido(op.destino)) {
+        return { error: MOTIVO_DESTINO_FORA_DA_LISTA, code: "DESTINO_NAO_PERMITIDO" };
     }
 
     // Segurança contra duplicação: não devolver um claim ativo para permitir
@@ -438,6 +446,36 @@ function execucaoPermitida() {
     return String(process.env.AUTOMATION_ALLOW_EXECUTION || "false").toLowerCase() === "true";
 }
 
+/**
+ * Travão para os primeiros testes reais. AUTOMATION_ALLOWED_DESTINATIONS aceita
+ * números separados por vírgula; quando preenchida, só esses destinos podem ser
+ * alocados e executados, todas as outras operações ficam em PENDENTE com o motivo
+ * visível. Ausente ou em branco significa sem restrição; preenchida só com valores
+ * inválidos bloqueia tudo. A comparação usa os últimos 9 dígitos, por isso
+ * 857286555 e 258857286555 são o mesmo número.
+ */
+function normalizarDestino(valor) {
+    return String(valor || "").replace(/\D/g, "").slice(-9);
+}
+
+function destinosPermitidos() {
+    return String(process.env.AUTOMATION_ALLOWED_DESTINATIONS || "")
+        .split(",")
+        .map(normalizarDestino)
+        .filter((numero) => numero.length === 9);
+}
+
+function destinoPermitido(destino) {
+    // Variável ausente ou em branco: sem restrição. Variável preenchida só com
+    // valores inválidos (erro de digitação) bloqueia tudo, nunca abre tudo.
+    const bruto = String(process.env.AUTOMATION_ALLOWED_DESTINATIONS || "").trim();
+    if (!bruto) return true;
+    return destinosPermitidos().includes(normalizarDestino(destino));
+}
+
+const MOTIVO_DESTINO_FORA_DA_LISTA =
+    "Destino fora da lista de destinos permitidos (AUTOMATION_ALLOWED_DESTINATIONS). Nada foi enviado.";
+
 function montarMetadata(metadata = {}) {
     const corta = (v, n) => (v ? String(v).slice(0, n) : null);
     return {
@@ -575,6 +613,14 @@ function reprocessarPendentes(tenantId = null) {
 
     for (const op of pendentes) {
         if (op.pedidoId && !podeAvancarSubop(op)) continue;
+
+        if (!destinoPermitido(op.destino)) {
+            if (op.motivoPendente !== MOTIVO_DESTINO_FORA_DA_LISTA) {
+                op.motivoPendente = MOTIVO_DESTINO_FORA_DA_LISTA;
+                alterou = true;
+            }
+            continue;
+        }
 
         const erro = validarPedido(op.tenantId, op.deviceId, op.megas, op.destino);
 
