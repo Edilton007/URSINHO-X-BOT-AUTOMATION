@@ -5,6 +5,7 @@ import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import java.net.URI
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -16,6 +17,10 @@ import javax.crypto.spec.GCMParameterSpec
  * Segredos e identificação do servidor são cifrados com AES/GCM usando chave
  * não exportável armazenada no Android Keystore. Valores antigos em texto
  * (de versões anteriores) são migrados na primeira leitura possível.
+ *
+ * O endereço do Backend é sempre reduzido à origem (esquema, host e porta).
+ * Qualquer caminho digitado, como /tenant, é descartado, porque as rotas do
+ * Agent começam em /automation/device e um prefixo extra gera 404 silencioso.
  */
 object ConfigStore {
     private const val PREFS = "ursinho_config"
@@ -77,10 +82,33 @@ object ConfigStore {
         return stored
     }
 
+    /**
+     * Reduz o endereço à origem: https://host[:porta].
+     * Exemplo: https://ursinho.wispbyte.org/tenant vira https://ursinho.wispbyte.org.
+     * Se o valor não for um URL reconhecível, devolve-o sem barra final e a
+     * validação em servidorSeguro decide se é aceite.
+     */
+    fun normalizarServidor(value: String): String {
+        val limpo = value.trim()
+        if (limpo.isEmpty()) return ""
+        return runCatching {
+            val uri = URI(limpo)
+            val esquema = uri.scheme?.lowercase()
+            val host = uri.host
+            if (esquema.isNullOrBlank() || host.isNullOrBlank()) {
+                limpo.trimEnd('/')
+            } else {
+                val porta = if (uri.port != -1) ":${uri.port}" else ""
+                "$esquema://$host$porta"
+            }
+        }.getOrDefault(limpo.trimEnd('/'))
+    }
+
     fun salvar(context: Context, servidor: String, apiKey: String, deviceId: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val servidorNormalizado = normalizarServidor(servidor)
         val encrypted = runCatching {
-            Triple(cifrar(servidor), cifrar(apiKey), cifrar(deviceId))
+            Triple(cifrar(servidorNormalizado), cifrar(apiKey), cifrar(deviceId))
         }.getOrNull() ?: run {
             prefs.edit().remove(CHAVE_SERVIDOR).remove(CHAVE_API_KEY).remove(CHAVE_DEVICE_ID).apply()
             return
@@ -92,7 +120,9 @@ object ConfigStore {
             .apply()
     }
 
-    fun servidor(context: Context): String = ler(context, CHAVE_SERVIDOR)
+    // A normalização na leitura corrige também configurações já gravadas com
+    // caminho, sem obrigar o utilizador a reintroduzir os dados.
+    fun servidor(context: Context): String = normalizarServidor(ler(context, CHAVE_SERVIDOR))
 
     fun apiKey(context: Context): String = ler(context, CHAVE_API_KEY)
 

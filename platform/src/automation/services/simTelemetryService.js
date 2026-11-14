@@ -1,4 +1,5 @@
 const db = require("../database/automationDb");
+const { diaOperacional } = require("../utils/diaOperacional");
 
 const TELEMETRIA_ANTIGA_MIN = (() => {
     const n = Number(process.env.SIM_TELEMETRY_STALE_MIN);
@@ -49,7 +50,7 @@ function chaveContador(deviceId, subscriptionId) {
 function obterContador(deviceId, subscriptionId, simExistente, agora) {
     db.simCounters = db.simCounters || {};
     const id = chaveContador(deviceId, subscriptionId);
-    const hojeStr = new Date(agora).toDateString();
+    const hojeStr = diaOperacional(agora);
     let contador = db.simCounters[id];
 
     if (!contador) {
@@ -118,7 +119,7 @@ function reservasDoSim(simId, hojeStr) {
 
         operacoesComTarefa.add(op.id);
         megasReservados += Number(task.megas) || 0;
-        if (new Date(task.criadaEmMs || 0).toDateString() === hojeStr) {
+        if (diaOperacional(task.criadaEmMs || 0) === hojeStr) {
             transferenciasReservadas += 1;
         }
     }
@@ -131,7 +132,7 @@ function reservasDoSim(simId, hojeStr) {
         if (!mesmaSubscricao(op.subscriptionId)) continue;
 
         megasReservados += Number(op.megas) || 0;
-        if (new Date(op.criadaEmMs || 0).toDateString() === hojeStr) {
+        if (diaOperacional(op.criadaEmMs || 0) === hojeStr) {
             transferenciasReservadas += 1;
         }
     }
@@ -198,7 +199,7 @@ function registrarStatus(tenantId, deviceId, dados) {
     }
 
     const contador = obterContador(deviceId, subscriptionId, existente, agora);
-    const hojeStr = new Date(agora).toDateString();
+    const hojeStr = diaOperacional(agora);
 
     db.sims[simId] = {
         simId,
@@ -225,7 +226,7 @@ function registrarTransferenciaConcluida(deviceId, slot, subscriptionId, operati
     }
 
     const agora = Date.now();
-    const hojeStr = new Date(agora).toDateString();
+    const hojeStr = diaOperacional(agora);
     const sim = db.sims[chaveSim(deviceId, slot)] || null;
     const simCorresponde = !!sim && sim.subscriptionId === subscriptionId;
 
@@ -299,18 +300,23 @@ function listarSimsDoTenant(tenantId) {
         .sort((a, b) => a.slot - b.slot);
 }
 
+/** Transferências do dia contadas no SIM; um registo de outro dia vale zero. */
+function transferenciasDoDia(sim, hojeStr) {
+    return sim.transferenciasData === hojeStr ? (sim.transferenciasHoje || 0) : 0;
+}
+
 /** Seleciona um SIM Vodacom do Tenant E do Device que executará a tarefa. */
 function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
     const agora = Date.now();
-    const hojeStr = new Date(agora).toDateString();
+    const hojeStr = diaOperacional(agora);
     const sims = listarSimsDoTenant(tenantId)
         .filter((sim) => sim.deviceId === deviceId)
         .sort((a, b) => {
             // Prioriza menor carga diária; desempata pelo menor consumo reservado.
             const ra = reservasDoSim(a.simId, hojeStr);
             const rb = reservasDoSim(b.simId, hojeStr);
-            const ca = (a.transferenciasHoje || 0) + ra.transferenciasReservadas;
-            const cb = (b.transferenciasHoje || 0) + rb.transferenciasReservadas;
+            const ca = transferenciasDoDia(a, hojeStr) + ra.transferenciasReservadas;
+            const cb = transferenciasDoDia(b, hojeStr) + rb.transferenciasReservadas;
             return ca - cb || ra.megasReservados - rb.megasReservados || a.slot - b.slot;
         });
 
@@ -319,7 +325,7 @@ function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
         if (!subscriptionIdValido(sim.subscriptionId)) continue;
 
         const reservas = reservasDoSim(sim.simId, hojeStr);
-        const transferenciasContabilizadas = (sim.transferenciasHoje || 0) + reservas.transferenciasReservadas;
+        const transferenciasContabilizadas = transferenciasDoDia(sim, hojeStr) + reservas.transferenciasReservadas;
         const internetLivre = Number(sim.internetMB) - reservas.megasReservados;
 
         if (transferenciasContabilizadas >= limiteDiario) continue;

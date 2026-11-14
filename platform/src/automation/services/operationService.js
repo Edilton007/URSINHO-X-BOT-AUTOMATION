@@ -501,11 +501,61 @@ function podeAvancarSubop(op) {
 }
 
 /**
+ * Quando uma parte de um pedido grande falha, as partes seguintes que ainda não
+ * foram alocadas ficariam à espera para sempre (podeAvancarSubop exige todas as
+ * anteriores CONCLUIDA): o cliente receberia só parte do volume e o resto ficaria
+ * em PENDENTE sem desfecho. Esta função cancela-as com motivo explícito.
+ * Partes já alocadas, em execução ou em revisão não são tocadas.
+ */
+function cancelarSubopsOrfas(tenantId = null) {
+    const agora = Date.now();
+    let alterou = false;
+
+    for (const pedido of Object.values(db.pedidos || {})) {
+        if (tenantId && pedido.tenantId !== tenantId) continue;
+
+        const partes = (pedido.subOps || []).map((id) => db.operations[id]).filter(Boolean);
+        const menorSeqFalhada = partes
+            .filter((parte) => parte.estado === "FALHOU")
+            .reduce((menor, parte) => Math.min(menor, parte.seq || 0), Infinity);
+        if (menorSeqFalhada === Infinity) continue;
+
+        for (const op of partes) {
+            if (op.estado !== "PENDENTE" || op.taskId) continue;
+            if ((op.seq || 0) <= menorSeqFalhada) continue;
+
+            const motivo = `Cancelada: a parte ${menorSeqFalhada} deste pedido falhou e as seguintes dependem dela.`;
+            op.estado = "FALHOU";
+            op.motivoPendente = null;
+            op.motivoFalha = motivo;
+            op.finalizadaEmMs = agora;
+            op.atualizadaEmMs = agora;
+            adicionarHistorico(op, "FALHOU", agora, motivo);
+
+            db.auditar({
+                tenantId: op.tenantId,
+                acao: "SUBOPERACAO_CANCELADA",
+                operacaoId: op.id,
+                pedidoId: pedido.id,
+                motivo
+            });
+            alterou = true;
+        }
+    }
+
+    if (alterou) db.save();
+    return alterou;
+}
+
+/**
  * Tenta dar SIM e tarefa às operações PENDENTE (as mais antigas primeiro).
  * Corre quando chega telemetria, quando uma operação termina, quando uma
  * revisão é resolvida e a cada minuto. Devolve quantas foram alocadas.
  */
 function reprocessarPendentes(tenantId = null) {
+    // Corre mesmo com a execução desativada: cancelar partes órfãs não executa USSD.
+    cancelarSubopsOrfas(tenantId);
+
     if (!execucaoPermitida()) return 0;
 
     reconciliarLeasesExpirados();
