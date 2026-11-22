@@ -20,6 +20,8 @@ const app = express();
 // Em hosts PaaS, PORT é a porta atribuída pelo painel. API_PORT
 // continua como fallback para instalações locais antigas.
 const PORT = Number(process.env.PORT || process.env.API_PORT) || 3000;
+// Interface de escuta. Por omissão todas (comportamento de produção inalterado); os testes definem API_HOST=127.0.0.1.
+const HOST = process.env.API_HOST || "0.0.0.0";
 const API_KEY = process.env.API_KEY;
 
 let realSocket = null;
@@ -767,13 +769,52 @@ app.patch(
 
 /*
 ============================================================
+TRATAMENTO GLOBAL DE ERROS
+============================================================
+Corpo inválido, pedido grande demais e erros internos devolvem sempre JSON
+controlado. Nunca expõem stack, caminhos, chaves nem detalhes internos; o
+detalhe técnico fica só no registo do servidor, com uma referência.
+*/
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+
+    const referencia = require("crypto").randomBytes(6).toString("hex");
+    let status = Number(err && (err.status || err.statusCode)) || 500;
+    let mensagem = "Erro interno.";
+
+    if (err && err.type === "entity.parse.failed") {
+        status = 400;
+        mensagem = "JSON inválido.";
+    } else if (err && err.type === "entity.too.large") {
+        status = 413;
+        mensagem = "Pedido demasiado grande.";
+    } else if (status >= 400 && status < 500) {
+        mensagem = "Pedido inválido.";
+    } else {
+        status = 500;
+    }
+
+    const caminho = String(req.originalUrl || req.url || "").split("?")[0].slice(0, 200);
+    if (status >= 500) {
+        console.error(`[API] erro interno ref=${referencia} ${req.method} ${caminho}:`, (err && err.stack) || err);
+    } else {
+        console.warn(`[API] pedido rejeitado ref=${referencia} ${status} ${req.method} ${caminho} (${(err && (err.type || err.message)) || "erro"})`);
+    }
+
+    res.status(status).json({ ok: false, error: mensagem, ref: referencia });
+});
+
+/*
+============================================================
 INICIAR API
 ============================================================
 */
 
 function startApi() {
     return new Promise((resolve, reject) => {
-        const server = app.listen(PORT, "0.0.0.0", () => {
+        const server = app.listen(PORT, HOST, () => {
             console.log(`🌐 API URSINHO X BOT V2 disponível na porta ${PORT}`);
             console.log("🔐 Autenticação da API ativada");
             resolve(server);
