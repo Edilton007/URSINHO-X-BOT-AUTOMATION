@@ -255,6 +255,12 @@ function registrarDevice(tenantId, deviceId) {
         ultimoContactoMs: existente?.ultimoContactoMs || null
     };
 
+    // Substituição: o dispositivo anterior perde a autorização e as suas tarefas
+    // pendentes deixam de poder ser executadas por ele.
+    if (tenant.deviceId && tenant.deviceId !== deviceId && db.devices[tenant.deviceId]) {
+        revogarDeviceSubstituido(tenant, tenant.deviceId, deviceId);
+    }
+
     tenant.deviceId = deviceId;
 
     db.save();
@@ -262,10 +268,65 @@ function registrarDevice(tenantId, deviceId) {
     return { ...db.devices[deviceId], apiKey };
 }
 
+/**
+ * Revoga o dispositivo substituído e trata o que ele deixou em curso:
+ * - tarefa ainda não reclamada: cancelada (FALHOU), nunca redistribuída;
+ * - execução já iniciada: PENDENTE_REVISAO, nunca repetida automaticamente;
+ * - operação ainda sem tarefa: passa para o dispositivo novo.
+ */
+function revogarDeviceSubstituido(tenant, antigoId, novoId) {
+    const agora = Date.now();
+    const antigo = db.devices[antigoId];
+    if (!antigo || antigo.tenantId !== tenant.id) return;
+
+    antigo.autorizado = false;
+    antigo.revogadoEmMs = agora;
+    antigo.substituidoPor = novoId;
+
+    const registar = (op, estado, detalhe) => {
+        if (!Array.isArray(op.historico)) op.historico = [];
+        op.historico.push({ estado, emMs: agora, detalhe });
+        op.atualizadaEmMs = agora;
+    };
+
+    for (const op of Object.values(db.operations || {})) {
+        if (op.tenantId !== tenant.id || op.deviceId !== antigoId) continue;
+        const tarefa = op.taskId && db.pendingTasks ? db.pendingTasks[op.taskId] : null;
+
+        if (op.estado === "AGUARDANDO_EXECUCAO") {
+            const motivo = "Cancelada: o dispositivo foi substituído antes de reclamar a tarefa.";
+            op.estado = "FALHOU";
+            op.motivoFalha = motivo;
+            op.finalizadaEmMs = agora;
+            if (tarefa) delete db.pendingTasks[op.taskId];
+            registar(op, "FALHOU", motivo);
+        } else if (op.estado === "EXECUTANDO") {
+            op.estado = "PENDENTE_REVISAO";
+            op.motivoPendenteRevisao = "DEVICE_SUBSTITUIDO_DURANTE_EXECUCAO";
+            if (tarefa) tarefa.estado = "PENDENTE_REVISAO";
+            registar(op, "PENDENTE_REVISAO", "Dispositivo substituído durante a execução. Resultado incerto, sem repetição automática.");
+        } else if (op.estado === "PENDENTE" && !op.taskId) {
+            op.deviceId = novoId;
+            registar(op, "PENDENTE", "Operação ainda sem tarefa passou para o dispositivo novo.");
+        }
+    }
+
+    if (typeof db.auditar === "function") {
+        db.auditar({
+            tenantId: tenant.id,
+            acao: "DEVICE_SUBSTITUIDO",
+            deviceId: antigoId,
+            novoDeviceId: novoId
+        });
+    }
+}
+
 function autenticarDevice(deviceId, apiKey) {
     const device = db.devices[deviceId];
     const tenant = device ? db.tenants[device.tenantId] : null;
-    return !!device && !!tenant && tenant.ativo !== false && device.autorizado !== false && segredoCorresponde(device, apiKey);
+    // Só o dispositivo atualmente associado ao Tenant pode operar por ele.
+    const eDeviceAtual = !!tenant && (!tenant.deviceId || tenant.deviceId === device.id);
+    return !!device && !!tenant && tenant.ativo !== false && device.autorizado !== false && eDeviceAtual && segredoCorresponde(device, apiKey);
 }
 
 function janelaOfflineMs() {
