@@ -22,16 +22,19 @@ test.after(() => {
     fs.rmSync(temp, { recursive: true, force: true });
 });
 
+let grupoSequence = 0;
+
 function prepararGrupo() {
-    const tenant = tenants.criarTenant({ nome: "Tenant Grupo WhatsApp" });
-    const device = tenants.registrarDevice(tenant.id, "device-whatsapp-preflight");
+    grupoSequence += 1;
+    const tenant = tenants.criarTenant({ nome: "Tenant Grupo WhatsApp " + grupoSequence });
+    const device = tenants.registrarDevice(tenant.id, "device-whatsapp-preflight-" + grupoSequence);
     const license = tenants.gerarCodigoLicenca(30);
     assert.equal(tenants.ativarLicenca(tenant.id, license.codigo).ok, true);
     tenants.marcarContactoDevice(device.id);
 
     const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
     assert.equal(pairing.ok, true);
-    const groupId = "123456789-1234567890@g.us";
+    const groupId = "123456789-123456789" + grupoSequence + "@g.us";
     const linked = identity.associarGrupoPorCodigo(groupId, "Grupo Teste", pairing.codigo);
     assert.equal(linked.ok, true);
 
