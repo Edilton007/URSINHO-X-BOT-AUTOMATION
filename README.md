@@ -43,10 +43,10 @@ Leia `docs/MODO-SEM-CUSTOS.md` antes de ativar qualquer integração externa. O 
 
 Leia primeiro `docs/PLANO-DE-EXECUCAO-E-IMPLANTACAO-v1.1.2.md`. Não substitua o servidor atual antes de guardar `.env`, bases `data/`, sessão `sessions/` e código anterior.
 
-Requisitos: Node.js 20+ e npm. Na pasta `platform/`:
+Requisitos: Node.js 22+ e npm. Na pasta `platform/`. A instalação define `YOUTUBE_DL_SKIP_DOWNLOAD=true` para evitar download opcional de yt-dlp durante `npm ci`; o binário standalone pode ser instalado depois com `npm run setup:media`.
 
 ```bash
-npm ci
+YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci
 npm run preflight
 npm run doctor
 npm start

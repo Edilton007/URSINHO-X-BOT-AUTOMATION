@@ -17,7 +17,7 @@ function safePath(value, fallback) {
 }
 
 console.log("URSINHO X BOT AUTOMATION • DIAGNÓSTICO LOCAL\n");
-check("Node.js >= 20", Number(process.versions.node.split(".")[0]) >= 20, process.version);
+check("Node.js >= 22", Number(process.versions.node.split(".")[0]) >= 22, process.version);
 check("OWNER configurado", /^\d{9,15}$/.test(String(process.env.OWNER || "").replace(/\D/g, "")));
 check("API_KEY distinta de ADMIN_API_KEY", !!process.env.API_KEY && !!process.env.ADMIN_API_KEY && process.env.API_KEY !== process.env.ADMIN_API_KEY);
 const automationExecutionEnabled = String(process.env.AUTOMATION_ALLOW_EXECUTION || "false").toLowerCase() === "true";
