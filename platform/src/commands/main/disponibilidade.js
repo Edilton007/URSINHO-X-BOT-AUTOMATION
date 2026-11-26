@@ -1,11 +1,7 @@
 "use strict";
 
 const automationBridge = require("../../services/automationBridgeService");
-const {
-    getPayments,
-    getVendaIATabela,
-    isSalesEnabled
-} = require("../../services/salesService");
+const { isSalesEnabled } = require("../../services/salesService");
 
 function parseMegas(input) {
     const value = String(input || "").trim().toLowerCase().replace(",", ".");
@@ -18,23 +14,13 @@ function parseMegas(input) {
     return megas;
 }
 
-function paymentLines(groupId) {
-    const payments = getPayments(groupId) || {};
-    const methods = [
-        ["mpesa", "M-Pesa"],
-        ["emola", "e-Mola"],
-        ["bim", "Banco"]
-    ];
-
-    return methods
-        .map(([key, label]) => {
-            const account = payments[key] || {};
-            const number = String(account.number || "").trim();
-            if (!number) return null;
-            const holder = String(account.name || "").trim();
-            return "• " + label + ": " + number + (holder ? " (" + holder + ")" : "");
-        })
-        .filter(Boolean);
+function formatMethod(method) {
+    const label = String(method.nome || method.tipo || "Pagamento").trim();
+    const account = String(method.conta || "").trim();
+    const bank = String(method.banco || "").trim();
+    const holder = String(method.titular || "").trim();
+    const instructions = String(method.instrucoes || "").trim();
+    return "• " + label + ": " + [account, bank, holder, instructions].filter(Boolean).join(" | ");
 }
 
 module.exports = {
@@ -54,7 +40,7 @@ module.exports = {
             }
 
             if (!isSalesEnabled(ctx.chat)) {
-                return ctx.reply("As vendas deste grupo estão desativadas. Contacta um administrador.");
+                return ctx.reply("As vendas deste grupo estão desactivadas. Contacta um administrador.");
             }
 
             const args = Array.isArray(ctx.args) ? ctx.args : [];
@@ -82,23 +68,30 @@ module.exports = {
                 );
             }
 
-            const payments = paymentLines(ctx.chat);
-            if (payments.length === 0) {
+            const checkout = automationBridge.obterCheckoutGrupo({
+                groupId: ctx.chat,
+                megas
+            });
+            if (!checkout.ok) {
                 return ctx.reply(
-                    "✅ Existe capacidade operacional para este pedido neste momento.\n\n" +
-                    "No entanto, ainda não há métodos de pagamento configurados neste grupo. Não efectues pagamento; contacta um administrador."
+                    "✅ Existe capacidade operacional neste momento, mas o checkout não está pronto.\n\n" +
+                    (checkout.error || "O pacote ou os métodos de pagamento não estão configurados.") +
+                    "\n\nNão efectues pagamento até o Tenant configurar os dados em falta."
                 );
             }
 
-            const tabela = String(getVendaIATabela(ctx.chat) || "").trim();
+            const productLine = checkout.produto
+                ? "Produto: *" + checkout.produto.nome + "*\nPreço: *" + Number(checkout.produto.precoMT).toFixed(2) + " MT*\n"
+                : "Pacote: *" + megas + " MB*\n" + (checkout.tabela ? "*Tabela de preços:*\n" + checkout.tabela + "\n" : "");
+
+            const payments = checkout.metodosPagamento.map(formatMethod);
             return ctx.reply(
                 "✅ *CAPACIDADE OPERACIONAL CONFIRMADA*\n\n" +
-                "Pacote: *" + megas + " MB*\n" +
+                productLine +
                 "Destino: *" + destino + "*\n\n" +
-                "A verificação é válida neste momento. A SIM e a quota serão verificadas novamente depois da confirmação do pagamento.\n\n" +
-                (tabela ? "*Tabela de preços deste grupo:*\n" + tabela + "\n\n" : "Consulta a tabela de preços publicada pelo grupo antes de pagar.\n\n") +
-                "*Métodos de pagamento:*\n" + payments.join("\n") +
-                "\n\nDepois do pagamento, envia o comprovativo neste grupo. O comprovativo será analisado e a confirmação do pagamento continua sujeita à verificação administrativa."
+                "A disponibilidade foi verificada agora. A SIM e a quota serão verificadas novamente depois da confirmação do pagamento.\n\n" +
+                "*Métodos de pagamento configurados:*\n" + payments.join("\n") +
+                "\n\nDepois do pagamento, envia o comprovativo neste grupo. O OCR verifica os dados identificáveis do comprovativo; a entrada efectiva do dinheiro continua sujeita à confirmação administrativa ou a uma integração oficial do prestador."
             );
         } catch (error) {
             console.error("[DISPONIBILIDADE] Erro:", error?.message || error);
