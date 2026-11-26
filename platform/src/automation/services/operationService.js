@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const db = require("../database/automationDb");
 const simTelemetryService = require("./simTelemetryService");
+const tenantService = require("./tenantService");
 
 const LIMITE_DIARIO_PADRAO = 10;
 const MEGAS_MIN = 100;
@@ -51,6 +52,64 @@ function validarPedido(tenantId, deviceId, megas, destino, opcoes = {}) {
 
     if (typeof destino !== "string" || !/^\d{9,12}$/.test(destino)) return "Número de destino inválido.";
     return null;
+}
+
+/**
+ * Pré-verificação sem criar operação, reservar dados ou iniciar USSD.
+ * É usada antes de apresentar as instruções de pagamento ao cliente.
+ * A elegibilidade é novamente verificada após o pagamento confirmado.
+ */
+function preverDisponibilidade(tenantId, deviceId, megas, destino) {
+    const erroValidacao = validarPedido(tenantId, deviceId, megas, destino);
+    if (erroValidacao) {
+        return { disponivel: false, codigo: "PEDIDO_INVALIDO", motivo: erroValidacao };
+    }
+
+    if (!execucaoPermitida()) {
+        return {
+            disponivel: false,
+            codigo: "EXECUCAO_DESATIVADA",
+            motivo: "As transferências automáticas estão temporariamente desativadas."
+        };
+    }
+
+    if (!destinoPermitido(destino)) {
+        return {
+            disponivel: false,
+            codigo: "DESTINO_NAO_AUTORIZADO",
+            motivo: "O número de destino não está autorizado para esta fase de testes."
+        };
+    }
+
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device || device.id !== deviceId || !device.autorizado || !device.online) {
+        return {
+            disponivel: false,
+            codigo: "AGENT_OFFLINE",
+            motivo: "O dispositivo Agent não está ligado e autenticado neste momento."
+        };
+    }
+
+    const sim = simTelemetryService.escolherSimElegivel(
+        tenantId,
+        deviceId,
+        megas,
+        LIMITE_DIARIO_PADRAO
+    );
+
+    if (!sim) {
+        return {
+            disponivel: false,
+            codigo: "SIM_MENSAL_NAO_ELEGIVEL",
+            motivo: "Não existe SIM Vodacom com quota mensal transferível comprovada, telemetria recente e limite diário disponível."
+        };
+    }
+
+    return {
+        disponivel: true,
+        codigo: "CAPACIDADE_CONFIRMADA",
+        motivo: "Existe capacidade operacional neste momento. A elegibilidade será novamente verificada após a confirmação do pagamento."
+    };
 }
 
 function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
@@ -897,6 +956,7 @@ function listarOperacoes(tenantId) {
 }
 
 module.exports = {
+    preverDisponibilidade,
     criarPedido,
     listarPedidos,
     resolverRevisao,
