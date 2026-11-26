@@ -16,7 +16,7 @@ object SaldoParser {
      * é convertido em quota mensal por inferência.
      */
     private val PADRAO_QUANTIDADE = Regex(
-        """(\\d+(?:[.,]\\d+)?)\\s*(mb|gb)""",
+        """(\d+(?:[.,]\d+)?)\s*(mb|gb)""",
         RegexOption.IGNORE_CASE
     )
     private val INDICADOR_MENSAL = Regex(
