@@ -76,7 +76,7 @@ internal object UssdDialogClassifier {
             listOf("internet", "data", "mb", "gb").any(normalizado::contains)
 
         val quotaMensalInformativa =
-            listOf("mensal", "monthly").any(normalizado::contains) &&
+            listOf("mensal", "mensais", "monthly").any(normalizado::contains) &&
                 Regex("""\b\d+(?:[,.]\d+)?\s*(?:mb|gb)\b""")
                     .containsMatchIn(normalizado)
 
