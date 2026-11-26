@@ -131,7 +131,9 @@ object UssdOperacoes {
         // pós-transferência pode preservar o histórico anterior para enviar ao
         // Backend a sequência completa: saldo antes → transferência → saldo depois.
         if (!preservarHistorico) UssdRoteiro.limparHistorico()
-        val iniciado = UssdRoteiro.iniciar(listOf("2"))
+        // A Vodacom orienta a marcar *100# e aguardar a mensagem de saldo.
+        // Não enviamos opções numéricas não confirmadas durante esta consulta.
+        val iniciado = UssdRoteiro.iniciar(emptyList())
         if (!iniciado) {
             callback(null)
             return
@@ -140,11 +142,13 @@ object UssdOperacoes {
             val saldo = SaldoParser.extrairSaldoMB(UssdRoteiro.obterHistorico())
             callback(saldo)
         }
-        discar(context, sim, "*100#")
+        discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
     }
 
     /**
-     * Executa *162# → 8 (Internet) → 2 (Transferir) → quantidade → destino.
+     * Executa o menu publicado pela Vodacom:
+     * *111# → 5 (Internet) → 8 (Serviços de internet) → 2 (Transferir Megas)
+     * → quantidade → destino.
      * A chamada só é iniciada após confirmar o PhoneAccount do subscriptionId.
      */
     fun executarTransferencia(
@@ -164,12 +168,14 @@ object UssdOperacoes {
             callback()
             return
         }
-        val iniciado = UssdRoteiro.iniciar(listOf("8", "2", megas.toString(), destino))
+        val iniciado = UssdRoteiro.iniciar(
+            VodacomUssdProtocol.roteiroTransferencia(megas, destino)
+        )
         if (!iniciado) {
             callback()
             return
         }
         UssdRoteiro.aoTerminar = callback
-        discar(context, sim, "*162#")
+        discar(context, sim, VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
     }
 }
