@@ -587,7 +587,8 @@ object BackendClient {
         operadora: String,
         internetMB: Int,
         subscriptionId: Int,
-        saldoMT: Double? = null
+        saldoMT: Double? = null,
+        internetTransferivelMB: Int? = null
     ): Resultado<Boolean> {
 
         if (
@@ -623,6 +624,11 @@ object BackendClient {
                 put(
                     "internetMB",
                     internetMB
+                )
+
+                put(
+                    "internetTransferivelMB",
+                    internetTransferivelMB ?: JSONObject.NULL
                 )
 
                 put(
