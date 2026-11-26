@@ -3,13 +3,21 @@ package com.ursinhox.automation.agent
 /**
  * Sequência USSD documentada pela Vodacom Moçambique para transferência
  * de megabytes. Cada resposta exige correspondência com a opção/pergunta.
+ *
+ * O último "1" só é enviado se a rede apresentar explicitamente a opção
+ * de confirmar e repetir a quantidade e o número de destino desta tarefa.
  */
 internal object VodacomUssdProtocol {
     const val CODIGO_CONSULTA_SALDO = "*100#"
     const val CODIGO_TRANSFERENCIA_MEGAS = "*111#"
 
-    fun roteiroTransferencia(megas: Int, destino: String): List<UssdRoteiro.Passo> =
-        listOf(
+    fun roteiroTransferencia(megas: Int, destino: String): List<UssdRoteiro.Passo> {
+        val destinoLocal = destino.filter(Char::isDigit).let {
+            if (it.startsWith("258") && it.length == 12) it.drop(3) else it
+        }
+        val quantidade = megas.toString()
+
+        return listOf(
             UssdRoteiro.Passo("5", setOf("5. internet", "5 internet")),
             UssdRoteiro.Passo(
                 "8",
@@ -20,11 +28,11 @@ internal object VodacomUssdProtocol {
                 setOf("2. transferir megas", "2 transferir megas", "2. transfer megabytes")
             ),
             UssdRoteiro.Passo(
-                megas.toString(),
+                quantidade,
                 setOf("quantidade de megabytes", "quantidade em mb", "quantos mb", "amount in mb")
             ),
             UssdRoteiro.Passo(
-                destino,
+                destinoLocal,
                 setOf(
                     "numero de destino",
                     "numero do destinatario",
@@ -33,6 +41,23 @@ internal object VodacomUssdProtocol {
                     "recipient",
                     "destination number"
                 )
+            ),
+            UssdRoteiro.Passo(
+                "1",
+                setOf(
+                    "1 para confirmar",
+                    "1. confirmar",
+                    "1 - confirmar",
+                    "1 confirmar",
+                    "press 1 to confirm",
+                    "reply 1 to confirm"
+                ),
+                termosObrigatorios = setOf(destinoLocal),
+                gruposTermosAlternativos = listOf(
+                    setOf("$quantidade mb", "${quantidade}mb"),
+                    setOf("transferir", "transferencia", "transfer")
+                )
             )
         )
+    }
 }
