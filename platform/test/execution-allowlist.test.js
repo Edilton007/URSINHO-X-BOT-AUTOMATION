@@ -36,7 +36,7 @@ function preparar() {
   tenants.ativarLicenca(tenant.id, licenca.codigo);
   const device = tenants.registrarDevice(tenant.id, `device-lista-${n}`);
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
-    slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, saldoMT: 5, subscriptionId: 30 + n
+    slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 5, subscriptionId: 30 + n
   });
   assert.equal(sim.ok, true);
   return { tenant, device };
