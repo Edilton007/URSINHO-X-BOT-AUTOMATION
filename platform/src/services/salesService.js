@@ -653,6 +653,16 @@ function criarPedidoAutomationPendente(groupId, dados) {
         expectedAmount: Math.round(expectedAmount * 100) / 100,
         productId,
         productName: String(dados.productName || "").slice(0, 100),
+        paymentMethods: Array.isArray(dados.paymentMethods)
+            ? dados.paymentMethods
+                .filter(method => method && method.ativo !== false)
+                .map(method => ({
+                    id: String(method.id || "").slice(0, 60),
+                    tipo: String(method.tipo || "").trim().toUpperCase().slice(0, 30),
+                    conta: String(method.conta || method.numero || "").replace(/[^0-9+]/g, "").slice(0, 30)
+                }))
+                .filter(method => method.tipo && method.conta.length >= 5)
+            : [],
         estado: "AGUARDANDO_PAGAMENTO",
         criadoEmMs: now,
         expiraEmMs: now + 30 * 60 * 1000,
@@ -713,6 +723,29 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
     const amount = Number(proof.amount);
     const amountMatches = Number.isFinite(amount) &&
         Math.round(amount * 100) === Math.round(Number(order.expectedAmount) * 100);
+
+    const operator = String(proof.operator || "").trim().toLowerCase();
+    const acceptedTypes = {
+        mpesa: new Set(["MPESA"]),
+        emola: new Set(["EMOLA"]),
+        bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL", "MKESH"])
+    };
+    const allowedTypes = acceptedTypes[operator] || new Set();
+    const methodMatches = Array.isArray(order.paymentMethods) &&
+        order.paymentMethods.some(method => allowedTypes.has(String(method.tipo || "").toUpperCase()));
+
+    if (!methodMatches) {
+        order.estado = "METODO_PAGAMENTO_DIVERGENTE";
+        order.paymentReference = String(proof.reference);
+        order.paymentOperator = operator || null;
+        order.atualizadoEmMs = now;
+        saveSales(db);
+        return {
+            error: "O comprovativo utiliza um método de pagamento que não foi apresentado neste pedido.",
+            code: "PAYMENT_METHOD_MISMATCH",
+            pedido: { ...order }
+        };
+    }
     if (!amountMatches) {
         order.estado = "VALOR_DIVERGENTE";
         order.paymentReference = String(proof.reference);
