@@ -11,6 +11,9 @@ const {
     isDetectorEnabled
 } = require("./salesService");
 
+const customerIdentityService = require("../automation/services/customerIdentityService");
+const storefrontService = require("../automation/services/storefrontService");
+
 const {
     unwrapMessage
 } = require("./messageService");
@@ -724,12 +727,38 @@ function verifyDestination(
      * Nunca usamos configuração global.
      */
 
-    const payments = getPayments(
-        groupId
-    );
+    let account = null;
+    let tenantStoreExists = false;
 
-    const account =
-        payments?.[operator];
+    // Para grupos associados, o comprovativo deve ser comparado com a mesma
+    // conta do Tenant que o bot apresentou ao cliente no checkout.
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+    if (association?.ok) {
+        const store = storefrontService.getStoreByTenant(association.tenantId);
+        if (store) {
+            tenantStoreExists = true;
+            const acceptedTypes = {
+                mpesa: new Set(["MPESA"]),
+                emola: new Set(["EMOLA"]),
+                bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL"])
+            };
+            const allowed = acceptedTypes[operator] || new Set();
+            const method = (Array.isArray(store.metodosPagamento) ? store.metodosPagamento : [])
+                .find(item => item && item.ativo !== false && allowed.has(String(item.tipo || "").trim().toUpperCase()));
+            if (method) {
+                account = {
+                    number: method.conta || method.numero || "",
+                    name: method.titular || ""
+                };
+            }
+        }
+    }
+
+    // Não recorrer à conta antiga do grupo quando já existe uma loja Tenant.
+    if (!tenantStoreExists) {
+        const payments = getPayments(groupId);
+        account = payments?.[operator] || null;
+    }
 
     if (
         !account ||
