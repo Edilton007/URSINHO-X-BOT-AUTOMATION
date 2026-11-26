@@ -11,7 +11,9 @@ object UssdRoteiro {
 
     data class Passo(
         val resposta: String,
-        val frasesEsperadas: Set<String> = emptySet()
+        val frasesEsperadas: Set<String> = emptySet(),
+        val termosObrigatorios: Set<String> = emptySet(),
+        val gruposTermosAlternativos: List<Set<String>> = emptyList()
     )
 
     @Volatile
@@ -60,9 +62,16 @@ object UssdRoteiro {
             val corresponde = passo.frasesEsperadas.any { frase ->
                 texto.contains(normalizar(frase))
             }
-            if (!corresponde) {
+            val termosPresentes = passo.termosObrigatorios.all { termo ->
+                texto.contains(normalizar(termo))
+            }
+            val gruposPresentes = passo.gruposTermosAlternativos.all { grupo ->
+                grupo.any { termo -> texto.contains(normalizar(termo)) }
+            }
+            if (!corresponde || !termosPresentes || !gruposPresentes) {
                 registrar(
-                    "SEGURANÇA: ecrã USSD não corresponde ao passo esperado. " +
+                    "SEGURANÇA: ecrã USSD não corresponde integralmente ao passo esperado " +
+                        "(frase, destino, quantidade ou contexto em falta). " +
                         "Resposta não enviada; sessão deve ser interrompida para revisão."
                 )
                 return null
