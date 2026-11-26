@@ -19,6 +19,7 @@ const tenants = require("../src/automation/services/tenantService");
 const identity = require("../src/automation/services/customerIdentityService");
 const telemetry = require("../src/automation/services/simTelemetryService");
 const sales = require("../src/services/salesService");
+const storefront = require("../src/automation/services/storefrontService");
 const command = require("../src/commands/main/disponibilidade");
 
 test.after(() => {
@@ -89,6 +90,35 @@ test("comando apresenta tabela e método M-Pesa apenas com capacidade confirmada
     assert.match(resposta, /M-Pesa: 841111111/);
     assert.match(resposta, /verificação administrativa/);
     assert.equal(Object.keys(db.operations).length, before);
+});
+
+test("configuração de pagamento do Tenant substitui contas legadas do grupo", async () => {
+    const { tenant, groupId } = await preparar({ quotaMensal: true });
+
+    const store = storefront.configurarLoja(tenant.id, {
+        slug: "tenant-checkout-source",
+        nome: "Loja Tenant",
+        publicado: true,
+        metodosPagamento: [
+            { id: "tenant-mpesa", tipo: "MPESA", nome: "M-Pesa Tenant", conta: "841222222", titular: "Titular Tenant" }
+        ]
+    });
+    assert.equal(store.ok, true);
+
+    const product = storefront.criarProduto(tenant.id, {
+        nome: "Pacote mensal 1 GB",
+        precoMT: 32.5,
+        quantidadeMB: 1024,
+        ativo: true
+    });
+    assert.equal(product.error, undefined);
+
+    const resposta = await executar(groupId, ["1gb", "841234567"]);
+
+    assert.match(resposta, /Pacote mensal 1 GB/);
+    assert.match(resposta, /32\.50 MT/);
+    assert.match(resposta, /841222222/);
+    assert.doesNotMatch(resposta, /841111111/);
 });
 
 test("comando rejeita pacote, número ou contexto inválido", async () => {
