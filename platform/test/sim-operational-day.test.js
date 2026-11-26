@@ -46,6 +46,24 @@ test("saldo geral não é tratado como quota mensal transferível", () => {
   assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 100, 10), null);
 });
 
+test("quota mensal válida pode ser enviada sem inventar saldo geral", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Saldo Geral Desconhecido" });
+  const device = tenants.registrarDevice(tenant.id, "device-saldo-desconhecido");
+  const status = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: null,
+    internetTransferivelMB: 500,
+    subscriptionId: 83
+  });
+
+  assert.equal(status.ok, true);
+  const sim = Object.values(db.sims).find((item) => item.deviceId === device.id);
+  assert.equal(sim.internetMB, null);
+  assert.equal(sim.internetTransferivelMB, 500);
+  assert.ok(telemetry.escolherSimElegivel(tenant.id, device.id, 100, 10));
+});
+
 test("quota mensal transferível tem de ter leitura própria e recente", () => {
   const tenant = tenants.criarTenant({ nome: "Tenant Quota Mensal" });
   const device = tenants.registrarDevice(tenant.id, "device-quota-mensal");
