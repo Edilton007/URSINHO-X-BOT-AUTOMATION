@@ -102,6 +102,58 @@ function getGroupMapping(groupId) {
 }
 
 /**
+ * Pré-verificação de disponibilidade a partir do grupo WhatsApp associado.
+ * Não cria pedidos, operações, tarefas nem reservas de quota.
+ */
+function preverDisponibilidadePedido({ groupId, recipientNumber, megas }) {
+    if (!groupId || !String(groupId).endsWith("@g.us")) {
+        return { error: "Grupo WhatsApp inválido.", disponivel: false, codigo: "GROUP_INVALID" };
+    }
+
+    const mapping = getGroupMapping(groupId);
+    if (!mapping) {
+        return { error: "Este grupo não tem Tenant de Automation associado.", disponivel: false, codigo: "GROUP_NOT_LINKED" };
+    }
+    if (mapping.error) {
+        return { error: mapping.error, disponivel: false, codigo: "GROUP_MAPPING_INVALID" };
+    }
+
+    const destino = String(recipientNumber || "").replace(/\D/g, "");
+    const quantidade = Number(megas);
+    if (!/^258?(?:84|85)\d{7}$/.test(destino) ||
+        !Number.isInteger(quantidade) || quantidade < 100 || quantidade > 10240) {
+        return {
+            error: "Indica um número Vodacom 84/85 válido e uma quantidade inteira entre 100 e 10.240 MB.",
+            disponivel: false,
+            codigo: "REQUEST_INVALID"
+        };
+    }
+
+    const tenantId = mapping.tenantId;
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device) {
+        return {
+            disponivel: false,
+            codigo: "DEVICE_NOT_ASSOCIATED",
+            motivo: "O Tenant ainda não tem um Android Agent associado."
+        };
+    }
+
+    const resultado = operationService.preverDisponibilidade(
+        tenantId,
+        device.id,
+        quantidade,
+        destino
+    );
+
+    return {
+        ...resultado,
+        tenantId,
+        deviceId: device.id
+    };
+}
+
+/**
  * Só é chamado por .compra, que exige um administrador real.
  * Assim, o OCR do comprovativo nunca dispara uma transferência sozinho.
  */
@@ -325,6 +377,7 @@ function startAutomationMonitor(sock) {
 
 module.exports = {
     isAutomationEnabledForGroup,
+    preverDisponibilidadePedido,
     criarTransferenciaAprovada,
     startAutomationMonitor,
     pollOnce
