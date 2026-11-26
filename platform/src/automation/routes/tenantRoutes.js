@@ -98,6 +98,32 @@ router.get("/:tenantId/sims", (req, res) => {
     res.json({ ok: true, sims });
 });
 
+// Pré-verificação sem criar operação nem reservar recursos. O cliente só deve
+// receber instruções de pagamento quando a capacidade estiver disponível.
+router.post("/:tenantId/disponibilidade", (req, res) => {
+    const tenantId = req.params.tenantId;
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device) {
+        return res.json({
+            ok: true,
+            disponivel: false,
+            codigo: "DEVICE_NOT_ASSOCIATED",
+            motivo: "Nenhum Android Agent está associado ao Tenant."
+        });
+    }
+
+    const megas = Number(req.body?.megas);
+    const destino = String(req.body?.destino || "").replace(/\\D/g, "");
+    const resultado = operationService.preverDisponibilidade(
+        tenantId,
+        device.id,
+        megas,
+        destino
+    );
+
+    res.json({ ok: true, ...resultado });
+});
+
 // A rota histórica já não pode criar transferências sem pagamento verificado.
 // Para cumprir um pedido, o corpo deve conter apenas o ID de um pedido pago.
 router.post("/:tenantId/transferir", (req, res) => {
