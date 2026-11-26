@@ -168,7 +168,7 @@ object UssdOperacoes {
             callback()
             return
         }
-        val iniciado = UssdRoteiro.iniciar(
+        val iniciado = UssdRoteiro.iniciarRoteiro(
             VodacomUssdProtocol.roteiroTransferencia(megas, destino)
         )
         if (!iniciado) {
