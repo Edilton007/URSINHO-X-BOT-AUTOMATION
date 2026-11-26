@@ -120,7 +120,7 @@ function preverDisponibilidadePedido({ groupId, recipientNumber, megas }) {
 
     const destino = String(recipientNumber || "").replace(/\D/g, "");
     const quantidade = Number(megas);
-    if (!/^258?(?:84|85)\d{7}$/.test(destino) ||
+    if (!/^(?:258)?(?:84|85)\d{7}$/.test(destino) ||
         !Number.isInteger(quantidade) || quantidade < 100 || quantidade > 10240) {
         return {
             error: "Indica um número Vodacom 84/85 válido e uma quantidade inteira entre 100 e 10.240 MB.",
