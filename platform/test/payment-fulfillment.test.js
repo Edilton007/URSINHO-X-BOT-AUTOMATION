@@ -33,7 +33,7 @@ function criarPedidoDeTeste() {
     assert.equal(tenantService.ativarLicenca(tenant.id, license.codigo).ok, true);
 
     const lojaResult = storefrontService.configurarLoja(tenant.id, {
-        slug: "payment-fulfillment-test",
+        slug: `payment-fulfillment-test-${sequenciaTeste}`,
         publicado: true,
         metodosPagamento: [
             { id: "mpesa-principal", tipo: "MPESA", conta: "841111111", titular: "Tenant" }
@@ -50,7 +50,7 @@ function criarPedidoDeTeste() {
     assert.equal(produtoResult.error, undefined);
 
     const pedidoResult = storefrontService.criarPedidoPublico(
-        "payment-fulfillment-test",
+        `payment-fulfillment-test-${sequenciaTeste}`,
         {
             nome: "Cliente Teste",
             telefone: "+258 84 123 4567",
