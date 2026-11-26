@@ -98,7 +98,7 @@ test("grupo só recebe autorização quando Agent, destino e quota mensal passam
 
 test("grupo sem pairing ativo não pode usar preflight de outro tenant", () => {
     const result = bridge.preverDisponibilidadePedido({
-        groupId: "123456789-1234567891@g.us",
+        groupId: "987654321-9876543210@g.us",
         recipientNumber: "841234567",
         megas: 500
     });
