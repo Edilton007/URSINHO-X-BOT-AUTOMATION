@@ -49,29 +49,44 @@ function loadUsedReceipts() {
             )
         );
 
-        if (!db.groups) {
-            db.groups = {};
+        if (
+            !db ||
+            typeof db !== "object" ||
+            Array.isArray(db) ||
+            !db.groups ||
+            typeof db.groups !== "object" ||
+            Array.isArray(db.groups)
+        ) {
+            throw new Error("Estrutura inválida em usedReceipts.json.");
         }
 
         return db;
 
     } catch (error) {
+        // Não devolver uma base vazia: isso permitiria aceitar referências já
+        // usadas se o ficheiro estivesse corrompido. Bloquear até restauração.
         console.error(
-            "usedReceipts load erro:",
+            "usedReceipts load erro — validação bloqueada:",
             error.message
         );
-
-        return {
-            groups: {}
-        };
+        throw new Error("Histórico de comprovativos ilegível. Validação bloqueada para evitar reutilização.");
     }
 }
 
 function saveUsedReceipts(db) {
-    fs.writeFileSync(
-        RECEIPTS_DB_PATH,
-        JSON.stringify(db, null, 2)
-    );
+    const temporary = `${RECEIPTS_DB_PATH}.tmp-${process.pid}`;
+    const payload = JSON.stringify(db, null, 2);
+    try {
+        fs.writeFileSync(temporary, payload, { encoding: "utf8", mode: 0o600, flag: "wx" });
+        fs.renameSync(temporary, RECEIPTS_DB_PATH);
+    } catch (error) {
+        try {
+            if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+        } catch (_) {
+            // Preservar o erro original; limpeza é best-effort.
+        }
+        throw error;
+    }
 }
 
 /* ============================================================
@@ -1529,7 +1544,7 @@ function formatReceiptResult(
     if (data.verified) {
         return `╭━━━〔 🐻 URSINHO X BOT 〕━━━╮
 ┃
-┃ ✅ PAGAMENTO DETECTADO
+┃ ✅ COMPROVATIVO RECONHECIDO
 ┃
 ┃ 👤 CLIENTE
 ┃ ┗ ${clientMention}
@@ -1549,7 +1564,10 @@ function formatReceiptResult(
 ┃ 👤 NOME
 ┃ ┗ ${destinationName}
 ┃
-┃ 🟢 DESTINO VERIFICADO
+┃ 🟢 CONTA DE DESTINO CORRESPONDENTE
+┃
+┃ ⏳ AGUARDE A CONFIRMAÇÃO
+┃ DO ADMINISTRADOR
 ┃
 ╰━━━〔 💎 URSINHO X BOT 〕━━━╯`;
     }
