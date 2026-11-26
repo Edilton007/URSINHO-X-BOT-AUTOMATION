@@ -1,7 +1,10 @@
 "use strict";
 
 const automationBridge = require("../../services/automationBridgeService");
-const { isSalesEnabled } = require("../../services/salesService");
+const {
+    isSalesEnabled,
+    criarPedidoAutomationPendente
+} = require("../../services/salesService");
 
 function parseMegas(input) {
     const value = String(input || "").trim().toLowerCase().replace(",", ".");
@@ -12,6 +15,18 @@ function parseMegas(input) {
     const megas = match[2] === "gb" ? amount * 1024 : amount;
     if (!Number.isSafeInteger(megas) || megas < 100 || megas > 10240) return null;
     return megas;
+}
+
+function normalizarDestino(value) {
+    let number = String(value || "").replace(/\D/g, "");
+    if (number.startsWith("258") && number.length === 12) number = number.slice(3);
+    return /^(84|85)\d{7}$/.test(number) ? number : null;
+}
+
+function obterSender(ctx, message) {
+    const sender = String(ctx.sender || message?.key?.participant || "").trim();
+    if (!sender || sender.length > 160 || !sender.includes("@")) return null;
+    return sender;
 }
 
 function formatMethod(method) {
@@ -27,7 +42,7 @@ module.exports = {
     name: "disponibilidade",
     aliases: ["verificartransferencia", "verificarpedido"],
     category: "main",
-    description: "Verificar se existe capacidade para um pedido de Internet antes do pagamento",
+    description: "Verificar disponibilidade e iniciar pedido de Internet antes do pagamento",
 
     run: async (sock, m, ctx) => {
         try {
@@ -45,9 +60,10 @@ module.exports = {
 
             const args = Array.isArray(ctx.args) ? ctx.args : [];
             const megas = parseMegas(args[0]);
-            const destino = String(args[1] || "").replace(/\D/g, "");
+            const destino = normalizarDestino(args[1]);
+            const sender = obterSender(ctx, m);
 
-            if (!megas || !/^(?:258)?(?:84|85)\d{7}$/.test(destino)) {
+            if (!megas || !destino || !sender) {
                 return ctx.reply(
                     "Formato: " + ctx.prefix + "disponibilidade 1gb 841234567\n" +
                     "Pacotes aceites: 100 MB a 10 GB. Usa um número Vodacom 84/85."
@@ -72,26 +88,41 @@ module.exports = {
                 groupId: ctx.chat,
                 megas
             });
-            if (!checkout.ok) {
+            if (!checkout.ok || checkout.fonte !== "TENANT" || !checkout.produto) {
                 return ctx.reply(
-                    "✅ Existe capacidade operacional neste momento, mas o checkout não está pronto.\n\n" +
-                    (checkout.error || "O pacote ou os métodos de pagamento não estão configurados.") +
-                    "\n\nNão efectues pagamento até o Tenant configurar os dados em falta."
+                    "✅ Existe capacidade operacional neste momento, mas o pedido ainda não pode receber pagamento.\n\n" +
+                    (checkout.error || "O Tenant ainda não tem um pacote com preço e métodos de pagamento próprios configurados.") +
+                    "\n\nO administrador deve concluir a configuração no Tenant App. Não efectues pagamento usando dados antigos do grupo."
                 );
             }
 
-            const productLine = checkout.produto
-                ? "Produto: *" + checkout.produto.nome + "*\nPreço: *" + Number(checkout.produto.precoMT).toFixed(2) + " MT*\n"
-                : "Pacote: *" + megas + " MB*\n" + (checkout.tabela ? "*Tabela de preços:*\n" + checkout.tabela + "\n" : "");
+            const pending = criarPedidoAutomationPendente(ctx.chat, {
+                sender,
+                recipientNumber: destino,
+                megas,
+                expectedAmount: checkout.produto.precoMT,
+                productId: checkout.produto.id,
+                productName: checkout.produto.nome,
+                paymentMethods: checkout.metodosPagamento
+            });
+            if (!pending.ok) {
+                return ctx.reply(
+                    "Não foi possível registar o pedido em segurança. Nenhum pagamento deve ser efectuado. " +
+                    (pending.error || "")
+                );
+            }
 
             const payments = checkout.metodosPagamento.map(formatMethod);
             return ctx.reply(
-                "✅ *CAPACIDADE OPERACIONAL CONFIRMADA*\n\n" +
-                productLine +
+                "✅ *PEDIDO PRÉ-VALIDADO*\n\n" +
+                "Pedido: *" + pending.pedido.id + "*\n" +
+                "Pacote: *" + checkout.produto.nome + "*\n" +
+                "Quantidade: *" + megas + " MB*\n" +
+                "Preço exacto: *" + Number(checkout.produto.precoMT).toFixed(2) + " MT*\n" +
                 "Destino: *" + destino + "*\n\n" +
-                "A disponibilidade foi verificada agora. A SIM e a quota serão verificadas novamente depois da confirmação do pagamento.\n\n" +
-                "*Métodos de pagamento configurados:*\n" + payments.join("\n") +
-                "\n\nDepois do pagamento, envia o comprovativo neste grupo. O OCR verifica os dados identificáveis do comprovativo; a entrada efectiva do dinheiro continua sujeita à confirmação administrativa ou a uma integração oficial do prestador."
+                "A capacidade foi confirmada neste momento. Este pedido expira em 30 minutos. A SIM e a quota serão verificadas novamente depois da confirmação do pagamento.\n\n" +
+                "*Métodos de pagamento do Tenant:*\n" + payments.join("\n") +
+                "\n\nDepois de pagar exactamente o valor indicado, envia o comprovativo neste grupo. O sistema compara o valor e o destinatário; a entrada efectiva do dinheiro continua sujeita à confirmação administrativa ou a uma integração oficial do prestador."
             );
         } catch (error) {
             console.error("[DISPONIBILIDADE] Erro:", error?.message || error);
