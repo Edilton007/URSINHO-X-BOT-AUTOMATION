@@ -120,7 +120,10 @@ object UssdOperacoes {
         }
     }
 
-    /** Consulta internet discando *100# e rejeitando a oferta que aparece. */
+    /**
+     * Consulta a quota mensal transferível.
+     * Sem quota mensal explicitamente identificada, devolve null e bloqueia a operação.
+     */
     fun consultarSaldo(
         context: Context,
         sim: SimInfo,
