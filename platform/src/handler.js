@@ -1301,7 +1301,9 @@ ${targetJid}
                                     {
                                         reference: receipt.reference,
                                         operator: receipt.operator,
-                                        amount: receipt.amount
+                                        amount: receipt.amount,
+                                        destination: receipt.destination,
+                                        destinationName: receipt.destinationName
                                     }
                                 );
 
