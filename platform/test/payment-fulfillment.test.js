@@ -20,9 +20,12 @@ test.after(() => {
     fs.rmSync(temp, { recursive: true, force: true });
 });
 
+let sequenciaTeste = 0;
+
 function criarPedidoDeTeste() {
-    const tenant = tenantService.criarTenant({ nome: "Tenant Pagamentos" });
-    const device = tenantService.registrarDevice(tenant.id, "device-payment-test");
+    sequenciaTeste += 1;
+    const tenant = tenantService.criarTenant({ nome: `Tenant Pagamentos ${sequenciaTeste}` });
+    const device = tenantService.registrarDevice(tenant.id, `device-payment-test-${sequenciaTeste}`);
     assert.equal(device.error, undefined);
 
     const license = tenantService.gerarCodigoLicenca(30);
