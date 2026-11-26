@@ -2,6 +2,7 @@ package com.ursinhox.automation.agent
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -36,6 +37,20 @@ class UssdRoteiroTest {
             ),
             UssdRoteiro.obterHistorico()
         )
+    }
+
+    @Test
+    fun naoConsomeRespostaQuandoTextoDoMenuNaoCorresponde() {
+        assertTrue(
+            UssdRoteiro.iniciarRoteiro(
+                listOf(UssdRoteiro.Passo("5", setOf("internet")))
+            )
+        )
+
+        assertNull(UssdRoteiro.proximoPasso("1. M-Pesa"))
+        assertTrue(UssdRoteiro.temProximoPasso())
+        assertEquals("5", UssdRoteiro.proximoPasso("5. Internet"))
+        assertTrue(!UssdRoteiro.temProximoPasso())
     }
 
     @Test
