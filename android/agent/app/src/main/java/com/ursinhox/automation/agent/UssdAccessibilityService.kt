@@ -165,19 +165,25 @@ class UssdAccessibilityService : AccessibilityService() {
      * Procura apenas um controlo clicável cujo rótulo seja exatamente "OK".
      * Não usa coordenadas nem clica em botões genéricos por posição.
      */
-    private fun encontrarBotaoOk(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+    private fun encontrarBotaoOk(
+        node: AccessibilityNodeInfo?,
+        ancestralClicavel: AccessibilityNodeInfo? = null
+    ): AccessibilityNodeInfo? {
         if (node == null) return null
         val rotulo = node.text?.toString()?.trim()
         val descricao = node.contentDescription?.toString()?.trim()
-        if (
-            node.isClickable &&
-            (rotulo.equals("OK", ignoreCase = true) ||
-                descricao.equals("OK", ignoreCase = true))
-        ) {
-            return node
+        val eBotaoOk =
+            rotulo.equals("OK", ignoreCase = true) ||
+                descricao.equals("OK", ignoreCase = true)
+
+        if (eBotaoOk) {
+            if (node.isClickable) return node
+            if (ancestralClicavel != null) return ancestralClicavel
         }
+
+        val proximoAncestral = if (node.isClickable) node else ancestralClicavel
         for (i in 0 until node.childCount) {
-            val encontrado = encontrarBotaoOk(node.getChild(i))
+            val encontrado = encontrarBotaoOk(node.getChild(i), proximoAncestral)
             if (encontrado != null) return encontrado
         }
         return null
