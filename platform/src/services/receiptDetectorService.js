@@ -22,10 +22,9 @@ const path = require("path");
    DATABASE DE COMPROVATIVOS UTILIZADOS
    ============================================================ */
 
-const RECEIPTS_DB_PATH = path.join(
-    __dirname,
-    "../database/usedReceipts.json"
-);
+const RECEIPTS_DB_PATH = process.env.URSINHO_USED_RECEIPTS_DB
+    ? path.resolve(process.env.URSINHO_USED_RECEIPTS_DB)
+    : path.join(__dirname, "../database/usedReceipts.json");
 
 function loadUsedReceipts() {
     if (!fs.existsSync(RECEIPTS_DB_PATH)) {
