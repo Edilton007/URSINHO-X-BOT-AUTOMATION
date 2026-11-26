@@ -62,7 +62,9 @@ test("associa comprovativo apenas com valor exacto e método oferecido", () => {
     const wrongAmount = sales.associarComprovativoAoPedidoAutomation(groupId, sender, {
         reference: "TX-WRONG-AMOUNT",
         operator: "mpesa",
-        amount: 20
+        amount: 20,
+        destination: "841222222",
+        destinationName: "Titular M-Pesa"
     });
     assert.equal(wrongAmount.code, "PAYMENT_AMOUNT_MISMATCH");
 });
