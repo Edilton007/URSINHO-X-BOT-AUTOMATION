@@ -136,15 +136,20 @@ object UssdOperacoes {
         // pós-transferência pode preservar o histórico anterior para enviar ao
         // Backend a sequência completa: saldo antes → transferência → saldo depois.
         if (!preservarHistorico) UssdRoteiro.limparHistorico()
-        // A Vodacom orienta a marcar *100# e aguardar a mensagem de saldo.
-        // Não enviamos opções numéricas não confirmadas durante esta consulta.
+        // *100# está documentado pela Vodacom para consulta de bónus, não
+        // constitui evidência segura da quota mensal transferível. A consulta
+        // de dados usa *131# (referência externa a validar no teste físico) e
+        // só é aceite quando a resposta identifica explicitamente uma quota
+        // mensal. Sem esse rótulo, o resultado é null e o Backend bloqueia.
         val iniciado = UssdRoteiro.iniciar(emptyList())
         if (!iniciado) {
             callback(null)
             return
         }
         UssdRoteiro.aoTerminar = {
-            val saldo = SaldoParser.extrairSaldoMB(UssdRoteiro.obterHistorico())
+            val saldo = SaldoParser.extrairSaldoMensalTransferivelMB(
+                UssdRoteiro.obterHistorico()
+            )
             callback(saldo)
         }
         discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
