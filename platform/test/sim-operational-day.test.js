@@ -33,11 +33,45 @@ test("dia operacional vira à meia-noite de Maputo e não às 02:00 locais", () 
   assert.equal(diaOperacional(Date.parse("2026-11-12T10:00:00Z")), "Thu Nov 12 2026");
 });
 
+test("saldo geral não é tratado como quota mensal transferível", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Saldo Geral" });
+  const device = tenants.registrarDevice(tenant.id, "device-saldo-geral");
+  const status = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    subscriptionId: 81
+  });
+  assert.equal(status.ok, true);
+  assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 100, 10), null);
+});
+
+test("quota mensal transferível tem de ter leitura própria e recente", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Quota Mensal" });
+  const device = tenants.registrarDevice(tenant.id, "device-quota-mensal");
+  const status = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    internetTransferivelMB: 750,
+    subscriptionId: 82
+  });
+  assert.equal(status.ok, true);
+  const sim = Object.values(db.sims).find((item) => item.deviceId === device.id);
+  assert.equal(sim.internetTransferivelMB, 750);
+  assert.ok(telemetry.escolherSimElegivel(tenant.id, device.id, 700, 10));
+  assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 751, 10), null);
+
+  sim.internetTransferivelAtualizadoEmMs = Date.now() - 31 * 60 * 1000;
+  assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 100, 10), null);
+});
+
 test("SIM com 10 transferências de ontem volta a ser elegível sem esperar nova telemetria", () => {
   const tenant = tenants.criarTenant({ nome: "Tenant Virada do Dia" });
   const device = tenants.registrarDevice(tenant.id, "device-virada-dia");
   const status = telemetry.registrarStatus(tenant.id, device.id, {
-    slot: 0, operadora: "Vodacom Moçambique", internetMB: 2000, saldoMT: 10, subscriptionId: 2
+    slot: 0, operadora: "Vodacom Moçambique", internetMB: 2000,
+    internetTransferivelMB: 2000, saldoMT: 10, subscriptionId: 2
   });
   assert.equal(status.ok, true);
 
