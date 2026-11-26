@@ -8,6 +8,7 @@ const path = require("node:path");
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ursinho-day-test-"));
 process.env.AUTOMATION_DB_FILE = path.join(temp, "automation.json");
 process.env.AUTOMATION_ALLOW_EXECUTION = "false";
+process.env.SIM_TELEMETRY_STALE_MIN = "30";
 
 const db = require("../src/automation/database/automationDb");
 const tenants = require("../src/automation/services/tenantService");
@@ -16,6 +17,14 @@ const { diaOperacional } = require("../src/automation/utils/diaOperacional");
 
 test.after(() => {
   fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("SIM com telemetria acima de 30 minutos deixa de estar operacional", () => {
+  const agora = Date.now();
+  assert.equal(telemetry.JANELA_ONLINE_MS, 30 * 60 * 1000);
+  assert.equal(telemetry.telemetriaRecente(agora - 29 * 60 * 1000, agora), true);
+  assert.equal(telemetry.telemetriaRecente(agora - 30 * 60 * 1000 - 1, agora), false);
+  assert.equal(telemetry.telemetriaRecente(agora + 3 * 60 * 1000, agora), false);
 });
 
 test("dia operacional vira à meia-noite de Maputo e não às 02:00 locais", () => {
