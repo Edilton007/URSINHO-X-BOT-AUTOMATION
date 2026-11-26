@@ -124,6 +124,7 @@ function loadSales() {
             if (!Array.isArray(group.orders)) group.orders = [];
             if (!Array.isArray(group.customers)) group.customers = [];
             if (!Array.isArray(group.pendingPayments)) group.pendingPayments = [];
+            if (!Array.isArray(group.pendingAutomationOrders)) group.pendingAutomationOrders = [];
         }
 
         return db;
@@ -833,6 +834,18 @@ function savePendingPayment(
          */
         recipientNumber:
             payment.recipientNumber || null,
+
+        // Referência ao pedido pré-validado no Tenant/WhatsApp.
+        preflightOrderId:
+            payment.preflightOrderId || null,
+
+        expectedMegas:
+            Number.isSafeInteger(payment.expectedMegas) ? payment.expectedMegas : null,
+
+        expectedAmount:
+            Number.isFinite(Number(payment.expectedAmount)) && payment.expectedAmount != null
+                ? Math.round(Number(payment.expectedAmount) * 100) / 100
+                : null,
 
         status:
             payment.status ||
