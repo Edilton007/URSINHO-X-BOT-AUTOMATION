@@ -26,17 +26,18 @@ test.after(() => {
     fs.rmSync(temp, { recursive: true, force: true });
 });
 
+let commandSequence = 0;
+
 async function preparar({ quotaMensal }) {
-    const tenant = tenants.criarTenant({ nome: "Tenant Comando WhatsApp" });
-    const device = tenants.registrarDevice(tenant.id, "device-command-" + (quotaMensal ? "yes" : "no"));
+    commandSequence += 1;
+    const tenant = tenants.criarTenant({ nome: "Tenant Comando WhatsApp " + commandSequence });
+    const device = tenants.registrarDevice(tenant.id, "device-command-" + commandSequence);
     const license = tenants.gerarCodigoLicenca(30);
     tenants.ativarLicenca(tenant.id, license.codigo);
     tenants.marcarContactoDevice(device.id);
 
     const pairing = identity.criarCodigoAssociacaoGrupo(tenant.id);
-    const groupId = quotaMensal
-        ? "123456789-1234567891@g.us"
-        : "123456789-1234567892@g.us";
+    const groupId = "123456789-123456789" + (20 + commandSequence) + "@g.us";
     identity.associarGrupoPorCodigo(groupId, "Grupo Cliente", pairing.codigo);
 
     telemetry.registrarStatus(tenant.id, device.id, {
