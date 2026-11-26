@@ -46,6 +46,6 @@
     "ytdlp-nodejs": "^3.4.5"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

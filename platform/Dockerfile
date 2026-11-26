@@ -3,7 +3,7 @@ FROM node:24-bookworm-slim
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --chown=node:node . .
 RUN mkdir -p /data /app/sessions /app/downloads /app/tmp /app/logs && chown -R node:node /app /data
 USER node

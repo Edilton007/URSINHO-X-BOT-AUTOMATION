@@ -4,7 +4,7 @@ Este diretório contém o processo central Node.js: WhatsApp Bot V2, API Express
 
 ## Requisitos
 
-- Node.js 20 ou superior (Node 24 também é suportado).
+- Node.js 22 ou superior (Node 24 é usado no servidor Wispbyte actual).
 - Volume persistente para os diretórios reais de base (por padrão `src/database/`, `src/automation/database/`) e `sessions/`.
 - Uma instância apenas: o armazenamento operacional é JSON single-writer.
 - HTTPS público no alojamento.
@@ -12,7 +12,7 @@ Este diretório contém o processo central Node.js: WhatsApp Bot V2, API Express
 ## Instalar e testar
 
 ```bash
-npm ci
+YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci
 npm test
 npm run check
 npm run verify:release
@@ -20,7 +20,7 @@ npm run preflight
 npm run doctor
 ```
 
-Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em alojamento gerido, respeitar o `PORT` atribuído pelo painel; `API_PORT` é fallback. A API faz bind em `0.0.0.0`.
+O `YOUTUBE_DL_SKIP_DOWNLOAD=true` evita que a instalação dependa de um pedido anónimo à API de releases do GitHub. O pacote de vídeo pode ser preparado separadamente com `npm run setup:media` quando houver conectividade. Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em alojamento gerido, respeitar o `PORT` atribuído pelo painel; `API_PORT` é fallback. A API faz bind em `0.0.0.0`.
 
 ## Rotas principais
 
