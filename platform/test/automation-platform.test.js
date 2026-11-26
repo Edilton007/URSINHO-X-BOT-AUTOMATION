@@ -458,6 +458,7 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
 
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 1200,
+    internetTransferivelMB: 1200,
     saldoMT: 50, subscriptionId: 17
   });
   assert.equal(sim.ok, true);
