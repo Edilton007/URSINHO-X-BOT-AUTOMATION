@@ -15,11 +15,11 @@ class VodacomUssdProtocolTest {
         assertEquals("*111#", VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
         assertEquals(
             listOf(
-                UssdRoteiro.Passo("5", setOf("internet")),
-                UssdRoteiro.Passo("8", setOf("servicos de internet", "servicos internet", "internet services")),
-                UssdRoteiro.Passo("2", setOf("transferir megas", "transferencia de megas", "transfer megabytes")),
-                UssdRoteiro.Passo("2048", setOf("quantidade", "megabytes", "quantos mb", "amount in mb")),
-                UssdRoteiro.Passo("841234567", setOf("numero de destino", "numero do destinatario", "destinatario", "recipient", "destination number"))
+                UssdRoteiro.Passo("5", setOf("5. internet", "5 internet")),
+                UssdRoteiro.Passo("8", setOf("8. servicos de internet", "8 servicos de internet", "8. internet services")),
+                UssdRoteiro.Passo("2", setOf("2. transferir megas", "2 transferir megas", "2. transfer megabytes")),
+                UssdRoteiro.Passo("2048", setOf("quantidade de megabytes", "quantidade em mb", "quantos mb", "amount in mb")),
+                UssdRoteiro.Passo("841234567", setOf("numero de destino", "numero do destinatario", "introduza o numero", "destinatario", "recipient", "destination number"))
             ),
             VodacomUssdProtocol.roteiroTransferencia(2048, "841234567")
         )
