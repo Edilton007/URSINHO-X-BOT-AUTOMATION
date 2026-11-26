@@ -636,7 +636,20 @@ function criarPedidoAutomationPendente(groupId, dados) {
     const group = ensureGroup(db, groupId);
     const now = Date.now();
 
-    // Um único pedido aberto por cliente/grupo elimina ambiguidades entre comprovativos.
+    // Se já existe comprovativo ligado a um pedido, o administrador tem de
+    // resolver esse pedido antes de aceitar um segundo para o mesmo cliente.
+    const aguardandoDecisao = group.pendingAutomationOrders.find(item =>
+        item.sender === sender &&
+        ["COMPROVATIVO_RECEBIDO", "OPERACAO_CRIADA"].includes(item.estado)
+    );
+    if (aguardandoDecisao) {
+        return {
+            error: "Já existe um pedido com comprovativo recebido ou operação criada à espera de resolução. Aguarda a decisão administrativa antes de iniciar outro pedido.",
+            code: "CUSTOMER_ORDER_REVIEW_PENDING"
+        };
+    }
+
+    // Um único pedido de pagamento aberto por cliente/grupo elimina ambiguidades.
     for (const item of group.pendingAutomationOrders) {
         if (item.sender === sender && item.estado === "AGUARDANDO_PAGAMENTO") {
             item.estado = "SUBSTITUIDO";
