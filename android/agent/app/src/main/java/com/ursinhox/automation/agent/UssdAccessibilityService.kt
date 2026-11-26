@@ -109,13 +109,17 @@ class UssdAccessibilityService : AccessibilityService() {
                 UssdRoteiro.parar()
             }
         } else if (campoTexto != null && UssdRoteiro.temProximoPasso()) {
-            val resposta = UssdRoteiro.proximoPasso() ?: return
+            val resposta = UssdRoteiro.proximoPasso(textoDialogo)
+            if (resposta == null) {
+                log("O texto do menu não corresponde ao próximo passo autorizado. Nenhuma resposta foi enviada; sessão interrompida para revisão.")
+                UssdRoteiro.parar()
+                return
+            }
             val enviado = preencherEEnviar(root, campoTexto, resposta)
             if (enviado) {
-                log("Resposta automática enviada: \"$resposta\"")
+                log("Resposta automática enviada após validação do menu: \"$resposta\"")
             } else {
-                log("Não foi possível localizar o botão de enviar para responder \"$resposta\" — " +
-                    "pare e verifique manualmente. Roteiro interrompido.")
+                log("Não foi possível preencher o campo e localizar o botão de envio para \"$resposta\" — sessão interrompida para revisão.")
                 UssdRoteiro.parar()
             }
         } else if (campoTexto != null && !UssdRoteiro.temProximoPasso()) {
@@ -147,7 +151,11 @@ class UssdAccessibilityService : AccessibilityService() {
                 valor
             )
         }
-        campoTexto.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, argumentos)
+        val textoDefinido = campoTexto.performAction(
+            AccessibilityNodeInfo.ACTION_SET_TEXT,
+            argumentos
+        )
+        if (!textoDefinido) return false
 
         val botaoEnviar = encontrarBotaoPorTexto(root, TEXTOS_BOTAO_ENVIAR) ?: return false
         return botaoEnviar.performAction(AccessibilityNodeInfo.ACTION_CLICK)
