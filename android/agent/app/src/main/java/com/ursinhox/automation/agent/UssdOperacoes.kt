@@ -20,6 +20,11 @@ import androidx.core.content.ContextCompat
  * na tarefa do Backend. Nunca usa a posição da lista como se fosse slotIndex
  * e nunca deixa o Android escolher silenciosamente a linha predefinida.
  */
+data class LeituraSaldo(
+    val saldoGeralMB: Int?,
+    val internetTransferivelMB: Int?
+)
+
 object UssdOperacoes {
 
     private fun obterPhoneAccountDoSim(
@@ -141,6 +146,40 @@ object UssdOperacoes {
         UssdRoteiro.aoTerminar = {
             val saldo = SaldoParser.extrairSaldoMB(UssdRoteiro.obterHistorico())
             callback(saldo)
+        }
+        discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
+    }
+
+    /**
+     * Consulta *100# e devolve dois valores independentes:
+     * saldo geral de dados e quota mensal explicitamente identificada.
+     * Nenhum dos dois é inferido a partir do outro.
+     */
+    fun consultarSaldoDetalhado(
+        context: Context,
+        sim: SimInfo,
+        preservarHistorico: Boolean = false,
+        callback: (LeituraSaldo) -> Unit
+    ) {
+        if (UssdRoteiro.ativo) {
+            UssdRoteiro.registrar("Consulta detalhada recusada: já existe uma sessão USSD em andamento.")
+            callback(LeituraSaldo(null, null))
+            return
+        }
+        if (!preservarHistorico) UssdRoteiro.limparHistorico()
+        val iniciado = UssdRoteiro.iniciar(emptyList())
+        if (!iniciado) {
+            callback(LeituraSaldo(null, null))
+            return
+        }
+        UssdRoteiro.aoTerminar = {
+            val historico = UssdRoteiro.obterHistorico()
+            callback(
+                LeituraSaldo(
+                    saldoGeralMB = SaldoParser.extrairSaldoMB(historico),
+                    internetTransferivelMB = SaldoParser.extrairSaldoMensalTransferivelMB(historico)
+                )
+            )
         }
         discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
     }
