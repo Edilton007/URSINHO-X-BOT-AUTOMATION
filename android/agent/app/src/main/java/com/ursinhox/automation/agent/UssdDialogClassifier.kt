@@ -34,13 +34,14 @@ internal object UssdDialogClassifier {
         // Nunca fechar automaticamente um diálogo cujo OK possa avançar,
         // aceitar, comprar, pagar, subscrever ou confirmar uma operação.
         val exigeDecisao = listOf(
-            "confirmar", "confirma", "confirm ",
-            "para continuar", "continuar para", "pretende", "deseja",
-            "aceitar", "aceita", "comprar", "adquirir", "subscrever",
-            "assinar", "pagar", "pagamento", "sera debitado", "serao debitados",
-            "custo", "taxa", "cobrado", "cobrada", "transferir agora",
+            "confirm", "confirmation", "para continuar", "continuar para",
+            "continue", "proceed", "pretende", "deseja",
+            "aceitar", "aceita", "accept", "comprar", "adquirir", "buy", "purchase",
+            "subscrever", "subscription", "assinar", "pagar", "pagamento", "pay",
+            "payment", "sera debitado", "serao debitados", "charged", "charge",
+            "custo", "taxa", "fee", "cost", "cobrado", "cobrada", "transferir agora",
             "introduza", "digite", "responda", "selecione", "escolha",
-            "press 1", "reply with", "enter the", "select an option"
+            "press 1", "reply with", "enter the", "select an option", "choose an option"
         ).any(normalizado::contains)
         if (exigeDecisao) return false
 
@@ -51,10 +52,13 @@ internal object UssdDialogClassifier {
         if (avisoPromocionalConhecido) return true
 
         // Respostas de consulta de saldo/dados sem pedido de decisão.
+        val quantidadeDeDados = Regex("""\\b\\d+(?:[,.]\\d+)?\\s*(?:mb|gb)\\b""")
+            .containsMatchIn(normalizado)
         val informacaoDeSaldo =
-            (normalizado.contains("saldo") || normalizado.contains("balance")) &&
-            listOf("internet", "dados", "disponivel", "restante", "remaining", "available", "mb", "gb")
-                .any(normalizado::contains)
+            ((normalizado.contains("saldo") || normalizado.contains("balance")) &&
+                listOf("internet", "dados", "disponivel", "restante", "remaining", "available", "mb", "gb")
+                    .any(normalizado::contains)) ||
+                ((normalizado.contains("internet") || normalizado.contains("data")) && quantidadeDeDados)
         if (informacaoDeSaldo) return true
 
         val informacaoDeConsulta = listOf(
