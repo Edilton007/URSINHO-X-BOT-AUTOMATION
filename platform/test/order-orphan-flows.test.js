@@ -34,7 +34,9 @@ function prepararPedido(megas = 30720) {
   });
   assert.equal(status.ok, true);
 
-  const criado = operations.criarPedido(tenant.id, device.id, megas, `25884${String(1000000 + contador)}`);
+  const destinoTeste = `25884${String(1000000 + contador)}`;
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = destinoTeste;
+  const criado = operations.criarPedido(tenant.id, device.id, megas, destinoTeste);
   assert.ok(criado.pedido, JSON.stringify(criado));
   const pedido = db.pedidos[criado.pedido.id];
   const partes = pedido.subOps.map((id) => db.operations[id]);

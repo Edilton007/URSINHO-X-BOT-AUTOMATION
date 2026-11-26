@@ -8,6 +8,8 @@ const path = require("node:path");
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ursinho-orphan-test-"));
 process.env.AUTOMATION_DB_FILE = path.join(temp, "automation.json");
 process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+// Os testes declaram explicitamente os destinos sintéticos que podem receber tarefas.
+process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567,258841234568,258841234569";
 
 const db = require("../src/automation/database/automationDb");
 const tenants = require("../src/automation/services/tenantService");
