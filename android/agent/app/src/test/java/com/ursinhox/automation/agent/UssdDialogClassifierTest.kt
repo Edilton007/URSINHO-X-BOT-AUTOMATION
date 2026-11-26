@@ -45,6 +45,15 @@ class UssdDialogClassifierTest {
     }
 
     @Test
+    fun fechaDialogoInformativoComQuotaMensalExplicitamenteIdentificada() {
+        assertTrue(
+            UssdDialogClassifier.deveFecharComOk(
+                "Internet mensal disponível: 500 MB"
+            )
+        )
+    }
+
+    @Test
     fun naoFechaConfirmacaoDeTransferencia() {
         assertFalse(
             UssdDialogClassifier.deveFecharComOk(
