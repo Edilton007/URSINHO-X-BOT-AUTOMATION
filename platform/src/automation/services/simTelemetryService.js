@@ -143,7 +143,7 @@ function reservasDoSim(simId, hojeStr) {
 }
 
 function registrarStatus(tenantId, deviceId, dados) {
-    const { slot, operadora, internetMB, saldoMT, subscriptionId } = dados || {};
+    const { slot, operadora, internetMB, internetTransferivelMB, saldoMT, subscriptionId } = dados || {};
 
     if (!tenantId || !deviceId) {
         return { error: "Tenant ou Device inválido." };
@@ -168,6 +168,11 @@ function registrarStatus(tenantId, deviceId, dados) {
 
     if (!subscriptionIdValido(subscriptionId)) {
         return { error: "subscriptionId inválido ou ausente. Atualize o Android Agent antes de reportar telemetria operacional." };
+    }
+
+    if (internetTransferivelMB !== null && internetTransferivelMB !== undefined &&
+        (!Number.isSafeInteger(internetTransferivelMB) || internetTransferivelMB < 0)) {
+        return { error: "internetTransferivelMB deve ser uma leitura inteira, explícita e não negativa." };
     }
 
     if (saldoMT !== null && saldoMT !== undefined &&
@@ -211,6 +216,14 @@ function registrarStatus(tenantId, deviceId, dados) {
         subscriptionId,
         operadora: operadora.trim(),
         internetMB: Math.floor(internetMB),
+        // Este campo só pode ser preenchido por uma leitura que identifique
+        // especificamente a quota mensal transferível. Nunca inferir do saldo geral.
+        internetTransferivelMB: Number.isSafeInteger(internetTransferivelMB)
+            ? internetTransferivelMB
+            : (subscriptionMudou ? null : (existente.internetTransferivelMB ?? null)),
+        internetTransferivelAtualizadoEmMs: Number.isSafeInteger(internetTransferivelMB)
+            ? agora
+            : (subscriptionMudou ? null : (existente.internetTransferivelAtualizadoEmMs ?? null)),
         saldoMT: typeof saldoMT === "number" ? saldoMT : (existente.saldoMT ?? null),
         atualizadoEmMs: agora,
         transferenciasHoje: contador.transferenciasHoje,
@@ -328,7 +341,11 @@ function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
 
         const reservas = reservasDoSim(sim.simId, hojeStr);
         const transferenciasContabilizadas = transferenciasDoDia(sim, hojeStr) + reservas.transferenciasReservadas;
-        const internetLivre = Number(sim.internetMB) - reservas.megasReservados;
+        // Transferências da Vodacom usam megas mensais. Saldo geral de Internet
+        // (*100#) não prova que os dados são transferíveis.
+        if (!Number.isSafeInteger(sim.internetTransferivelMB) ||
+            !telemetriaRecente(sim.internetTransferivelAtualizadoEmMs, agora)) continue;
+        const internetLivre = sim.internetTransferivelMB - reservas.megasReservados;
 
         if (transferenciasContabilizadas >= limiteDiario) continue;
         if (!Number.isFinite(internetLivre) || internetLivre < megas) continue;
