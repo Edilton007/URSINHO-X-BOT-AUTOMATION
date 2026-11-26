@@ -8,7 +8,9 @@ package com.ursinhox.automation.agent
  * de confirmar e repetir a quantidade e o número de destino desta tarefa.
  */
 internal object VodacomUssdProtocol {
-    const val CODIGO_CONSULTA_SALDO = "*100#"
+    // *131# é reportado por referência externa como consulta de dados.
+    // A resposta e a quota mensal só ficam validadas após teste real da SIM.
+    const val CODIGO_CONSULTA_SALDO = "*131#"
     const val CODIGO_TRANSFERENCIA_MEGAS = "*111#"
 
     fun roteiroTransferencia(megas: Int, destino: String): List<UssdRoteiro.Passo> {
