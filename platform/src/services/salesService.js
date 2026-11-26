@@ -635,7 +635,7 @@ function criarPedidoAutomationPendente(groupId, dados) {
         ? dados.paymentMethods.filter(method =>
             method && method.ativo !== false &&
             String(method.tipo || "").trim() &&
-            String(method.conta || method.numero || "").replace(/\\D/g, "").length >= 5
+            String(method.conta || method.numero || "").replace(/\D/g, "").length >= 5
         )
         : [];
     if (metodos.length === 0) return { error: "O pedido não tem método de pagamento activo do Tenant." };
@@ -652,7 +652,7 @@ function criarPedidoAutomationPendente(groupId, dados) {
     );
     if (aguardandoDecisao) {
         return {
-            error: "Já existe um pedido com comprovativo recebido ou operação criada à espera de resolução. Aguarda a decisão administrativa antes de iniciar outro pedido.",
+            error: "Já existe um comprovativo associado a um pedido à espera de confirmação administrativa. Aguarda a decisão antes de iniciar outro pedido.",
             code: "CUSTOMER_ORDER_REVIEW_PENDING"
         };
     }
