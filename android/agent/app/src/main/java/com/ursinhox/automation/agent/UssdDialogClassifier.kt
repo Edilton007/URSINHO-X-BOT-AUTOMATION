@@ -75,7 +75,12 @@ internal object UssdDialogClassifier {
             (normalizado.contains("you have") || normalizado.contains("voce tem")) &&
             listOf("internet", "data", "mb", "gb").any(normalizado::contains)
 
-        return informacaoDeConsulta || informacaoDeDados
+        val quotaMensalInformativa =
+            listOf("mensal", "monthly").any(normalizado::contains) &&
+                Regex("""\b\d+(?:[,.]\d+)?\s*(?:mb|gb)\b""")
+                    .containsMatchIn(normalizado)
+
+        return informacaoDeConsulta || informacaoDeDados || quotaMensalInformativa
     }
 
     private fun normalizar(texto: String): String =
