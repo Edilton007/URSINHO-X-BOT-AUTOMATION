@@ -113,7 +113,7 @@ router.post("/:tenantId/disponibilidade", (req, res) => {
     }
 
     const megas = Number(req.body?.megas);
-    const destino = String(req.body?.destino || "").replace(/\\D/g, "");
+    const destino = String(req.body?.destino || "").replace(/\D/g, "");
     const resultado = operationService.preverDisponibilidade(
         tenantId,
         device.id,
