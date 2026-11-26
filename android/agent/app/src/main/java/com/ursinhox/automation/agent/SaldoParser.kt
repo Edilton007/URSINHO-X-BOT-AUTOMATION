@@ -17,11 +17,11 @@ object SaldoParser {
      */
     private val PADROES_SALDO_MENSAL = listOf(
         Regex(
-            """(?:internet|dados|benef[ií]cio|pacote)?[^\r\n]{0,40}(?:mensal|monthly)[^\r\n]{0,40}(\d+(?:[.,]\d+)?)\s*(mb|gb)""",
+            """(?:internet|dados|benef[ií]cio|pacote)?[^\r\n]{0,40}(?:mensal|mensais|monthly)[^\r\n]{0,40}(\d+(?:[.,]\d+)?)\s*(mb|gb)""",
             RegexOption.IGNORE_CASE
         ),
         Regex(
-            """(\d+(?:[.,]\d+)?)\s*(mb|gb)[^\r\n]{0,40}(?:mensal|monthly)""",
+            """(\d+(?:[.,]\d+)?)\s*(mb|gb)[^\r\n]{0,40}(?:mensal|mensais|monthly)""",
             RegexOption.IGNORE_CASE
         )
     )
