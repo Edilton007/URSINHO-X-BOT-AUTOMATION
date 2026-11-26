@@ -175,13 +175,16 @@ class UssdAccessibilityService : AccessibilityService() {
         val eBotaoOk =
             rotulo.equals("OK", ignoreCase = true) ||
                 descricao.equals("OK", ignoreCase = true)
+        val eClasseBotao = node.className?.toString()
+            ?.contains("Button", ignoreCase = true) == true
 
-        if (eBotaoOk) {
-            if (node.isClickable) return node
-            if (ancestralClicavel != null) return ancestralClicavel
-        }
+        if (eBotaoOk && node.isClickable && eClasseBotao) return node
+        if (eBotaoOk && ancestralClicavel != null) return ancestralClicavel
 
-        val proximoAncestral = if (node.isClickable) node else ancestralClicavel
+        // Só guardamos como ancestral clicável um controlo identificado
+        // estruturalmente como botão. Não clicar em contentores genéricos.
+        val proximoAncestral =
+            if (node.isClickable && eClasseBotao) node else ancestralClicavel
         for (i in 0 until node.childCount) {
             val encontrado = encontrarBotaoOk(node.getChild(i), proximoAncestral)
             if (encontrado != null) return encontrado
