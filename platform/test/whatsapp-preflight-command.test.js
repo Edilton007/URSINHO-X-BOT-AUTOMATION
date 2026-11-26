@@ -87,7 +87,7 @@ test("comando apresenta tabela e método M-Pesa apenas com capacidade confirmada
     assert.match(resposta, /CAPACIDADE OPERACIONAL CONFIRMADA/);
     assert.match(resposta, /1 GB = 25 MT/);
     assert.match(resposta, /M-Pesa: 841111111/);
-    assert.match(resposta, /confirmação administrativa/);
+    assert.match(resposta, /verificação administrativa/);
     assert.equal(Object.keys(db.operations).length, before);
 });
 
