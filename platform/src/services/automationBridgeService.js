@@ -187,6 +187,7 @@ function obterCheckoutGrupo({ groupId, megas }) {
         const metodosPagamento = (Array.isArray(store.metodosPagamento) ? store.metodosPagamento : [])
             .filter(method => method && method.ativo !== false && String(method.conta || method.numero || "").trim())
             .map(method => ({
+                id: String(method.id || "").trim(),
                 nome: String(method.nome || method.tipo || "Pagamento").trim(),
                 tipo: String(method.tipo || "").trim().toUpperCase(),
                 conta: String(method.conta || method.numero || "").trim(),
