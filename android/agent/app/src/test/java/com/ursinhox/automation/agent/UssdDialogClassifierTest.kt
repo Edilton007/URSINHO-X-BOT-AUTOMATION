@@ -22,6 +22,20 @@ class UssdDialogClassifierTest {
     }
 
     @Test
+    fun reconheceFormatoInternetComQuantidade() {
+        assertTrue(UssdDialogClassifier.deveFecharComOk("Internet: 500 MB"))
+    }
+
+    @Test
+    fun naoFechaResultadoSeTambemPedirOutraConfirmacao() {
+        assertFalse(
+            UssdDialogClassifier.deveFecharComOk(
+                "Transferência efetuada com sucesso. Deseja comprar outro pacote? Pressione OK para continuar."
+            )
+        )
+    }
+
+    @Test
     fun permiteFecharResultadoFinalSemDeclararSucessoNoCliente() {
         assertTrue(
             UssdDialogClassifier.deveFecharComOk(
