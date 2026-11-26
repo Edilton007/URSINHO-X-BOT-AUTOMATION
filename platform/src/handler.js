@@ -105,8 +105,11 @@ const {
 const {
     savePendingPayment,
     getLatestPendingPayment,
-    setPendingRecipientNumber
+    setPendingRecipientNumber,
+    associarComprovativoAoPedidoAutomation
 } = require("./services/salesService");
+
+const automationBridge = require("./services/automationBridgeService");
 
 /* ============================================================
    NÚMERO DO CLIENTE — PAGAMENTO PENDENTE
@@ -1277,65 +1280,80 @@ ${targetJid}
 
                     if (receipt?.detected) {
 
+                        let automacaoAviso = "";
+
                         if (
                             !receipt.duplicate &&
                             receipt.verified &&
                             receipt.reference &&
                             receipt.sender
                         ) {
+                            const grupoAutomation =
+                                automationBridge.isAutomationEnabledForGroup(chat);
 
-                            const detectedRecipientNumber =
-                                extractClientRecipientNumber(
-                                    text,
-                                    receipt.destination
+                            if (grupoAutomation) {
+                                // Em grupos ligados ao Automation, o comprovativo
+                                // só pode ser associado ao pré-pedido activo do mesmo
+                                // cliente e ao valor exacto do pacote do Tenant.
+                                const associado = associarComprovativoAoPedidoAutomation(
+                                    chat,
+                                    receipt.sender,
+                                    {
+                                        reference: receipt.reference,
+                                        operator: receipt.operator,
+                                        amount: receipt.amount
+                                    }
                                 );
 
-                            const recipientNumber =
-                                detectedRecipientNumber ||
-                                null;
-
-                            savePendingPayment(
-                                chat,
-                                {
-                                    reference:
-                                        receipt.reference,
-
-                                    sender:
-                                        receipt.sender,
-
-                                    pushName:
-                                        receipt.pushName,
-
-                                    operator:
-                                        receipt.operator,
-
-                                    amount:
-                                        receipt.amount,
-
-                                    dateTime:
-                                        receipt.dateTime,
-
-                                    destination:
-                                        receipt.destination,
-
-                                    destinationName:
-                                        receipt.destinationName,
-
-                                    recipientNumber:
-                                        recipientNumber,
-
-                                    status:
-                                        recipientNumber
-                                            ? "numero_recebido"
-                                            : "aguardando_numero"
+                                if (associado.ok) {
+                                    const pedido = associado.pedido;
+                                    savePendingPayment(chat, {
+                                        reference: receipt.reference,
+                                        sender: receipt.sender,
+                                        pushName: receipt.pushName,
+                                        operator: receipt.operator,
+                                        amount: receipt.amount,
+                                        dateTime: receipt.dateTime,
+                                        destination: receipt.destination,
+                                        destinationName: receipt.destinationName,
+                                        recipientNumber: pedido.recipientNumber,
+                                        preflightOrderId: pedido.id,
+                                        expectedMegas: pedido.megas,
+                                        expectedAmount: pedido.expectedAmount,
+                                        status: "numero_recebido"
+                                    });
+                                    automacaoAviso =
+                                        "\\n\\n✅ Comprovativo associado ao pedido *" + pedido.id +
+                                        "*. O pagamento continua pendente de confirmação administrativa.";
+                                } else {
+                                    automacaoAviso =
+                                        "\\n\\n⚠️ *PEDIDO AUTOMATION NÃO ASSOCIADO*\\n" +
+                                        (associado.error || "Não existe pré-pedido válido ou o valor não corresponde.") +
+                                        "\\nNão será criada uma transferência. Faz uma nova pré-verificação ou solicita revisão ao administrador.";
                                 }
-                            );
+                            } else {
+                                // Mantém o comportamento legado apenas em grupos
+                                // que não estão associados ao URSINHO Automation.
+                                const detectedRecipientNumber =
+                                    extractClientRecipientNumber(text, receipt.destination);
+                                const recipientNumber = detectedRecipientNumber || null;
+                                savePendingPayment(chat, {
+                                    reference: receipt.reference,
+                                    sender: receipt.sender,
+                                    pushName: receipt.pushName,
+                                    operator: receipt.operator,
+                                    amount: receipt.amount,
+                                    dateTime: receipt.dateTime,
+                                    destination: receipt.destination,
+                                    destinationName: receipt.destinationName,
+                                    recipientNumber,
+                                    status: recipientNumber ? "numero_recebido" : "aguardando_numero"
+                                });
+                            }
                         }
 
                         const result =
-                            formatReceiptResult(
-                                receipt
-                            );
+                            formatReceiptResult(receipt) + automacaoAviso;
 
                         await sock.sendMessage(
                             chat,
