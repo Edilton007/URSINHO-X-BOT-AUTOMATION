@@ -36,6 +36,20 @@ class UssdDialogClassifierTest {
     }
 
     @Test
+    fun naoFechaResultadoQueOfereceRepetirTransferencia() {
+        assertFalse(
+            UssdDialogClassifier.deveFecharComOk(
+                "Transfer successful. Press OK to try again."
+            )
+        )
+        assertFalse(
+            UssdDialogClassifier.deveFecharComOk(
+                "Transferência concluída. Deseja repetir?"
+            )
+        )
+    }
+
+    @Test
     fun permiteFecharResultadoFinalSemDeclararSucessoNoCliente() {
         assertTrue(
             UssdDialogClassifier.deveFecharComOk(
