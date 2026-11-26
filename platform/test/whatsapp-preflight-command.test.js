@@ -62,6 +62,7 @@ async function executar(groupId, args) {
         chat: groupId,
         args,
         prefix: "!",
+        sender: "258844444444@s.whatsapp.net",
         reply: async (message) => { resposta = String(message); return resposta; }
     };
     await command.run(null, null, ctx);
@@ -80,16 +81,31 @@ test("comando só mostra pagamentos depois da pré-verificação operacional pos
     assert.equal(Object.keys(db.operations).length, before);
 });
 
-test("comando apresenta tabela e método M-Pesa apenas com capacidade confirmada", async () => {
-    const { groupId } = await preparar({ quotaMensal: true });
-    const before = Object.keys(db.operations).length;
+test("comando apresenta preço e método Tenant depois de pré-verificação positiva", async () => {
+    const { tenant, groupId } = await preparar({ quotaMensal: true });
+    storefront.configurarLoja(tenant.id, {
+        slug: "tenant-command-main",
+        nome: "Loja Principal",
+        publicado: true,
+        metodosPagamento: [
+            { id: "tenant-mpesa", tipo: "MPESA", nome: "M-Pesa Tenant", conta: "841222222", titular: "Titular Tenant" }
+        ]
+    });
+    storefront.criarProduto(tenant.id, {
+        nome: "Pacote 1 GB",
+        precoMT: 25,
+        quantidadeMB: 1024,
+        ativo: true
+    });
 
+    const before = Object.keys(db.operations).length;
     const resposta = await executar(groupId, ["1gb", "841234567"]);
 
-    assert.match(resposta, /CAPACIDADE OPERACIONAL CONFIRMADA/);
-    assert.match(resposta, /1 GB = 25 MT/);
-    assert.match(resposta, /M-Pesa: 841111111/);
-    assert.match(resposta, /verificação administrativa/);
+    assert.match(resposta, /PEDIDO PRÉ-VALIDADO/);
+    assert.match(resposta, /Pacote 1 GB/);
+    assert.match(resposta, /25\.00 MT/);
+    assert.match(resposta, /M-Pesa Tenant: 841222222/);
+    assert.match(resposta, /expira em 30 minutos/);
     assert.equal(Object.keys(db.operations).length, before);
 });
 
