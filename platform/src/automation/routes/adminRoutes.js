@@ -6,6 +6,7 @@ const { autenticarAdmin } = require("../middleware/auth");
 const tenantService = require("../services/tenantService");
 const operationService = require("../services/operationService");
 const storefrontService = require("../services/storefrontService");
+const orderFulfillmentService = require("../services/orderFulfillmentService");
 const db = require("../database/automationDb");
 
 router.use(autenticarAdmin);
@@ -144,7 +145,14 @@ router.post("/store-orders/:orderId/payment-review", (req, res) => {
     const { decisao, motivo, referencia } = req.body || {};
     const result = storefrontService.resolverPagamento(req.params.orderId, decisao, motivo, referencia, "admin");
     if (result.error) return res.status(result.status || 400).json({ ok: false, error: result.error });
-    res.json(result);
+
+    // Só uma confirmação registada pelo serviço de pagamentos pode iniciar
+    // o fulfillment telecom. Rejeições nunca criam tarefas USSD.
+    const fulfillment = decisao === "CONFIRMADO"
+        ? orderFulfillmentService.cumprirPedidoPago(req.params.orderId, result.pedido.tenantId)
+        : null;
+
+    res.json({ ...result, fulfillment });
 });
 
 router.post("/tenants/:tenantId/operacoes/:opId/revisao", (req, res) => {
