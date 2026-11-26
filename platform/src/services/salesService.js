@@ -672,7 +672,8 @@ function criarPedidoAutomationPendente(groupId, dados) {
                 .map(method => ({
                     id: String(method.id || "").slice(0, 60),
                     tipo: String(method.tipo || "").trim().toUpperCase().slice(0, 30),
-                    conta: String(method.conta || method.numero || "").replace(/[^0-9+]/g, "").slice(0, 30)
+                    conta: String(method.conta || method.numero || "").replace(/[^0-9+]/g, "").slice(0, 30),
+                    titular: String(method.titular || "").trim().slice(0, 100)
                 }))
                 .filter(method => method.tipo && method.conta.length >= 5)
             : [],
@@ -744,8 +745,22 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
         bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL", "MKESH"])
     };
     const allowedTypes = acceptedTypes[operator] || new Set();
+    const proofAccount = String(proof.destination || "").replace(/\\D/g, "");
+    const proofHolder = String(proof.destinationName || "")
+        .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+        .toLowerCase().replace(/\\s+/g, " ").trim();
     const methodMatches = Array.isArray(order.paymentMethods) &&
-        order.paymentMethods.some(method => allowedTypes.has(String(method.tipo || "").toUpperCase()));
+        order.paymentMethods.some(method => {
+            const methodAccount = String(method.conta || "").replace(/\\D/g, "");
+            const methodHolder = String(method.titular || "")
+                .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+                .toLowerCase().replace(/\\s+/g, " ").trim();
+            return allowedTypes.has(String(method.tipo || "").toUpperCase()) &&
+                proofAccount.length >= 5 &&
+                methodAccount === proofAccount &&
+                proofHolder.length > 0 &&
+                methodHolder === proofHolder;
+        });
 
     if (!methodMatches) {
         order.estado = "METODO_PAGAMENTO_DIVERGENTE";
