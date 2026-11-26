@@ -450,6 +450,7 @@ test("telemetria aceita apenas nomes conhecidos da Vodacom e rejeita correspond�
 
 test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com evidência compatível", () => {
   process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567";
   const tenant = tenants.criarTenant({ nome: "Tenant Operação" });
   const license = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, license.codigo);
