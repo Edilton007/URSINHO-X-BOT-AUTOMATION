@@ -24,8 +24,8 @@ function criarPedido(groupId, sender) {
         productId: "PROD-1",
         productName: "Pacote 1 GB",
         paymentMethods: [
-            { id: "PAY-MPESA", tipo: "MPESA", conta: "841222222" },
-            { id: "PAY-EMOLA", tipo: "EMOLA", conta: "841333333" }
+            { id: "PAY-MPESA", tipo: "MPESA", conta: "841222222", titular: "Titular M-Pesa" },
+            { id: "PAY-EMOLA", tipo: "EMOLA", conta: "841333333", titular: "Titular e-Mola" }
         ]
     });
 }
@@ -65,6 +65,42 @@ test("associa comprovativo apenas com valor exacto e método oferecido", () => {
         amount: 20
     });
     assert.equal(wrongAmount.code, "PAYMENT_AMOUNT_MISMATCH");
+});
+
+test("associa apenas comprovativo enviado para a conta e titular apresentados no pedido", () => {
+    const groupId = "123456789-1234567893@g.us";
+    const sender = "258844444447@s.whatsapp.net";
+    const created = criarPedido(groupId, sender);
+    assert.equal(created.ok, true);
+
+    const result = sales.associarComprovativoAoPedidoAutomation(groupId, sender, {
+        reference: "TX-EXACT-ACCOUNT",
+        operator: "mpesa",
+        amount: 25.5,
+        destination: "841222222",
+        destinationName: "Titular M-Pesa"
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.pedido.estado, "COMPROVATIVO_RECEBIDO");
+    assert.equal(result.pedido.recipientNumber, "841234567");
+});
+
+test("recusa comprovativo de método correcto mas conta diferente da conta apresentada", () => {
+    const groupId = "123456789-1234567894@g.us";
+    const sender = "258844444448@s.whatsapp.net";
+    const created = criarPedido(groupId, sender);
+    assert.equal(created.ok, true);
+
+    const result = sales.associarComprovativoAoPedidoAutomation(groupId, sender, {
+        reference: "TX-WRONG-ACCOUNT",
+        operator: "mpesa",
+        amount: 25.5,
+        destination: "841999999",
+        destinationName: "Titular M-Pesa"
+    });
+
+    assert.equal(result.code, "PAYMENT_METHOD_MISMATCH");
 });
 
 test("expiração bloqueia a associação tardia do comprovativo", () => {
