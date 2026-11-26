@@ -25,7 +25,10 @@ internal object UssdDialogClassifier {
             "payment", "sera debitado", "serao debitados", "charged", "charge",
             "custo", "taxa", "fee", "cost", "cobrado", "cobrada", "transferir agora",
             "introduza", "digite", "responda", "selecione", "escolha",
-            "press 1", "reply with", "enter the", "select an option", "choose an option"
+            "press 1", "reply with", "enter the", "select", "choose", "option", "opcao",
+            "retry", "try again", "again", "repeat", "another transfer",
+            "transfer again", "tentar novamente", "repetir", "nova transferencia",
+            "mais uma transferencia"
         ).any { normalizado.contains(it) }
         if (exigeDecisao) return false
 
