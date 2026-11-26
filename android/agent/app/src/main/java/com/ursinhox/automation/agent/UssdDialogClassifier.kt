@@ -13,6 +13,22 @@ internal object UssdDialogClassifier {
         val normalizado = normalizar(texto)
         if (normalizado.isBlank()) return false
 
+        // Nunca fechar automaticamente um diálogo cujo OK possa avançar,
+        // aceitar, comprar, pagar, subscrever ou confirmar uma operação.
+        // Esta verificação vem antes da classificação de resultado final para
+        // que qualquer pedido de decisão continue bloqueado.
+        val exigeDecisao = listOf(
+            "confirm", "confirmation", "para continuar", "continuar para",
+            "continue", "proceed", "pretende", "deseja",
+            "aceitar", "aceita", "accept", "comprar", "adquirir", "buy", "purchase",
+            "subscrever", "subscription", "assinar", "pagar", "pagamento", "pay",
+            "payment", "sera debitado", "serao debitados", "charged", "charge",
+            "custo", "taxa", "fee", "cost", "cobrado", "cobrada", "transferir agora",
+            "introduza", "digite", "responda", "selecione", "escolha",
+            "press 1", "reply with", "enter the", "select an option", "choose an option"
+        ).any { normalizado.contains(it) }
+        if (exigeDecisao) return false
+
         // Resultados explícitos da rede são informativos: podem ser fechados,
         // mas continuam sujeitos à validação independente do Backend.
         val resultadoFinal = listOf(
@@ -28,22 +44,8 @@ internal object UssdDialogClassifier {
             "transfer completed",
             "insufficient balance",
             "insufficient funds"
-        ).any(normalizado::contains)
+        ).any { normalizado.contains(it) }
         if (resultadoFinal) return true
-
-        // Nunca fechar automaticamente um diálogo cujo OK possa avançar,
-        // aceitar, comprar, pagar, subscrever ou confirmar uma operação.
-        val exigeDecisao = listOf(
-            "confirm", "confirmation", "para continuar", "continuar para",
-            "continue", "proceed", "pretende", "deseja",
-            "aceitar", "aceita", "accept", "comprar", "adquirir", "buy", "purchase",
-            "subscrever", "subscription", "assinar", "pagar", "pagamento", "pay",
-            "payment", "sera debitado", "serao debitados", "charged", "charge",
-            "custo", "taxa", "fee", "cost", "cobrado", "cobrada", "transferir agora",
-            "introduza", "digite", "responda", "selecione", "escolha",
-            "press 1", "reply with", "enter the", "select an option", "choose an option"
-        ).any(normalizado::contains)
-        if (exigeDecisao) return false
 
         // Mensagem promocional específica observada no telefone de teste.
         val avisoPromocionalConhecido =
