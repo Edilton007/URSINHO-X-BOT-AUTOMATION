@@ -745,16 +745,16 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
         bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL", "MKESH"])
     };
     const allowedTypes = acceptedTypes[operator] || new Set();
-    const proofAccount = String(proof.destination || "").replace(/\\D/g, "");
+    const proofAccount = String(proof.destination || "").replace(/\D/g, "");
     const proofHolder = String(proof.destinationName || "")
-        .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-        .toLowerCase().replace(/\\s+/g, " ").trim();
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/\s+/g, " ").trim();
     const methodMatches = Array.isArray(order.paymentMethods) &&
         order.paymentMethods.some(method => {
-            const methodAccount = String(method.conta || "").replace(/\\D/g, "");
+            const methodAccount = String(method.conta || "").replace(/\D/g, "");
             const methodHolder = String(method.titular || "")
-                .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-                .toLowerCase().replace(/\\s+/g, " ").trim();
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase().replace(/\s+/g, " ").trim();
             return allowedTypes.has(String(method.tipo || "").toUpperCase()) &&
                 proofAccount.length >= 5 &&
                 methodAccount === proofAccount &&
