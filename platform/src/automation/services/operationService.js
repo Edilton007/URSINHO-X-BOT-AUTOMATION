@@ -447,12 +447,9 @@ function execucaoPermitida() {
 }
 
 /**
- * Travão para os primeiros testes reais. AUTOMATION_ALLOWED_DESTINATIONS aceita
- * números separados por vírgula; quando preenchida, só esses destinos podem ser
- * alocados e executados, todas as outras operações ficam em PENDENTE com o motivo
- * visível. Ausente ou em branco significa sem restrição; preenchida só com valores
- * inválidos bloqueia tudo. A comparação usa os últimos 9 dígitos, por isso
- * 857286555 e 258857286555 são o mesmo número.
+ * Travão obrigatório: só destinos explicitamente listados podem receber tarefas.
+ * Lista ausente, vazia ou inválida bloqueia tudo (fail-closed). A comparação usa
+ * os últimos 9 dígitos, por isso 857286555 e 258857286555 são equivalentes.
  */
 function normalizarDestino(valor) {
     return String(valor || "").replace(/\D/g, "").slice(-9);
@@ -466,15 +463,13 @@ function destinosPermitidos() {
 }
 
 function destinoPermitido(destino) {
-    // Variável ausente ou em branco: sem restrição. Variável preenchida só com
-    // valores inválidos (erro de digitação) bloqueia tudo, nunca abre tudo.
     const bruto = String(process.env.AUTOMATION_ALLOWED_DESTINATIONS || "").trim();
-    if (!bruto) return true;
+    if (!bruto) return false;
     return destinosPermitidos().includes(normalizarDestino(destino));
 }
 
 const MOTIVO_DESTINO_FORA_DA_LISTA =
-    "Destino fora da lista de destinos permitidos (AUTOMATION_ALLOWED_DESTINATIONS). Nada foi enviado.";
+    "Destino fora da lista de destinos permitidos: configure AUTOMATION_ALLOWED_DESTINATIONS com números de teste autorizados. Nada foi enviado.";
 
 function montarMetadata(metadata = {}) {
     const corta = (v, n) => (v ? String(v).slice(0, n) : null);

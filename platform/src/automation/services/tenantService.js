@@ -65,7 +65,11 @@ function criarTenant({ nome }) {
 
     db.save();
 
-    return { ...db.tenants[tenantId], apiKey };
+    // A chave em claro só é devolvida neste momento. O hash nunca sai do serviço.
+    const tenant = db.tenants[tenantId];
+    return { id: tenant.id, nome: tenant.nome, ativo: tenant.ativo !== false,
+        licencaId: tenant.licencaId || null, deviceId: tenant.deviceId || null,
+        criadoEmMs: tenant.criadoEmMs, apiKey };
 }
 
 function getTenant(tenantId) {
@@ -265,7 +269,11 @@ function registrarDevice(tenantId, deviceId) {
 
     db.save();
 
-    return { ...db.devices[deviceId], apiKey };
+    // A chave em claro só é devolvida uma vez; apiKeyHash permanece privado.
+    const device = db.devices[deviceId];
+    return { id: device.id, tenantId: device.tenantId,
+        autorizado: device.autorizado !== false, registadoEmMs: device.registadoEmMs,
+        ultimoContactoMs: device.ultimoContactoMs || null, apiKey };
 }
 
 /**
@@ -325,7 +333,7 @@ function autenticarDevice(deviceId, apiKey) {
     const device = db.devices[deviceId];
     const tenant = device ? db.tenants[device.tenantId] : null;
     // Só o dispositivo atualmente associado ao Tenant pode operar por ele.
-    const eDeviceAtual = !!tenant && (!tenant.deviceId || tenant.deviceId === device.id);
+    const eDeviceAtual = !!tenant && tenant.deviceId === device.id;
     return !!device && !!tenant && tenant.ativo !== false && device.autorizado !== false && eDeviceAtual && segredoCorresponde(device, apiKey);
 }
 
@@ -354,12 +362,13 @@ function getDeviceDoTenant(tenantId) {
     }
 
     const agora = Date.now();
+    const online = timestampRecente(device.ultimoContactoMs, agora);
+    // Whitelist explícita: hashes, tokens e metadados internos não são expostos.
     return {
-        ...device,
-        online: timestampRecente(device.ultimoContactoMs, agora),
-        estadoSaude: timestampRecente(device.ultimoContactoMs, agora)
-            ? "ONLINE"
-            : (Number.isSafeInteger(device.ultimoContactoMs) ? "OFFLINE" : "SEM_CONTACTO")
+        id: device.id, tenantId: device.tenantId, autorizado: device.autorizado !== false,
+        registadoEmMs: device.registadoEmMs, ultimoContactoMs: device.ultimoContactoMs || null,
+        online, estadoSaude: online ? "ONLINE" :
+            (Number.isSafeInteger(device.ultimoContactoMs) ? "OFFLINE" : "SEM_CONTACTO")
     };
 }
 

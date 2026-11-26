@@ -42,14 +42,20 @@ function preparar() {
   return { tenant, device };
 }
 
-test("sem lista configurada o comportamento é o de sempre", () => {
+test("lista ausente ou vazia bloqueia todos os destinos por defeito", () => {
   const { tenant, device } = preparar();
-  const op = operations.criarTransferencia(tenant.id, device.id, 100, OUTRO);
-  assert.equal(op.estado, "AGUARDANDO_EXECUCAO");
-  assert.ok(op.taskId);
+  const absent = operations.criarTransferencia(tenant.id, device.id, 100, OUTRO);
+  assert.equal(absent.estado, "PENDENTE");
+  assert.equal(absent.taskId, null);
+  assert.match(absent.motivoPendente, /lista de destinos permitidos/);
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = TESTE;
+  const allowed = operations.criarTransferencia(tenant.id, device.id, 100, TESTE);
+  assert.equal(allowed.estado, "AGUARDANDO_EXECUCAO");
+  assert.ok(allowed.taskId);
   process.env.AUTOMATION_ALLOWED_DESTINATIONS = "   ";
-  const op2 = operations.criarTransferencia(tenant.id, device.id, 100, TESTE);
-  assert.equal(op2.estado, "AGUARDANDO_EXECUCAO", "lista só com espaços não restringe");
+  const blank = operations.criarTransferencia(tenant.id, device.id, 100, OUTRO);
+  assert.equal(blank.estado, "PENDENTE");
+  assert.equal(blank.taskId, null);
 });
 
 test("com lista, só o destino permitido recebe SIM e tarefa; os outros ficam retidos com o motivo", () => {
@@ -85,19 +91,18 @@ test("variável preenchida só com valores inválidos bloqueia tudo em vez de ab
   assert.match(op.motivoPendente, /lista de destinos permitidos/);
 });
 
-test("tarefa alocada antes da lista deixa de sair para o Agent e iniciarTarefa recusa", () => {
+test("uma tarefa já alocada não sai para o Agent quando a lista deixa de a autorizar", () => {
   const { tenant, device } = preparar();
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = OUTRO;
   const op = operations.criarTransferencia(tenant.id, device.id, 100, OUTRO);
   assert.equal(op.estado, "AGUARDANDO_EXECUCAO");
-
   process.env.AUTOMATION_ALLOWED_DESTINATIONS = TESTE;
   assert.deepEqual(operations.tarefasPendentes(device.id), []);
   const recusa = operations.iniciarTarefa(device.id, op.taskId);
   assert.equal(recusa.code, "DESTINO_NAO_PERMITIDO");
   assert.equal(db.operations[op.id].estado, "AGUARDANDO_EXECUCAO");
   assert.equal(db.operations[op.id].claimToken, undefined);
-
-  delete process.env.AUTOMATION_ALLOWED_DESTINATIONS;
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = OUTRO;
   assert.equal(operations.iniciarTarefa(device.id, op.taskId).ok, true);
 });
 

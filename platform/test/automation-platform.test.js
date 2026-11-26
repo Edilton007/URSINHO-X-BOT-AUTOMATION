@@ -18,6 +18,7 @@ const operations = require("../src/automation/services/operationService");
 test("credenciais de tenant e device são guardadas em hash e autenticam separadamente", () => {
   const tenant = tenants.criarTenant({ nome: "Loja Teste A" });
   assert.ok(tenant.apiKey);
+  assert.equal(Object.hasOwn(tenant, "apiKeyHash"), false);
   assert.ok(db.tenants[tenant.id].apiKeyHash);
   assert.equal(Object.hasOwn(db.tenants[tenant.id], "apiKey"), false);
   assert.equal(tenants.autenticarTenant(tenant.id, tenant.apiKey), true);
@@ -25,7 +26,9 @@ test("credenciais de tenant e device são guardadas em hash e autenticam separad
 
   const device = tenants.registrarDevice(tenant.id, "device-test-a");
   assert.ok(device.apiKey);
+  assert.equal(Object.hasOwn(device, "apiKeyHash"), false);
   assert.ok(db.devices[device.id].apiKeyHash);
+  assert.equal(Object.hasOwn(tenants.getDeviceDoTenant(tenant.id), "apiKeyHash"), false);
   assert.equal(Object.hasOwn(db.devices[device.id], "apiKey"), false);
   assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
   assert.equal(tenants.autenticarDevice(device.id, tenant.apiKey), false);
@@ -37,6 +40,24 @@ test("credenciais de tenant e device são guardadas em hash e autenticam separad
   db.tenants[tenant.id].ativo = false;
   db.save();
   assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+});
+
+test("um Agent só autentica quando está explicitamente associado como device actual do Tenant", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Associação Estrita" });
+  const device = tenants.registrarDevice(tenant.id, "device-associacao-estrita");
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
+  db.tenants[tenant.id].deviceId = null;
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  db.tenants[tenant.id].deviceId = "outro-device-activo";
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  db.tenants[tenant.id].deviceId = device.id;
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
+  const replacement = tenants.registrarDevice(tenant.id, "device-associacao-substituto");
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  assert.equal(tenants.autenticarDevice(replacement.id, replacement.apiKey), true);
 });
 
 test("licenças rejeitam duração inválida, vinculam-se a um tenant e não podem ser reutilizadas", () => {

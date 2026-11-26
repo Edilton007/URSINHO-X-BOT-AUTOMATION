@@ -38,6 +38,10 @@ Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em 
 
 Copie `.env.example` para `.env`, configure `OWNER`, `API_KEY`, `ADMIN_API_KEY`, `PAIRING_NUMBER` quando necessário e caminhos persistentes das bases. Use chaves fortes, diferentes entre si. Deixe `AUTOMATION_ALLOW_EXECUTION=false`. Nunca copie `.env` para repositórios ou partilhe os valores.
 
+## Portabilidade entre fornecedores
+
+Consulte [PORTABILIDADE-E-INSTALACAO.md](docs/PORTABILIDADE-E-INSTALACAO.md). O backend pode correr em Node nativo ou, opcionalmente, Docker Compose. Wispbyte não é uma dependência. Para criar cópia local das bases, configuração privada e sessão Baileys fora da pasta da aplicação, execute `npm run backup:portable`. Faça-o com o serviço parado ou numa janela de backup controlada. O resultado pode conter segredos: mantenha-o privado e cifrado. O armazenamento actual continua single-writer; não executar mais de uma instância.
+
 ## Backup Cloudflare KV
 
 O backup é opcional e permanece desativado sem todos os valores Cloudflare + chave AES. Workers KV guarda snapshots cifrados, não dados operacionais. Consulte `../docs/CONFIGURACAO-E-API.md`.
@@ -48,7 +52,9 @@ O backup é opcional e permanece desativado sem todos os valores Cloudflare + ch
 
 ## Segurança e operação
 
-- Tenant e Agent têm chaves separadas; são armazenadas como hash.
+- Tenant e Agent têm chaves separadas; são armazenadas como hash, e os serviços devolvem snapshots sem hashes.
+- O Agent só autentica se o seu ID for exactamente o dispositivo actualmente associado ao Tenant.
+- A execução telecom exige uma allowlist explícita de destinos; lista ausente/vazia bloqueia todos.
 - Admin usa `ADMIN_API_KEY` separada.
 - Claim tokens internos não são devolvidos ao Tenant Panel.
 - Saúde do Agent considera offline após 120 segundos; cada SIM é avaliado individualmente.

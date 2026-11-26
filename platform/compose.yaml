@@ -1,0 +1,38 @@
+services:
+  ursinho:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ursinho-x-bot-automation
+    init: true
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      API_PORT: "3000"
+      BOT_DB_FILE: /data/database/db.json
+      AUTOMATION_DB_FILE: /data/automation/automation.json
+      SALES_DB_FILE: /data/database/sales.json
+      BAILEYS_SESSION_DIR: /data/sessions
+      OFFSITE_BACKUP_SESSION_DIR: /data/sessions/principal
+      AUTOMATION_ALLOW_EXECUTION: "false"
+      AUTOMATION_ALLOWED_DESTINATIONS: ""
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PUBLIC_PORT:-3000}:3000"
+    volumes:
+      - ursinho_data:/data
+      - ursinho_downloads:/app/downloads
+      - ursinho_tmp:/app/tmp
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/automation/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+
+volumes:
+  ursinho_data:
+  ursinho_downloads:
+  ursinho_tmp:

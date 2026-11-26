@@ -14,7 +14,8 @@
     "restore:stage": "node scripts/restaurar-backup-kv.js",
     "verify:release": "node scripts/check-release-hygiene.js",
     "preflight": "node scripts/preflight.js",
-    "setup:media": "node scripts/setup-ytdlp.js"
+    "setup:media": "node scripts/setup-ytdlp.js",
+    "backup:portable": "node scripts/backup-portable.js"
   },
   "keywords": [
     "whatsapp",
