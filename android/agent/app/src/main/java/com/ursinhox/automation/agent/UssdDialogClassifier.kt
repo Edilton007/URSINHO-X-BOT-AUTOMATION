@@ -54,7 +54,7 @@ internal object UssdDialogClassifier {
         if (avisoPromocionalConhecido) return true
 
         // Respostas de consulta de saldo/dados sem pedido de decisão.
-        val quantidadeDeDados = Regex("""\\b\\d+(?:[,.]\\d+)?\\s*(?:mb|gb)\\b""")
+        val quantidadeDeDados = Regex("""\b\d+(?:[,.]\d+)?\s*(?:mb|gb)\b""")
             .containsMatchIn(normalizado)
         val informacaoDeSaldo =
             ((normalizado.contains("saldo") || normalizado.contains("balance")) &&
