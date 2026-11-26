@@ -448,6 +448,49 @@ test("telemetria aceita apenas nomes conhecidos da Vodacom e rejeita correspond�
   assert.equal(aceite.ok, true);
 });
 
+test("pré-verificação só autoriza cliente com Agent online e quota mensal transferível recente", () => {
+  process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567";
+
+  const tenant = tenants.criarTenant({ nome: "Tenant Pré-verificação" });
+  const license = tenants.gerarCodigoLicenca(30);
+  assert.equal(tenants.ativarLicenca(tenant.id, license.codigo).ok, true);
+  const device = tenants.registrarDevice(tenant.id, "device-preflight-test");
+  tenants.marcarContactoDevice(device.id);
+
+  const semQuotaMensal = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    subscriptionId: 91
+  });
+  assert.equal(semQuotaMensal.ok, true);
+  const bloqueado = operations.preverDisponibilidade(tenant.id, device.id, 100, "258841234567");
+  assert.equal(bloqueado.disponivel, false);
+  assert.equal(bloqueado.codigo, "SIM_MENSAL_NAO_ELEGIVEL");
+
+  const comQuotaMensal = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    internetTransferivelMB: 500,
+    subscriptionId: 91
+  });
+  assert.equal(comQuotaMensal.ok, true);
+
+  const permitido = operations.preverDisponibilidade(tenant.id, device.id, 100, "258841234567");
+  assert.equal(permitido.disponivel, true);
+  assert.equal(permitido.codigo, "CAPACIDADE_CONFIRMADA");
+
+  const acimaDaQuota = operations.preverDisponibilidade(tenant.id, device.id, 501, "258841234567");
+  assert.equal(acimaDaQuota.disponivel, false);
+  assert.equal(acimaDaQuota.codigo, "SIM_MENSAL_NAO_ELEGIVEL");
+
+  const destinoNaoAutorizado = operations.preverDisponibilidade(tenant.id, device.id, 100, "258851234567");
+  assert.equal(destinoNaoAutorizado.disponivel, false);
+  assert.equal(destinoNaoAutorizado.codigo, "DESTINO_NAO_AUTORIZADO");
+});
+
 test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com evidência compatível", () => {
   process.env.AUTOMATION_ALLOW_EXECUTION = "true";
   process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567";
