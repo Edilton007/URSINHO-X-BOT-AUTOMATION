@@ -159,7 +159,7 @@ object UssdOperacoes {
     }
 
     /**
-     * Consulta *100# e devolve dois valores independentes:
+     * Consulta o código de dados configurado e devolve dois valores independentes:
      * saldo geral de dados e quota mensal explicitamente identificada.
      * Nenhum dos dois é inferido a partir do outro.
      */
