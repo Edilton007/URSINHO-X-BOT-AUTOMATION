@@ -23,6 +23,7 @@ const tenantService = require("../services/tenantService");
 const simTelemetryService = require("../services/simTelemetryService");
 const operationService = require("../services/operationService");
 const deviceHealthService = require("../services/deviceHealthService");
+const orderFulfillmentService = require("../services/orderFulfillmentService");
 
 router.use("/:tenantId", autenticarTenant);
 
@@ -97,26 +98,41 @@ router.get("/:tenantId/sims", (req, res) => {
     res.json({ ok: true, sims });
 });
 
+// A rota histórica já não pode criar transferências sem pagamento verificado.
+// Para cumprir um pedido, o corpo deve conter apenas o ID de um pedido pago.
 router.post("/:tenantId/transferir", (req, res) => {
-    const { destino, megas } = req.body || {};
     const tenantId = req.params.tenantId;
-
-    const device = tenantService.getDeviceDoTenant(tenantId);
-
-    // Até 10.240 MB é uma operação normal; acima disso vira um pedido
-    // dividido em suboperações (devolve também "pedido").
-    const resultado = operationService.criarPedido(
-        tenantId,
-        device ? device.id : null,
-        Number(megas),
-        String(destino || "")
-    );
-
-    if (resultado.error) {
-        return res.status(400).json({ ok: false, error: resultado.error });
+    const orderId = String(req.body?.orderId || "").trim();
+    if (!orderId) {
+        return res.status(402).json({
+            ok: false,
+            code: "PAYMENT_REQUIRED",
+            error: "Não é possível transferir diretamente. Primeiro crie o pedido, valide o pagamento e envie o orderId."
+        });
     }
 
-    res.json({ ok: true, operacao: resultado.operacao, pedido: resultado.pedido });
+    const resultado = orderFulfillmentService.cumprirPedidoPago(orderId, tenantId);
+    if (resultado.error) {
+        const status = resultado.status || (
+            resultado.code === "ORDER_NOT_FOUND" ? 404 : 409
+        );
+        return res.status(status).json({ ok: false, ...resultado });
+    }
+    res.json(resultado);
+});
+
+router.post("/:tenantId/store-orders/:orderId/fulfill", (req, res) => {
+    const resultado = orderFulfillmentService.cumprirPedidoPago(
+        req.params.orderId,
+        req.params.tenantId
+    );
+    if (resultado.error) {
+        const status = resultado.status || (
+            resultado.code === "ORDER_NOT_FOUND" ? 404 : 409
+        );
+        return res.status(status).json({ ok: false, ...resultado });
+    }
+    res.json(resultado);
 });
 
 router.get("/:tenantId/pedidos", (req, res) => {
