@@ -162,8 +162,9 @@ function registrarStatus(tenantId, deviceId, dados) {
         return { error: "Operadora não suportada para transferências Vodacom. SIM não registado como recurso operacional." };
     }
 
-    if (typeof internetMB !== "number" || !Number.isFinite(internetMB) || internetMB < 0) {
-        return { error: "internetMB deve ser uma leitura numérica real igual ou superior a zero." };
+    if (internetMB !== null && internetMB !== undefined &&
+        (typeof internetMB !== "number" || !Number.isFinite(internetMB) || internetMB < 0)) {
+        return { error: "internetMB deve ser uma leitura numérica real igual ou superior a zero, ou null quando não estiver disponível." };
     }
 
     if (!subscriptionIdValido(subscriptionId)) {
@@ -215,7 +216,7 @@ function registrarStatus(tenantId, deviceId, dados) {
         slot,
         subscriptionId,
         operadora: operadora.trim(),
-        internetMB: Math.floor(internetMB),
+        internetMB: Number.isFinite(internetMB) ? Math.floor(internetMB) : null,
         // Este campo só pode ser preenchido por uma leitura que identifique
         // especificamente a quota mensal transferível. Nunca inferir do saldo geral.
         internetTransferivelMB: Number.isSafeInteger(internetTransferivelMB)
