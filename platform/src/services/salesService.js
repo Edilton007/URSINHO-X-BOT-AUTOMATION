@@ -631,6 +631,14 @@ function criarPedidoAutomationPendente(groupId, dados) {
     if (!Number.isSafeInteger(megas) || megas < 100 || megas > 10240) return { error: "Quantidade de megas inválida." };
     if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || expectedAmount > 100000000) return { error: "Preço esperado inválido." };
     if (!productId) return { error: "Produto Tenant em falta." };
+    const metodos = Array.isArray(dados.paymentMethods)
+        ? dados.paymentMethods.filter(method =>
+            method && method.ativo !== false &&
+            String(method.tipo || "").trim() &&
+            String(method.conta || method.numero || "").replace(/\\D/g, "").length >= 5
+        )
+        : [];
+    if (metodos.length === 0) return { error: "O pedido não tem método de pagamento activo do Tenant." };
 
     const db = loadSales();
     const group = ensureGroup(db, groupId);
@@ -640,7 +648,7 @@ function criarPedidoAutomationPendente(groupId, dados) {
     // resolver esse pedido antes de aceitar um segundo para o mesmo cliente.
     const aguardandoDecisao = group.pendingAutomationOrders.find(item =>
         item.sender === sender &&
-        ["COMPROVATIVO_RECEBIDO", "OPERACAO_CRIADA"].includes(item.estado)
+        item.estado === "COMPROVATIVO_RECEBIDO"
     );
     if (aguardandoDecisao) {
         return {
