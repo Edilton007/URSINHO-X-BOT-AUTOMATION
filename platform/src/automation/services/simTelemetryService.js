@@ -1,9 +1,11 @@
 const db = require("../database/automationDb");
 const { diaOperacional } = require("../utils/diaOperacional");
 
+// Uma leitura de SIM com mais de 30 minutos não pode autorizar novas
+// transferências. Aceitamos apenas configurações entre 5 e 30 minutos.
 const TELEMETRIA_ANTIGA_MIN = (() => {
     const n = Number(process.env.SIM_TELEMETRY_STALE_MIN);
-    return Number.isFinite(n) && n >= 5 && n <= 1440 ? n : 45;
+    return Number.isFinite(n) && n >= 5 && n <= 30 ? n : 30;
 })();
 const JANELA_ONLINE_MS = TELEMETRIA_ANTIGA_MIN * 60 * 1000;
 const FUTURO_TOLERANCIA_MS = 120 * 1000;
