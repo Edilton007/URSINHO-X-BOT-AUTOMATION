@@ -620,13 +620,13 @@ function criarPedidoAutomationPendente(groupId, dados) {
     }
 
     const sender = String(dados.sender || "").trim();
-    const recipientNumber = String(dados.recipientNumber || "").replace(/\\D/g, "");
+    const recipientNumber = String(dados.recipientNumber || "").replace(/\D/g, "");
     const megas = Number(dados.megas);
     const expectedAmount = Number(dados.expectedAmount);
     const productId = String(dados.productId || "").trim();
 
     if (!sender || sender.length > 160) return { error: "Cliente WhatsApp inválido." };
-    if (!/^(?:258)?(?:84|85)\\d{7}$/.test(recipientNumber)) return { error: "Destino Vodacom inválido." };
+    if (!/^(?:258)?(?:84|85)\d{7}$/.test(recipientNumber)) return { error: "Destino Vodacom inválido." };
     if (!Number.isSafeInteger(megas) || megas < 100 || megas > 10240) return { error: "Quantidade de megas inválida." };
     if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || expectedAmount > 100000000) return { error: "Preço esperado inválido." };
     if (!productId) return { error: "Produto Tenant em falta." };
