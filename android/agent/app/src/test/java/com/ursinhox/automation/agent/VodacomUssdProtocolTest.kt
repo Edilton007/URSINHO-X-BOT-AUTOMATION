@@ -13,6 +13,11 @@ class VodacomUssdProtocolTest {
     }
 
     @Test
+    fun usaConsultaDeDadosQueExigeValidacaoFisicaDaQuotaMensal() {
+        assertEquals("*131#", VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
+    }
+
+    @Test
     fun utilizaMenuOficialDeTransferenciaDeMegas() {
         assertEquals("*111#", VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
         val roteiro = VodacomUssdProtocol.roteiroTransferencia(2048, "258841234567")
