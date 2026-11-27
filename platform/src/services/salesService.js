@@ -784,6 +784,8 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
         order.estado = "METODO_PAGAMENTO_DIVERGENTE";
         order.paymentReference = String(proof.reference);
         order.paymentOperator = operator || null;
+        order.detectedAmount = Number.isFinite(amount) ? amount : null;
+        order.proofReceivedAtMs = now;
         order.atualizadoEmMs = now;
         saveSales(db);
         return {
@@ -795,7 +797,9 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
     if (!amountMatches) {
         order.estado = "VALOR_DIVERGENTE";
         order.paymentReference = String(proof.reference);
+        order.paymentOperator = operator || null;
         order.detectedAmount = Number.isFinite(amount) ? amount : null;
+        order.proofReceivedAtMs = now;
         order.atualizadoEmMs = now;
         saveSales(db);
         return {
