@@ -24,6 +24,8 @@ const simTelemetryService = require("../services/simTelemetryService");
 const operationService = require("../services/operationService");
 const deviceHealthService = require("../services/deviceHealthService");
 const orderFulfillmentService = require("../services/orderFulfillmentService");
+const customerIdentityService = require("../services/customerIdentityService");
+const salesService = require("../../services/salesService");
 
 router.use("/:tenantId", autenticarTenant);
 
@@ -83,6 +85,30 @@ function operacaoParaTenant(operacao) {
 router.get("/:tenantId/operacoes", (req, res) => {
     const operacoes = operationService.listarOperacoes(req.params.tenantId).map(operacaoParaTenant);
     res.json({ ok: true, operacoes });
+});
+
+router.get("/:tenantId/whatsapp/orders", (req, res) => {
+    const tenantId = req.params.tenantId;
+    // Os groupIds são derivados da associação persistida do Tenant autenticado.
+    // O pedido nunca pode indicar o tenant nem escolher grupos por conta própria.
+    const grupos = customerIdentityService.listarGruposDoTenant(tenantId);
+    const groupIds = grupos.map(group => group.groupId);
+    const operacoes = new Map(
+        operationService.listarOperacoes(tenantId).map(operation => [operation.id, operation])
+    );
+    const pedidos = salesService.listarPedidosAutomationPorGrupos(groupIds).map(pedido => ({
+        ...pedido,
+        estadoOperacao: pedido.operationId
+            ? (operacoes.get(pedido.operationId)?.estado || "NAO_ENCONTRADA")
+            : null
+    }));
+
+    res.json({
+        ok: true,
+        total: pedidos.length,
+        gruposAssociados: grupos.length,
+        pedidos
+    });
 });
 
 router.get("/:tenantId/sims", (req, res) => {
