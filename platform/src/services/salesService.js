@@ -827,7 +827,7 @@ function listarPedidosAutomationPorGrupos(groupIds = []) {
 
     for (const groupIdInput of groupIds) {
         const groupId = String(groupIdInput || "").trim().toLowerCase();
-        if (!/^\\d{5,25}-\\d{5,25}@g\\.us$/.test(groupId)) continue;
+        if (!/^\d{5,25}-\d{5,25}@g\.us$/.test(groupId)) continue;
         const group = db.groups?.[groupId];
         if (!Array.isArray(group?.pendingAutomationOrders)) continue;
 
