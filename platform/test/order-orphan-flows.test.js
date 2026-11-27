@@ -34,6 +34,9 @@ function prepararPedido(megas = 30720) {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 50, subscriptionId: 10 + contador
   });
   assert.equal(status.ok, true);
+  // Simula a receção da telemetria após o heartbeat e confirma a janela online.
+  tenants.marcarContactoDevice(device.id);
+  assert.equal(tenants.getDeviceDoTenant(tenant.id).online, true);
 
   const destinoTeste = `25884${String(1000000 + contador)}`;
   process.env.AUTOMATION_ALLOWED_DESTINATIONS = destinoTeste;
