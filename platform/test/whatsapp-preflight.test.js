@@ -117,7 +117,7 @@ test("preflight rejeita destino fora dos prefixos Vodacom antes do pagamento", (
     });
 
     assert.equal(result.disponivel, false);
-    assert.equal(result.codigo, "PEDIDO_INVALIDO");
+    assert.equal(result.codigo, "REQUEST_INVALID");
 });
 
 test("preflight aceita destino 84/85 com prefixo internacional +258", () => {
