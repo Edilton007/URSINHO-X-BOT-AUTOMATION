@@ -498,6 +498,8 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
   const license = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, license.codigo);
   const device = tenants.registrarDevice(tenant.id, "device-operation-test");
+  // O teste reclama uma tarefa; simula o heartbeat autenticado do Agent.
+  tenants.marcarContactoDevice(device.id);
 
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 1200,
