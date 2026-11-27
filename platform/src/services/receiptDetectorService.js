@@ -970,29 +970,44 @@ async function runOCR(buffer) {
 
 function getUsedReceipt(
     groupId,
-    reference
+    reference,
+    operator = null
 ) {
-    if (
-        !groupId ||
-        !reference
-    ) {
-        return null;
+    if (!groupId || !reference) return null;
+
+    const db = loadUsedReceipts();
+    const referenceKey = String(reference).trim().toUpperCase();
+    const operatorKey = String(operator || "").trim().toLowerCase();
+
+    // Dentro do próprio grupo, qualquer repetição da mesma referência é
+    // bloqueada, independentemente do método indicado na nova imagem.
+    const localGroup = db.groups?.[groupId];
+    if (localGroup) {
+        const local = localGroup[reference] ||
+            Object.values(localGroup).find(item =>
+                String(item?.reference || "").trim().toUpperCase() === referenceKey
+            );
+        if (local) return { ...local, groupId };
     }
 
-    const db =
-        loadUsedReceipts();
+    // Referências de transação são verificadas em toda a plataforma para
+    // impedir que o mesmo comprovativo seja reutilizado noutro grupo/Tenant.
+    // A operadora também tem de corresponder quando existe no registo antigo.
+    for (const [otherGroupId, records] of Object.entries(db.groups || {})) {
+        if (otherGroupId === groupId || !records || typeof records !== "object") continue;
 
-    const group =
-        db.groups?.[groupId];
+        const previous = records[reference] ||
+            Object.values(records).find(item =>
+                String(item?.reference || "").trim().toUpperCase() === referenceKey
+            );
+        if (!previous) continue;
 
-    if (!group) {
-        return null;
+        const previousOperator = String(previous.operator || "").trim().toLowerCase();
+        const sameOperator = !operatorKey || !previousOperator || previousOperator === operatorKey;
+        if (sameOperator) return { ...previous, groupId: otherGroupId };
     }
 
-    return (
-        group[reference] ||
-        null
-    );
+    return null;
 }
 
 /* ============================================================
@@ -1331,7 +1346,8 @@ async function analyzeReceipt(
     const previous =
         getUsedReceipt(
             groupId,
-            reference
+            reference,
+            operator
         );
 
     const sender =
