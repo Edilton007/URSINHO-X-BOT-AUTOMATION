@@ -8,12 +8,9 @@ import org.junit.Test
 class VodacomUssdProtocolTest {
 
     @Test
-    fun utilizaCodigoOficialDeConsultaDeSaldo() {
-        assertEquals("*100#", VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
-    }
-
-    @Test
-    fun usaConsultaDeDadosQueExigeValidacaoFisicaDaQuotaMensal() {
+    fun usaCodigoDeConsultaDeDadosPendenteDeValidacaoFisica() {
+        // A referência externa indica *131# para consulta de dados.
+        // A quota mensal só poderá ser considerada operacional após teste real.
         assertEquals("*131#", VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
     }
 
