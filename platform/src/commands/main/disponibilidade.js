@@ -103,6 +103,8 @@ module.exports = {
                 expectedAmount: checkout.produto.precoMT,
                 productId: checkout.produto.id,
                 productName: checkout.produto.nome,
+                productCategory: checkout.produto.categoria,
+                validityDays: checkout.produto.validadeDias,
                 paymentMethods: checkout.metodosPagamento
             });
             if (!pending.ok) {
@@ -113,10 +115,16 @@ module.exports = {
             }
 
             const payments = checkout.metodosPagamento.map(formatMethod);
+            const validade = Number.isSafeInteger(checkout.produto.validadeDias)
+                ? checkout.produto.validadeDias + " dia(s)"
+                : "Não definida";
+            const categoria = String(checkout.produto.categoria || "NAO_DEFINIDA").replace(/_/g, " ");
             return ctx.reply(
                 "✅ *PEDIDO PRÉ-VALIDADO*\n\n" +
                 "Pedido: *" + pending.pedido.id + "*\n" +
                 "Pacote: *" + checkout.produto.nome + "*\n" +
+                "Categoria: *" + categoria + "*\n" +
+                "Validade configurada: *" + validade + "*\n" +
                 "Quantidade: *" + megas + " MB*\n" +
                 "Preço exacto: *" + Number(checkout.produto.precoMT).toFixed(2) + " MT*\n" +
                 "Destino: *" + destino + "*\n\n" +
