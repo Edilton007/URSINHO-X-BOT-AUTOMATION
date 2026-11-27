@@ -30,6 +30,9 @@ function prepararTenant(nome, deviceNome) {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 50, subscriptionId: 5
   });
   assert.equal(sim.ok, true);
+  // Reconfirma heartbeat após a escrita da telemetria no fixture.
+  tenants.marcarContactoDevice(device.id);
+  assert.equal(tenants.getDeviceDoTenant(tenant.id).online, true);
   return { tenant, device };
 }
 
