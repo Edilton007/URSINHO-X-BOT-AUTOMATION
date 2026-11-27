@@ -815,6 +815,51 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
     return { ok: true, pedido: { ...order } };
 }
 
+/**
+ * Lista pré-pedidos e comprovativos dos grupos fornecidos pelo serviço de
+ * identidade. O caller tem de obter groupIds a partir do Tenant autenticado.
+ * Nunca devolve métodos de pagamento completos, texto OCR ou dados internos.
+ */
+function listarPedidosAutomationPorGrupos(groupIds = []) {
+    if (!Array.isArray(groupIds) || groupIds.length > 3) return [];
+    const db = loadSales();
+    const pedidos = [];
+
+    for (const groupIdInput of groupIds) {
+        const groupId = String(groupIdInput || "").trim().toLowerCase();
+        if (!/^\\d{5,25}-\\d{5,25}@g\\.us$/.test(groupId)) continue;
+        const group = db.groups?.[groupId];
+        if (!Array.isArray(group?.pendingAutomationOrders)) continue;
+
+        for (const order of group.pendingAutomationOrders) {
+            if (!order || typeof order !== "object") continue;
+            pedidos.push({
+                id: String(order.id || ""),
+                groupId,
+                sender: String(order.sender || ""),
+                recipientNumber: String(order.recipientNumber || ""),
+                megas: Number.isSafeInteger(order.megas) ? order.megas : null,
+                productId: String(order.productId || ""),
+                productName: String(order.productName || ""),
+                productCategory: String(order.productCategory || "NAO_DEFINIDA"),
+                validityDays: Number.isSafeInteger(order.validityDays) ? order.validityDays : null,
+                expectedAmount: Number.isFinite(Number(order.expectedAmount)) ? Number(order.expectedAmount) : null,
+                detectedAmount: Number.isFinite(Number(order.detectedAmount)) ? Number(order.detectedAmount) : null,
+                estado: String(order.estado || "SEM_ESTADO"),
+                paymentReference: order.paymentReference ? String(order.paymentReference).slice(0, 120) : null,
+                paymentOperator: order.paymentOperator ? String(order.paymentOperator).slice(0, 30) : null,
+                proofReceivedAtMs: Number.isSafeInteger(order.proofReceivedAtMs) ? order.proofReceivedAtMs : null,
+                operationId: order.operationId ? String(order.operationId).slice(0, 128) : null,
+                criadoEmMs: Number.isSafeInteger(order.criadoEmMs) ? order.criadoEmMs : null,
+                expiraEmMs: Number.isSafeInteger(order.expiraEmMs) ? order.expiraEmMs : null,
+                atualizadoEmMs: Number.isSafeInteger(order.atualizadoEmMs) ? order.atualizadoEmMs : null
+            });
+        }
+    }
+
+    return pedidos.sort((a, b) => (b.criadoEmMs || 0) - (a.criadoEmMs || 0));
+}
+
 function obterPedidoAutomationPorId(groupId, orderId) {
     if (!groupId || !orderId) return null;
     const group = loadSales().groups?.[groupId];
@@ -1446,6 +1491,7 @@ module.exports = {
     removePendingPayment,
     criarPedidoAutomationPendente,
     obterPedidoAutomationPendente,
+    listarPedidosAutomationPorGrupos,
     associarComprovativoAoPedidoAutomation,
     obterPedidoAutomationPorId,
     atualizarEstadoPedidoAutomation
