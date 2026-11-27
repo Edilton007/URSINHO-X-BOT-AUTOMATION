@@ -68,6 +68,20 @@ class UssdDialogClassifierTest {
     }
 
     @Test
+    fun identificaRespostaTerminalSemConfundirComConclusaoValidada() {
+        assertTrue(
+            UssdDialogClassifier.ehResultadoTerminal(
+                "Transferência efetuada com sucesso."
+            )
+        )
+        assertFalse(
+            UssdDialogClassifier.ehResultadoTerminal(
+                "Saldo mensal disponível: 500 MB"
+            )
+        )
+    }
+
+    @Test
     fun naoFechaConfirmacaoDeTransferencia() {
         assertFalse(
             UssdDialogClassifier.deveFecharComOk(
