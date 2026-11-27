@@ -579,6 +579,26 @@ function renderWhatsApp(){
   }
 }
 
+async function reviewWhatsAppOrder(orderId,decision){
+  const confirming=decision==='CONFIRMAR';
+  if(confirming&&!confirm('Confirmaste a entrada real do valor consultando o serviço de pagamento fora do URSINHO? O comprovativo OCR, sozinho, não é prova.'))return;
+  const motivo=prompt(confirming?'Regista como verificaste a entrada do dinheiro (mínimo 5 caracteres):':'Regista o motivo da rejeição (mínimo 5 caracteres):');
+  if(!motivo||motivo.trim().length<5)return showToast('A justificação é obrigatória (mínimo 5 caracteres).');
+  try{
+    const tid=encodeURIComponent(session.tenantId);
+    const result=await api('/automation/tenants/'+tid+'/whatsapp/orders/'+encodeURIComponent(orderId)+'/payment-review',{
+      method:'POST',
+      body:JSON.stringify({decisao:decision,motivo:motivo.trim()})
+    });
+    showToast(confirming
+      ?'Pagamento confirmado manualmente. Operação '+(result.operacao?.estado||'registada')+'.'
+      :'Pagamento rejeitado. A operação não foi criada.');
+    await loadPanel();
+  }catch(error){
+    showToast('Não foi possível rever o pagamento: '+error.message);
+  }
+}
+
 async function loadWhatsAppGroups(){
   const tid=encodeURIComponent(session.tenantId);
   const data=await api(`/automation/tenants/${tid}/whatsapp/groups`);
@@ -651,6 +671,7 @@ function whatsappOrderStatusLabel(value){
     AGUARDANDO_PAGAMENTO:'Aguardando pagamento',
     COMPROVATIVO_RECEBIDO:'Comprovativo recebido',
     OPERACAO_CRIADA:'Operação criada',
+    PAGAMENTO_REJEITADO:'Pagamento rejeitado',
     METODO_PAGAMENTO_DIVERGENTE:'Método divergente',
     VALOR_DIVERGENTE:'Valor divergente',
     EXPIRADO:'Pedido expirado',
@@ -681,6 +702,8 @@ function renderWhatsAppOrders(){
       '<div class="kv"><span>Pedido recebido</span><span>'+esc(fmtDate(order.criadoEmMs))+'</span></div>'+
       (order.proofReceivedAtMs?'<div class="kv"><span>Comprovativo recebido</span><span>'+esc(fmtDate(order.proofReceivedAtMs))+'</span></div>':'')+
       (order.operationId?'<div class="kv"><span>ID da operação</span><span>'+esc(order.operationId)+'</span></div>':'')+
+      (order.paymentReview?'<div class="notice '+(order.paymentReview.decisao==='REJEITAR'?'err':'')+'" style="margin-top:10px"><b>Revisão: '+esc(order.paymentReview.decisao)+'</b><div>'+esc(order.paymentReview.motivo||'')+'</div><small>'+esc(fmtDate(order.paymentReview.emMs))+'</small></div>':'')+
+      (paymentState==='COMPROVATIVO_RECEBIDO'?'<div class="notice warn" style="margin-top:12px">Confirma apenas depois de consultar a transação no M-Pesa, e-Mola ou banco. O OCR não confirma a entrada do dinheiro.</div><div class="packageActions"><button class="btn primary" data-review-whatsapp="'+esc(order.id)+'" data-decision="CONFIRMAR">CONFIRMAR PAGAMENTO</button><button class="btn" data-review-whatsapp="'+esc(order.id)+'" data-decision="REJEITAR">REJEITAR</button></div>':'')+
       '<small class="muted">'+esc(order.groupId||'Grupo WhatsApp')+'</small></article>';
   }).join(''):'<div class="empty"><b>Sem pedidos WhatsApp</b>Os pedidos pré-validados e comprovativos associados aos grupos deste Tenant aparecerão aqui.</div>';
 }
@@ -903,6 +926,10 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
   $('refreshWhatsappOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos WhatsApp atualizados')).catch(e=>showToast(e.message));
+  $('whatsappOrdersList').addEventListener('click',event=>{
+    const button=event.target.closest('[data-review-whatsapp]');
+    if(button)reviewWhatsAppOrder(button.dataset.reviewWhatsapp,button.dataset.decision);
+  });
   $('packageCategory').onchange=updatePackageValidityField;
   $('savePackageBtn').onclick=savePackage;
   $('cancelPackageEditBtn').onclick=resetPackageForm;
