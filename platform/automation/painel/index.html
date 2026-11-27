@@ -421,7 +421,9 @@ const SESSION_KEY='ursinho_x_tenant_session_v3';
 const DEVICE_ONLINE_WINDOW_MS=120*1000;
 const SIM_ONLINE_WINDOW_MS=45*60*1000;
 let session=null;
-let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],loadedAt:null};
+let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],products:[],storefront:null,loadedAt:null};
+let editingPackageId=null;
+let paymentFormDirty=false;
 let refreshTimer=null;
 let whatsappGroups=[];
 let pendingGroupPairing=null;
@@ -534,6 +536,9 @@ async function loadPanel(){
   try{deviceR=await api(`/automation/tenants/${tid}/device`)}catch(e){if(e.status!==404)throw e}
   try{healthR=await api(`/automation/tenants/${tid}/saude`)}catch(e){if(e.status!==404)console.warn('Saúde do Agent indisponível:',e.message)}
   const opsR=await api(`/automation/tenants/${tid}/operacoes`);
+  const productsR=await api(`/automation/tenants/${tid}/products`);
+  let storefrontR=null;
+  try{storefrontR=await api(`/automation/tenants/${tid}/storefront`)}catch(e){if(e.status!==404)throw e}
   try{simsR=await api(`/automation/tenants/${tid}/sims`)}catch(e){if(e.status!==404)throw e}
   state.tenant=tenantR?.tenant||tenantR?.data||tenantR;
   state.license=licenseR?.licenca||licenseR?.license||licenseR?.data||null;
@@ -541,6 +546,8 @@ async function loadPanel(){
   state.health=healthR?.saude||null;
   state.operations=asArray(opsR).map(normalizeOperation);
   state.sims=asArray(simsR).map(normalizeSim);
+  state.products=Array.isArray(productsR?.produtos)?productsR.produtos:asArray(productsR);
+  state.storefront=storefrontR?.loja||null;
   state.loadedAt=Date.now();
   renderAll();backendState(true);return state;
 }
@@ -618,10 +625,86 @@ async function removeWhatsAppGroup(groupId){
 }
 
 function backendState(ok){$('backendDot').className='dot '+(ok?'on':'err');$('backendText').textContent=ok?'SISTEMA ONLINE':'BACKEND OFFLINE'}
-async function refresh(){try{await loadPanel();if($('pageWhatsApp').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
+async function refresh(){try{await loadPanel();if($('pageSettings').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
-function renderAll(){renderDashboard();renderOperations();renderSims();renderSystem()}
+function renderAll(){renderDashboard();renderOperations();renderSims();renderSystem();renderPackages();renderPayments()}
 
+function packageValidityLabel(product){
+  const days=Number(product?.validadeDias);
+  if(Number.isSafeInteger(days)&&days>0)return String(days)+' dia(s)';
+  const labels={DIARIO:'1 dia',SEMANAL:'7 dias',MENSAL:'30 dias',PERSONALIZADO:'Personalizada',NAO_DEFINIDA:'Não definida'};
+  return labels[String(product?.categoria||'NAO_DEFINIDA').toUpperCase()]||'Não definida';
+}
+function packageCategoryLabel(category){
+  return ({DIARIO:'Diário',SEMANAL:'Semanal',MENSAL:'Mensal',PERSONALIZADO:'Personalizado',NAO_DEFINIDA:'Não definida'})[String(category||'NAO_DEFINIDA').toUpperCase()]||'Não definida';
+}
+function mbFromPackageInput(){
+  const raw=Number(String($('packageAmount').value||'').replace(',','.'));
+  if(!Number.isFinite(raw)||raw<=0)return 0;
+  return $('packageUnit').value==='GB'?Math.round(raw*1024):Math.round(raw);
+}
+function renderPackages(){
+  const products=Array.isArray(state.products)?state.products:[];
+  $('packageCount').textContent=String(products.length)+' pacote(s)';
+  $('packageList').innerHTML=products.length?products.map(product=>{
+    const volume=formatMB(product.quantidadeMB);
+    const active=product.ativo!==false;
+    return '<article class="card packageCard"><div class="row" style="justify-content:space-between"><b>'+esc(product.nome||'Pacote sem nome')+'</b>'+badge(active?'ATIVO':'INATIVO',active?'ATIVO':'INATIVO')+'</div>' +
+      '<div class="packagePrice">'+esc(fmtDecimal(number(product.precoMT)||0))+' MT</div>' +
+      '<div class="packageMeta"><span class="badge info">'+esc(volume.main)+'</span><span class="badge muted">'+esc(packageCategoryLabel(product.categoria))+'</span><span class="badge muted">'+esc(packageValidityLabel(product))+'</span></div>' +
+      (product.descricao?'<small class="muted">'+esc(product.descricao)+'</small>':'') +
+      '<div class="packageActions"><button class="btn" data-edit-package="'+esc(product.id)+'">EDITAR</button><button class="btn" data-toggle-package="'+esc(product.id)+'" data-active="'+(active?'true':'false')+'">'+(active?'DESATIVAR':'ATIVAR')+'</button></div></article>';
+  }).join(''):'<div class="empty"><b>Ainda não existem pacotes</b>Cria o primeiro pacote com quantidade, preço e validade.</div>';
+}
+function setPackageMessage(message,error=false){
+  $('packageMsg').textContent=message;$('packageMsg').className='notice '+(error?'err':'');$('packageMsg').classList.remove('hidden');
+}
+function resetPackageForm(){
+  editingPackageId=null;$('packageFormTitle').textContent='Novo pacote';$('packageName').value='';$('packageAmount').value='';$('packageUnit').value='MB';$('packagePrice').value='';$('packageCategory').value='';$('packageValidityDays').value='';$('packageDescription').value='';$('packageValidityDays').disabled=true;$('cancelPackageEditBtn').classList.add('hidden');$('savePackageBtn').textContent='GUARDAR PACOTE';$('packageMsg').classList.add('hidden');
+}
+function updatePackageValidityField(){
+  const category=$('packageCategory').value;const fixed={DIARIO:1,SEMANAL:7,MENSAL:30};
+  if(Object.prototype.hasOwnProperty.call(fixed,category)){$('packageValidityDays').value=String(fixed[category]);$('packageValidityDays').disabled=true}
+  else if(category==='PERSONALIZADO'){$('packageValidityDays').disabled=false}
+  else{$('packageValidityDays').value='';$('packageValidityDays').disabled=true}
+}
+function editPackage(productId){
+  const product=state.products.find(item=>String(item.id)===String(productId));if(!product)return;
+  editingPackageId=product.id;$('packageFormTitle').textContent='Editar pacote';$('packageName').value=product.nome||'';
+  const mb=number(product.quantidadeMB);if(Number.isFinite(mb)&&mb>0&&mb%1024===0){$('packageAmount').value=String(mb/1024);$('packageUnit').value='GB'}else{$('packageAmount').value=Number.isFinite(mb)?String(mb):'';$('packageUnit').value='MB'}
+  $('packagePrice').value=product.precoMT??'';$('packageCategory').value=['DIARIO','SEMANAL','MENSAL','PERSONALIZADO'].includes(product.categoria)?product.categoria:'PERSONALIZADO';$('packageValidityDays').value=product.validadeDias??'';$('packageDescription').value=product.descricao||'';$('packageValidityDays').disabled=$('packageCategory').value!=='PERSONALIZADO';$('cancelPackageEditBtn').classList.remove('hidden');$('savePackageBtn').textContent='GUARDAR ALTERAÇÕES';$('packageMsg').classList.add('hidden');$('packageName').focus();
+}
+async function savePackage(){
+  const nome=$('packageName').value.trim();const quantidadeMB=mbFromPackageInput();const precoMT=Number(String($('packagePrice').value||'').replace(',','.'));const categoria=$('packageCategory').value;
+  if(nome.length<2)return setPackageMessage('Indica um nome válido para o pacote.',true);
+  if(!Number.isSafeInteger(quantidadeMB)||quantidadeMB<100||quantidadeMB>10485760)return setPackageMessage('A quantidade deve ser um número inteiro entre 100 MB e 10 GB.',true);
+  if(!Number.isFinite(precoMT)||precoMT<=0)return setPackageMessage('Indica um preço válido em MT.',true);
+  if(!categoria)return setPackageMessage('Seleciona a categoria e validade do pacote.',true);
+  const payload={nome,quantidadeMB,precoMT,categoria,descricao:$('packageDescription').value.trim()};
+  if(categoria==='PERSONALIZADO'){const dias=Number($('packageValidityDays').value);if(!Number.isSafeInteger(dias)||dias<1||dias>365)return setPackageMessage('A validade personalizada deve estar entre 1 e 365 dias.',true);payload.validadeDias=dias;}
+  $('savePackageBtn').disabled=true;
+  try{const tid=encodeURIComponent(session.tenantId);if(editingPackageId){await api('/automation/tenants/'+tid+'/products/'+encodeURIComponent(editingPackageId),{method:'PATCH',body:JSON.stringify(payload)})}else{await api('/automation/tenants/'+tid+'/products',{method:'POST',body:JSON.stringify(payload)})}resetPackageForm();await loadPanel();showToast('Pacote guardado.')}catch(error){setPackageMessage('Não foi possível guardar: '+error.message,true)}finally{$('savePackageBtn').disabled=false}
+}
+async function togglePackage(productId,active){
+  const tid=encodeURIComponent(session.tenantId);try{await api('/automation/tenants/'+tid+'/products/'+encodeURIComponent(productId),{method:'PATCH',body:JSON.stringify({ativo:!active})});await loadPanel();showToast(!active?'Pacote ativado.':'Pacote desativado.')}catch(error){showToast('Não foi possível atualizar: '+error.message)}
+}
+
+function paymentMethod(type){return (state.storefront?.metodosPagamento||[]).find(method=>String(method.tipo||'').toUpperCase()===type)||null}
+function fillPaymentForm(prefix,method){$('payment'+prefix+'Conta').value=method?.conta||method?.numero||'';$('payment'+prefix+'Titular').value=method?.titular||'';$('payment'+prefix+'Instrucoes').value=method?.instrucoes||'';$('payment'+prefix+'Ativo').value=method?(method.ativo===false?'false':'true'):'false'}
+function renderPayments(){
+  if(paymentFormDirty)return;fillPaymentForm('Mpesa',paymentMethod('MPESA'));fillPaymentForm('Emola',paymentMethod('EMOLA'));
+  const bank=paymentMethod('BANCO')||paymentMethod('TRANSFERENCIA')||paymentMethod('MANUAL');$('paymentBancoConta').value=bank?.conta||bank?.numero||'';$('paymentBancoTitular').value=bank?.titular||'';$('paymentBancoNome').value=bank?.banco||'';$('paymentBancoInstrucoes').value=bank?.instrucoes||'';$('paymentBancoAtivo').value=bank?(bank.ativo===false?'false':'true'):'false';
+}
+function setPaymentMessage(message,error=false){$('paymentMsg').textContent=message;$('paymentMsg').className='notice '+(error?'err':'');$('paymentMsg').classList.remove('hidden')}
+async function savePaymentMethods(){
+  const methods=[];
+  const add=(type,prefix,nome,banco)=>{const conta=$('payment'+prefix+'Conta').value.trim();if(!conta)return;const old=paymentMethod(type);methods.push({id:old?.id||('PAY-'+type+'-'+Date.now()),tipo:type,nome,conta,banco:banco||'',titular:$('payment'+prefix+'Titular').value.trim(),instrucoes:$('payment'+prefix+'Instrucoes').value.trim(),ativo:$('payment'+prefix+'Ativo').value==='true'})};
+  add('MPESA','Mpesa','M-Pesa','');add('EMOLA','Emola','e-Mola','');add('BANCO','Banco','Transferência bancária',$('paymentBancoNome').value.trim());
+  if(methods.length===0)return setPaymentMessage('Configura pelo menos um método de pagamento antes de guardar.',true);
+  if(methods.some(method=>method.conta.replace(/\\D/g,'').length<5))return setPaymentMessage('Verifica os números ou contas indicados.',true);
+  $('savePaymentsBtn').disabled=true;
+  try{const tid=encodeURIComponent(session.tenantId);const tenantName=String(state.tenant?.nome||'Tenant URSINHO');const payload={nome:state.storefront?.nome||tenantName,slug:state.storefront?.slug||('tenant-'+String(session.tenantId).slice(-8).toLowerCase()),descricao:state.storefront?.descricao||'',contacto:state.storefront?.contacto||'',publicado:state.storefront?.publicado===true,metodosPagamento:methods};const result=await api('/automation/tenants/'+tid+'/storefront',{method:'PUT',body:JSON.stringify(payload)});state.storefront=result?.loja||result?.store||state.storefront;paymentFormDirty=false;renderPayments();setPaymentMessage('Métodos guardados. A imagem do comprovativo não confirma a entrada efectiva do dinheiro; a aprovação continua sujeita à revisão definida para o pagamento.');showToast('Configuração de pagamentos atualizada.')}catch(error){setPaymentMessage('Não foi possível guardar: '+error.message,true)}finally{$('savePaymentsBtn').disabled=false}
+}
 function currentActiveOperation(){
   const active=['EXECUTANDO','AGUARDANDO_EXECUCAO','CRIADA','PENDENTE'];
   return state.operations.filter(o=>active.includes(o.state)).sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0))[0]||null;
@@ -744,10 +827,10 @@ function renderSystem(){
 }
 
 function navigate(name){
-  const map={Dashboard:'pageDashboard',Operations:'pageOperations',Sims:'pageSims',System:'pageSystem',WhatsApp:'pageWhatsApp'};
+  const map={Dashboard:'pageDashboard',Operations:'pageOperations',Packages:'pagePackages',Payments:'pagePayments',Sims:'pageSims',Settings:'pageSettings'};
   Object.entries(map).forEach(([key,id])=>$(id).classList.toggle('active',key===name));
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.page===name));
-  if(name==='WhatsApp'&&session)loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
+  if(name==='Settings'&&session)loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
 }
 
 function openModal(){resetOpMsg();$('newDestination').value='';$('newAmount').value='';$('newUnit').value='MB';updatePreview();$('modal').classList.add('open')}
@@ -778,6 +861,18 @@ function openDetail(id){
 document.addEventListener('DOMContentLoaded',async()=>{
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('newOpBtn').onclick=openModal;$('newOpBtn2').onclick=openModal;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
+  $('packageCategory').onchange=updatePackageValidityField;
+  $('savePackageBtn').onclick=savePackage;
+  $('cancelPackageEditBtn').onclick=resetPackageForm;
+  $('refreshPackagesBtn').onclick=()=>loadPanel().then(()=>showToast('Pacotes atualizados')).catch(e=>showToast(e.message));
+  $('packageList').addEventListener('click',event=>{
+    const edit=event.target.closest('[data-edit-package]');const toggle=event.target.closest('[data-toggle-package]');
+    if(edit)editPackage(edit.dataset.editPackage);
+    if(toggle)togglePackage(toggle.dataset.togglePackage,toggle.dataset.active==='true');
+  });
+  $('savePaymentsBtn').onclick=savePaymentMethods;
+  ['paymentMpesaConta','paymentMpesaTitular','paymentMpesaInstrucoes','paymentMpesaAtivo','paymentEmolaConta','paymentEmolaTitular','paymentEmolaInstrucoes','paymentEmolaAtivo','paymentBancoConta','paymentBancoTitular','paymentBancoNome','paymentBancoInstrucoes','paymentBancoAtivo'].forEach(id=>$(id).addEventListener('input',()=>{paymentFormDirty=true}));
+  $('refreshPaymentsBtn').onclick=()=>{paymentFormDirty=false;loadPanel().then(()=>showToast('Pagamentos atualizados')).catch(e=>showToast(e.message))};
   $('createPairingBtn').onclick=createGroupPairing;
   $('refreshGroupsBtn').onclick=()=>loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
   $('copyPairingBtn').onclick=copyGroupPairing;
