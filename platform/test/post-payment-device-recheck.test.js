@@ -102,6 +102,8 @@ test("bloqueia operação quando o Device informado já não é o Device actual 
 
     db.tenants[tenant.id].deviceId = "device-recheck-replacement";
     db.save();
+    const operationsBefore = Object.keys(db.operations).length;
+    const tasksBefore = Object.keys(db.pendingTasks).length;
 
     const operation = operations.criarTransferencia(
         tenant.id,
@@ -112,6 +114,6 @@ test("bloqueia operação quando o Device informado já não é o Device actual 
     );
 
     assert.match(operation.error, /actualmente associado/);
-    assert.equal(Object.keys(db.operations).length, 0);
-    assert.equal(Object.keys(db.pendingTasks).length, 0);
+    assert.equal(Object.keys(db.operations).length, operationsBefore);
+    assert.equal(Object.keys(db.pendingTasks).length, tasksBefore);
 });
