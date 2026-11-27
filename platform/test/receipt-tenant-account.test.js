@@ -58,6 +58,25 @@ test("OCR valida contra conta do Tenant e ignora conta legada diferente", () => 
         "Conta Antiga"
     );
     assert.equal(legacy.verified, false);
+
+    // O mesmo destinatário pode surgir no comprovativo em formato internacional
+    // (+258/258) enquanto o Tenant o configurou no formato local, ou vice-versa.
+    storefront.configurarLoja(tenant.id, {
+        slug: "tenant-ocr",
+        nome: "Loja Tenant",
+        publicado: true,
+        metodosPagamento: [
+            { id: "mpesa-main", tipo: "MPESA", conta: "+258 84 122 2222", titular: "Titular Tenant" }
+        ]
+    });
+    const international = receipts.verifyDestination(
+        groupId,
+        "mpesa",
+        "Transferência recebida para 258841222222",
+        "258841222222",
+        "Titular Tenant"
+    );
+    assert.equal(international.verified, true);
 });
 
 test("loja Tenant activa não permite fallback para método legado não configurado", () => {
