@@ -35,6 +35,8 @@ function preparar() {
   const licenca = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, licenca.codigo);
   const device = tenants.registrarDevice(tenant.id, `device-lista-${n}`);
+  // Simula um heartbeat autenticado recente do Agent para os testes de execução.
+  tenants.marcarContactoDevice(device.id);
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 5, subscriptionId: 30 + n
   });
