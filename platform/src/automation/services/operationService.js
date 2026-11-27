@@ -483,9 +483,10 @@ function registrarResultadoInterno(taskId, dados) {
     adicionarHistorico(op, estadoFinal, agora, leaseExpiradoEmRevisao ? "Evidência tardia reconciliada pelo mesmo claim." : null);
 
     if (saldoDepoisValido) {
-        // A leitura pós-USSD é uma observação mais recente do recurso que a
-        // telemetria anterior. Atualiza o inventário sem misturar saldo MT.
-        simTelemetryService.registrarLeituraInternet(
+        // A consulta USSD do Agent devolve a quota mensal transferível,
+        // não o saldo geral. Actualizar o campo que governa a próxima selecção
+        // de SIM e manter as duas métricas separadas.
+        simTelemetryService.registrarLeituraQuotaTransferivel(
             deviceId,
             simSlot,
             subscriptionId,
