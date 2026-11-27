@@ -646,13 +646,18 @@ function criarPedidoAutomationPendente(groupId, dados) {
 
     // Se já existe comprovativo ligado a um pedido, o administrador tem de
     // resolver esse pedido antes de aceitar um segundo para o mesmo cliente.
+    const estadosComComprovativoPendente = new Set([
+        "COMPROVATIVO_RECEBIDO",
+        "METODO_PAGAMENTO_DIVERGENTE",
+        "VALOR_DIVERGENTE"
+    ]);
     const aguardandoDecisao = group.pendingAutomationOrders.find(item =>
         item.sender === sender &&
-        item.estado === "COMPROVATIVO_RECEBIDO"
+        estadosComComprovativoPendente.has(item.estado)
     );
     if (aguardandoDecisao) {
         return {
-            error: "Já existe um comprovativo associado a um pedido à espera de confirmação administrativa. Aguarda a decisão antes de iniciar outro pedido.",
+            error: "Já existe um comprovativo associado a um pedido à espera de revisão administrativa. Aguarda a decisão antes de iniciar outro pedido.",
             code: "CUSTOMER_ORDER_REVIEW_PENDING"
         };
     }
