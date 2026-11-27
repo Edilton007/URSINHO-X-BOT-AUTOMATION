@@ -266,6 +266,8 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
           </table>
         </div>
       </div>
+      <div class="sectionHead"><div><h2>Pedidos recebidos no WhatsApp</h2><span id="whatsappOrdersCount">0 pedidos</span></div><button id="refreshWhatsappOrdersBtn" class="btn">ATUALIZAR</button></div>
+      <div class="card"><div id="whatsappOrdersList" class="grid"></div></div>
     </section>
 
     <section id="pagePackages" class="page">
@@ -420,7 +422,7 @@ const SESSION_KEY='ursinho_x_tenant_session_v3';
 const DEVICE_ONLINE_WINDOW_MS=120*1000;
 const SIM_ONLINE_WINDOW_MS=45*60*1000;
 let session=null;
-let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],products:[],storefront:null,loadedAt:null};
+let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],whatsappOrders:[],products:[],storefront:null,loadedAt:null};
 let editingPackageId=null;
 let paymentFormDirty=false;
 let refreshTimer=null;
@@ -535,6 +537,7 @@ async function loadPanel(){
   try{deviceR=await api(`/automation/tenants/${tid}/device`)}catch(e){if(e.status!==404)throw e}
   try{healthR=await api(`/automation/tenants/${tid}/saude`)}catch(e){if(e.status!==404)console.warn('Saúde do Agent indisponível:',e.message)}
   const opsR=await api(`/automation/tenants/${tid}/operacoes`);
+  const whatsappOrdersR=await api(`/automation/tenants/${tid}/whatsapp/orders`);
   const productsR=await api(`/automation/tenants/${tid}/products`);
   let storefrontR=null;
   try{storefrontR=await api(`/automation/tenants/${tid}/storefront`)}catch(e){if(e.status!==404)throw e}
@@ -544,6 +547,7 @@ async function loadPanel(){
   state.device=normalizeDevice(deviceR?.device||deviceR?.data||deviceR);
   state.health=healthR?.saude||null;
   state.operations=asArray(opsR).map(normalizeOperation);
+  state.whatsappOrders=Array.isArray(whatsappOrdersR?.pedidos)?whatsappOrdersR.pedidos:[];
   state.sims=asArray(simsR).map(normalizeSim);
   state.products=Array.isArray(productsR?.produtos)?productsR.produtos:asArray(productsR);
   state.storefront=storefrontR?.loja||null;
@@ -626,7 +630,7 @@ async function removeWhatsAppGroup(groupId){
 function backendState(ok){$('backendDot').className='dot '+(ok?'on':'err');$('backendText').textContent=ok?'SISTEMA ONLINE':'BACKEND OFFLINE'}
 async function refresh(){try{await loadPanel();if($('pageSettings').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
-function renderAll(){renderDashboard();renderOperations();renderSims();renderSystem();renderPackages();renderPayments()}
+function renderAll(){renderDashboard();renderOperations();renderWhatsAppOrders();renderSims();renderSystem();renderPackages();renderPayments()}
 
 function packageValidityLabel(product){
   const days=Number(product?.validadeDias);
@@ -641,6 +645,44 @@ function mbFromPackageInput(){
   const raw=Number(String($('packageAmount').value||'').replace(',','.'));
   if(!Number.isFinite(raw)||raw<=0)return 0;
   return $('packageUnit').value==='GB'?Math.round(raw*1024):Math.round(raw);
+}
+function whatsappOrderStatusLabel(value){
+  const labels={
+    AGUARDANDO_PAGAMENTO:'Aguardando pagamento',
+    COMPROVATIVO_RECEBIDO:'Comprovativo recebido',
+    OPERACAO_CRIADA:'Operação criada',
+    METODO_PAGAMENTO_DIVERGENTE:'Método divergente',
+    VALOR_DIVERGENTE:'Valor divergente',
+    EXPIRADO:'Pedido expirado',
+    SUBSTITUIDO:'Pedido substituído'
+  };
+  return labels[String(value||'').toUpperCase()]||String(value||'Sem estado').replace(/_/g,' ');
+}
+function renderWhatsAppOrders(){
+  const orders=Array.isArray(state.whatsappOrders)?state.whatsappOrders:[];
+  $('whatsappOrdersCount').textContent=String(orders.length)+' pedido(s)';
+  $('whatsappOrdersList').innerHTML=orders.length?orders.map(order=>{
+    const cliente=String(order.sender||'').split('@')[0]||'Não identificado';
+    const volume=formatMB(order.megas==null?NaN:order.megas);
+    const amount=Number.isFinite(Number(order.expectedAmount))?fmtDecimal(Number(order.expectedAmount))+' MT':'Não disponível';
+    const detected=Number.isFinite(Number(order.detectedAmount))?fmtDecimal(Number(order.detectedAmount))+' MT':'Não identificado';
+    const paymentState=String(order.estado||'SEM_ESTADO').toUpperCase();
+    const operationState=order.estadoOperacao?String(order.estadoOperacao).replace(/_/g,' '):'Ainda não criada';
+    return '<article class="card packageCard">'+
+      '<div class="row" style="justify-content:space-between"><b>'+esc(order.productName||'Pedido de Internet')+'</b>'+badge(paymentState,whatsappOrderStatusLabel(paymentState))+'</div>'+
+      '<div class="packageMeta"><span class="badge info">'+esc(volume.main)+'</span><span class="badge muted">'+esc(packageCategoryLabel(order.productCategory))+'</span><span class="badge muted">'+esc(packageValidityLabel({categoria:order.productCategory,validadeDias:order.validityDays}))+'</span></div>'+
+      '<div class="kv"><span>Cliente</span><span>'+esc(cliente)+'</span></div>'+
+      '<div class="kv"><span>Destino</span><span>'+esc(order.recipientNumber||'Não disponível')+'</span></div>'+
+      '<div class="kv"><span>Valor esperado</span><span>'+esc(amount)+'</span></div>'+
+      '<div class="kv"><span>Valor no comprovativo</span><span>'+esc(detected)+'</span></div>'+
+      '<div class="kv"><span>Pagamento</span><span>'+esc(whatsappOrderStatusLabel(paymentState))+'</span></div>'+
+      '<div class="kv"><span>Operação</span><span>'+esc(operationState)+'</span></div>'+
+      (order.paymentReference?'<div class="kv"><span>Referência</span><span>'+esc(order.paymentReference)+'</span></div>':'')+
+      '<div class="kv"><span>Pedido recebido</span><span>'+esc(fmtDate(order.criadoEmMs))+'</span></div>'+
+      (order.proofReceivedAtMs?'<div class="kv"><span>Comprovativo recebido</span><span>'+esc(fmtDate(order.proofReceivedAtMs))+'</span></div>':'')+
+      (order.operationId?'<div class="kv"><span>ID da operação</span><span>'+esc(order.operationId)+'</span></div>':'')+
+      '<small class="muted">'+esc(order.groupId||'Grupo WhatsApp')+'</small></article>';
+  }).join(''):'<div class="empty"><b>Sem pedidos WhatsApp</b>Os pedidos pré-validados e comprovativos associados aos grupos deste Tenant aparecerão aqui.</div>';
 }
 function renderPackages(){
   const products=Array.isArray(state.products)?state.products:[];
@@ -860,6 +902,7 @@ function openDetail(id){
 document.addEventListener('DOMContentLoaded',async()=>{
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
+  $('refreshWhatsappOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos WhatsApp atualizados')).catch(e=>showToast(e.message));
   $('packageCategory').onchange=updatePackageValidityField;
   $('savePackageBtn').onclick=savePackage;
   $('cancelPackageEditBtn').onclick=resetPackageForm;
