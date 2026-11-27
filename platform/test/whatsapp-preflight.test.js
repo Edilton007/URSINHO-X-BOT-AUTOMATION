@@ -96,6 +96,54 @@ test("grupo só recebe autorização quando Agent, destino e quota mensal passam
     assert.equal(blockedRecipient.codigo, "DESTINO_NAO_AUTORIZADO");
 });
 
+test("preflight rejeita destino fora dos prefixos Vodacom antes do pagamento", () => {
+    const { device, groupId } = prepararGrupo();
+
+    assert.equal(
+        telemetry.registrarStatus(device.tenantId, device.id, {
+            slot: 0,
+            operadora: "Vodacom Moçambique",
+            internetMB: 3000,
+            internetTransferivelMB: 1000,
+            subscriptionId: 103
+        }).ok,
+        true
+    );
+
+    const result = bridge.preverDisponibilidadePedido({
+        groupId,
+        recipientNumber: "861234567",
+        megas: 500
+    });
+
+    assert.equal(result.disponivel, false);
+    assert.equal(result.codigo, "PEDIDO_INVALIDO");
+});
+
+test("preflight aceita destino 84/85 com prefixo internacional +258", () => {
+    const { device, groupId } = prepararGrupo();
+
+    assert.equal(
+        telemetry.registrarStatus(device.tenantId, device.id, {
+            slot: 0,
+            operadora: "Vodacom Moçambique",
+            internetMB: 3000,
+            internetTransferivelMB: 1000,
+            subscriptionId: 104
+        }).ok,
+        true
+    );
+
+    const result = bridge.preverDisponibilidadePedido({
+        groupId,
+        recipientNumber: "+258 84 123 4567",
+        megas: 500
+    });
+
+    assert.equal(result.disponivel, true);
+    assert.equal(result.codigo, "CAPACIDADE_CONFIRMADA");
+});
+
 test("grupo sem pairing ativo não pode usar preflight de outro tenant", () => {
     const result = bridge.preverDisponibilidadePedido({
         groupId: "987654321-9876543210@g.us",
