@@ -33,6 +33,8 @@ O `YOUTUBE_DL_SKIP_DOWNLOAD=true` evita que a instalação dependa de um pedido 
 - `/` — dashboard privado do Bot V2 (pede `API_KEY` na própria interface).
 - `/api/health` — estado autenticado do socket WhatsApp; requer o cabeçalho `x-api-key` e devolve `socketConnected`.
 - `/automation/tenants/:tenantId/saude` — saúde autenticada do tenant.
+- `/automation/tenants/:tenantId/whatsapp/orders` — pedidos WhatsApp dos grupos associados ao Tenant autenticado.
+- `POST /automation/tenants/:tenantId/whatsapp/orders/:orderId/payment-review` — aprovação/rejeição manual de comprovativo pelo Tenant autenticado; exige decisão e justificação. A confirmação requer verificação externa do recebimento, não apenas OCR.
 - `/admin/tenants/:tenantId/auditoria` — auditoria autenticada por Admin.
 
 ## Variáveis essenciais
