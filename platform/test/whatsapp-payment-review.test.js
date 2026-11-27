@@ -132,6 +132,12 @@ test("Tenant pode confirmar manualmente comprovativo e cria uma única operaçã
     assert.equal(operationList[0].destino, "841234567");
     assert.equal(operationList[0].megas, 500);
 
+    const audit = db.auditoria.find(item =>
+        item.acao === "WHATSAPP_PAYMENT_CONFIRMED" && item.pedidoId === pedido.id
+    );
+    assert.ok(audit);
+    assert.equal(audit.por, "TENANT:" + tenant.id);
+
     const pending = sales.getPendingPayment(groupId, sender, pedido.paymentReference);
     assert.equal(pending.status, "confirmado");
 
@@ -173,6 +179,48 @@ test("Tenant pode rejeitar comprovativo sem criar operação e a decisão fica i
     );
     assert.equal(repeated.code, "PAYMENT_ALREADY_REJECTED");
     assert.equal(require("../src/automation/services/operationService").listarOperacoes(tenant.id).length, 0);
+});
+
+test("permite rejeitar comprovativo com valor divergente, mas bloqueia a sua confirmação", () => {
+    const { tenant, pedido, groupId, sender } = prepararTenantComPedido("Tenant comprovativo divergente");
+
+    sales.removePendingPayment(groupId, sender, pedido.paymentReference);
+    sales.atualizarEstadoPedidoAutomation(
+        groupId,
+        pedido.id,
+        "VALOR_DIVERGENTE",
+        {
+            paymentReference: "TX-DIVERGENTE-VALOR",
+            paymentOperator: "mpesa",
+            detectedAmount: 20,
+            proofReceivedAtMs: Date.now()
+        }
+    );
+
+    const confirmation = reviewService.reverPedidoWhatsApp(
+        tenant.id,
+        pedido.id,
+        "CONFIRMAR",
+        "Valor conferido no histórico."
+    );
+    assert.equal(confirmation.code, "PROOF_NOT_VALID_FOR_CONFIRMATION");
+    assert.equal(require("../src/automation/services/operationService").listarOperacoes(tenant.id).length, 0);
+
+    const rejection = reviewService.reverPedidoWhatsApp(
+        tenant.id,
+        pedido.id,
+        "REJEITAR",
+        "O valor recebido não coincide com o valor do pedido."
+    );
+    assert.equal(rejection.ok, true, JSON.stringify(rejection));
+    assert.equal(rejection.pedido.estado, "PAGAMENTO_REJEITADO");
+    assert.equal(require("../src/automation/services/operationService").listarOperacoes(tenant.id).length, 0);
+
+    const audit = db.auditoria.find(item =>
+        item.acao === "WHATSAPP_PAYMENT_REJECTED" && item.pedidoId === pedido.id
+    );
+    assert.ok(audit);
+    assert.equal(audit.por, "TENANT:" + tenant.id);
 });
 
 test("Tenant diferente não consegue consultar nem rever pedido de outro Tenant", () => {
