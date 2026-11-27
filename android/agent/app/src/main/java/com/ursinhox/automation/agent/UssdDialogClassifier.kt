@@ -34,21 +34,7 @@ internal object UssdDialogClassifier {
 
         // Resultados explícitos da rede são informativos: podem ser fechados,
         // mas continuam sujeitos à validação independente do Backend.
-        val resultadoFinal = listOf(
-            "transferencia efetuada com sucesso",
-            "transferencia realizada com sucesso",
-            "transferencia concluida com sucesso",
-            "transferencia nao concluida",
-            "nao foi possivel efetuar a transferencia",
-            "nao foi possivel concluir a transferencia",
-            "transfer failed",
-            "transaction failed",
-            "transfer successful",
-            "transfer completed",
-            "insufficient balance",
-            "insufficient funds"
-        ).any { normalizado.contains(it) }
-        if (resultadoFinal) return true
+        if (ehResultadoTerminal(normalizado)) return true
 
         // Mensagem promocional específica observada no telefone de teste.
         val avisoPromocionalConhecido =
@@ -84,6 +70,29 @@ internal object UssdDialogClassifier {
                     .containsMatchIn(normalizado)
 
         return informacaoDeConsulta || informacaoDeDados || quotaMensalInformativa
+    }
+
+    /**
+     * Indica que a operadora já terminou esta sessão. Não significa sucesso
+     * validado: apenas permite encerrar o roteiro local e recolher o saldo final.
+     */
+    fun ehResultadoTerminal(texto: String): Boolean {
+        val normalizado = normalizar(texto)
+        if (normalizado.isBlank()) return false
+        return listOf(
+            "transferencia efetuada com sucesso",
+            "transferencia realizada com sucesso",
+            "transferencia concluida com sucesso",
+            "transferencia nao concluida",
+            "nao foi possivel efetuar a transferencia",
+            "nao foi possivel concluir a transferencia",
+            "transfer failed",
+            "transaction failed",
+            "transfer successful",
+            "transfer completed",
+            "insufficient balance",
+            "insufficient funds"
+        ).any { normalizado.contains(it) }
     }
 
     private fun normalizar(texto: String): String =
