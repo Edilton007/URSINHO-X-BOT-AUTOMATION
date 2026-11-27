@@ -148,6 +148,16 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
 }
 </style>
 
+<style id="tenant-commercial-pages">
+#bottomNav{grid-template-columns:repeat(6,minmax(0,1fr));overflow-x:auto;overscroll-behavior-x:contain}
+#bottomNav .nav{min-width:0;padding:6px 2px;font-size:9px;white-space:nowrap}
+#bottomNav .nav span{display:block;font-size:16px;line-height:18px;margin-bottom:2px}
+.packageCard{display:grid;gap:10px}
+.packageCard .packageMeta{display:flex;flex-wrap:wrap;gap:7px}
+.packageCard .packageActions{display:flex;gap:8px;flex-wrap:wrap}
+.packageCard .packagePrice{font-size:20px;font-weight:800;color:var(--ux-text)}
+@media(max-width:380px){#bottomNav .nav{font-size:8px}}
+</style>
 </head>
 <body>
 <div id="loginView" class="app login">
@@ -258,6 +268,62 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       </div>
     </section>
 
+    <section id="pagePackages" class="page">
+      <div class="sectionHead"><div><div class="eyebrow">CATÁLOGO DO TENANT</div><h2>Pacotes e preços</h2><span>Quantidades, preços e validade comercial</span></div><button id="refreshPackagesBtn" class="btn">ATUALIZAR</button></div>
+      <div class="grid two">
+        <div class="card">
+          <div class="sectionHead"><h3 id="packageFormTitle">Novo pacote</h3><span>Configuração comercial</span></div>
+          <div class="formGrid">
+            <div class="field full"><label for="packageName">Nome do pacote</label><input id="packageName" class="input" maxlength="100" placeholder="Ex.: 1 GB Mensal"></div>
+            <div class="field"><label for="packageAmount">Quantidade</label><input id="packageAmount" class="input" inputmode="decimal" placeholder="Ex.: 1"></div>
+            <div class="field"><label for="packageUnit">Unidade</label><select id="packageUnit" class="select"><option value="MB">MB</option><option value="GB">GB</option></select></div>
+            <div class="field"><label for="packagePrice">Preço (MT)</label><input id="packagePrice" class="input" inputmode="decimal" placeholder="Ex.: 25"></div>
+            <div class="field"><label for="packageCategory">Categoria / validade</label><select id="packageCategory" class="select"><option value="DIARIO">Diário · 1 dia</option><option value="SEMANAL">Semanal · 7 dias</option><option value="MENSAL">Mensal · 30 dias</option><option value="PERSONALIZADO">Personalizado</option></select></div>
+            <div class="field" id="packageValidityField"><label for="packageValidityDays">Validade personalizada (dias)</label><input id="packageValidityDays" class="input" inputmode="numeric" placeholder="Entre 1 e 365" disabled></div>
+            <div class="field full"><label for="packageDescription">Descrição (opcional)</label><input id="packageDescription" class="input" maxlength="500" placeholder="Detalhes do pacote"></div>
+          </div>
+          <div id="packageMsg" class="notice hidden" style="margin-top:12px"></div>
+          <div class="row" style="margin-top:14px"><button id="savePackageBtn" class="btn primary">GUARDAR PACOTE</button><button id="cancelPackageEditBtn" class="btn hidden">CANCELAR EDIÇÃO</button></div>
+          <p class="muted" style="margin-top:12px">A validade aqui é a validade comercial configurada para o pacote. A transferência telecom continua limitada à quota que a operadora realmente permite transferir.</p>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>Pacotes configurados</h3><span id="packageCount">0 pacotes</span></div>
+          <div id="packageList" class="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pagePayments" class="page">
+      <div class="sectionHead"><div><div class="eyebrow">RECEBIMENTOS</div><h2>Métodos de pagamento</h2><span>Contas apresentadas ao cliente no pedido</span></div><button id="refreshPaymentsBtn" class="btn">ATUALIZAR</button></div>
+      <div class="notice warn" style="margin-bottom:12px">O comprovativo é analisado quanto ao método, conta, titular e valor. A imagem, por si só, não prova que o dinheiro entrou. A confirmação continua manual até existir integração oficial e validada com o prestador.</div>
+      <div class="grid three" id="paymentMethodsGrid">
+        <div class="card">
+          <div class="sectionHead"><h3>M-Pesa</h3><span>VODACOM</span></div>
+          <label for="paymentMpesaConta">Número de recebimento</label><input id="paymentMpesaConta" class="input" inputmode="tel" placeholder="84/85... ou +258...">
+          <label for="paymentMpesaTitular" style="margin-top:10px">Titular</label><input id="paymentMpesaTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentMpesaInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentMpesaInstrucoes" class="input" placeholder="Referência ou nota">
+          <label for="paymentMpesaAtivo" style="margin-top:10px">Estado</label><select id="paymentMpesaAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>e-Mola</h3><span>MOVITEL</span></div>
+          <label for="paymentEmolaConta">Número de recebimento</label><input id="paymentEmolaConta" class="input" inputmode="tel" placeholder="86/87...">
+          <label for="paymentEmolaTitular" style="margin-top:10px">Titular</label><input id="paymentEmolaTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentEmolaInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentEmolaInstrucoes" class="input" placeholder="Referência ou nota">
+          <label for="paymentEmolaAtivo" style="margin-top:10px">Estado</label><select id="paymentEmolaAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>Banco</h3><span>TRANSFERÊNCIA</span></div>
+          <label for="paymentBancoConta">Conta / NIB</label><input id="paymentBancoConta" class="input" placeholder="Número da conta ou NIB">
+          <label for="paymentBancoTitular" style="margin-top:10px">Titular</label><input id="paymentBancoTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentBancoNome" style="margin-top:10px">Banco</label><input id="paymentBancoNome" class="input" placeholder="Nome do banco">
+          <label for="paymentBancoInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentBancoInstrucoes" class="input" placeholder="Detalhes para o cliente">
+          <label for="paymentBancoAtivo" style="margin-top:10px">Estado</label><select id="paymentBancoAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+      </div>
+      <div id="paymentMsg" class="notice hidden" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:14px"><button id="savePaymentsBtn" class="btn primary">GUARDAR MÉTODOS</button></div>
+    </section>
+
     <section id="pageSims" class="page">
       <div class="sectionHead"><h2>SIMs</h2><span>recursos reais</span></div>
       <div id="simsGrid" class="grid three"></div>
@@ -265,7 +331,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <div class="card" id="devicePanel"></div>
     </section>
 
-    <section id="pageSystem" class="page">
+    <section id="pageSettings" class="page">
       <div class="sectionHead"><h2>Sistema</h2><span>estado e sessão</span></div>
       <div class="grid two">
         <div class="card" id="systemStatus"></div>
@@ -282,10 +348,8 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       </div>
       <div class="sectionHead"><h2>Sessão</h2></div>
       <div class="card" id="sessionPanel"></div>
-    </section>
-
-    <section id="pageWhatsApp" class="page">
-      <div class="sectionHead">
+      <div class="sectionHead" style="margin-top:24px"><div><div class="eyebrow">CANAL DE ATENDIMENTO</div><h2>WhatsApp</h2><span>Associação segura de grupos por Tenant</span></div><button id="refreshGroupsBtn" class="btn">ATUALIZAR</button></div>
+<div class="sectionHead">
         <div><div class="eyebrow">CANAL DE ATENDIMENTO</div><h2>WhatsApp</h2><span>Associação segura de grupos por Tenant</span></div>
         <button id="refreshGroupsBtn" class="btn">ATUALIZAR</button>
       </div>
@@ -309,15 +373,18 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
         </div>
       </div>
     </section>
+
+
   </main>
 </div>
 
 <nav id="bottomNav" class="bottom hidden">
-  <button class="nav active" data-page="Dashboard"><span>⌂</span>Visão geral</button>
-  <button class="nav" data-page="Operations"><span>◎</span>Operações</button>
-  <button class="nav" data-page="Sims"><span>▣</span>SIMs</button>
-  <button class="nav" data-page="System"><span>⚙</span>Sistema</button>
-  <button class="nav" data-page="WhatsApp"><span>◉</span>WhatsApp</button>
+  <button class="nav active" data-page="Dashboard"><span>⌂</span>Início</button>
+  <button class="nav" data-page="Operations"><span>◎</span>Pedidos</button>
+  <button class="nav" data-page="Packages"><span>▤</span>Pacotes</button>
+  <button class="nav" data-page="Payments"><span>◈</span>Pagamentos</button>
+  <button class="nav" data-page="Sims"><span>▣</span>SIMs / Agent</button>
+  <button class="nav" data-page="Settings"><span>⚙</span>Definições</button>
 </nav>
 
 <div id="modal" class="modal">
