@@ -77,12 +77,14 @@ test("associa comprovativo apenas com valor exacto e método oferecido", () => {
     });
     assert.equal(wrongMethod.code, "PAYMENT_METHOD_MISMATCH");
 
-    // O comprovativo divergente já marca esse pedido para revisão, por isso
-    // cria-se uma nova pré-encomenda para o próximo cenário de confirmação.
-    const created2 = criarPedido(groupId, sender);
+    // O comprovativo divergente permanece associado ao pedido. O próximo
+    // cenário usa outro cliente/grupo, sem contornar a revisão pendente.
+    const groupIdAmount = "123456789-1234567898@g.us";
+    const senderAmount = "258844444458@s.whatsapp.net";
+    const created2 = criarPedido(groupIdAmount, senderAmount);
     assert.equal(created2.ok, true);
 
-    const wrongAmount = sales.associarComprovativoAoPedidoAutomation(groupId, sender, {
+    const wrongAmount = sales.associarComprovativoAoPedidoAutomation(groupIdAmount, senderAmount, {
         reference: "TX-WRONG-AMOUNT",
         operator: "mpesa",
         amount: 20,
