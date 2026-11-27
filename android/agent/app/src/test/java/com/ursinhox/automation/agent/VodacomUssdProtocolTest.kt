@@ -1,7 +1,7 @@
 package com.ursinhox.automation.agent
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -9,24 +9,49 @@ class VodacomUssdProtocolTest {
 
     @Test
     fun usaCodigoDeConsultaDeDadosPendenteDeValidacaoFisica() {
-        // A referência externa indica *131# para consulta de dados.
-        // A quota mensal só poderá ser considerada operacional após teste real.
+        // A referência de consulta mantém-se por confirmar no teste físico.
         assertEquals("*131#", VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
     }
 
     @Test
-    fun utilizaMenuOficialDeTransferenciaDeMegas() {
-        assertEquals("*111#", VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
+    fun usaMenuDeTransferencia162ComOpcoes8E2() {
+        assertEquals("*162#", VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
         val roteiro = VodacomUssdProtocol.roteiroTransferencia(2048, "258841234567")
 
-        assertEquals("5", roteiro[0].resposta)
-        assertEquals("8", roteiro[1].resposta)
-        assertEquals("2", roteiro[2].resposta)
-        assertEquals("2048", roteiro[3].resposta)
-        assertEquals("841234567", roteiro[4].resposta)
-        assertEquals("1", roteiro[5].resposta)
-        assertTrue(roteiro[5].termosObrigatorios.contains("841234567"))
-        assertTrue(roteiro[5].gruposTermosAlternativos.contains(setOf("2048 mb", "2048mb")))
+        assertEquals(5, roteiro.size)
+        assertEquals("8", roteiro[0].resposta)
+        assertEquals("2", roteiro[1].resposta)
+        assertEquals("2048", roteiro[2].resposta)
+        assertEquals("841234567", roteiro[3].resposta)
+        assertEquals("1", roteiro[4].resposta)
+        assertTrue(roteiro[4].termosObrigatorios.contains("841234567"))
+        assertTrue(roteiro[4].gruposTermosAlternativos.contains(setOf("2048 mb", "2048mb")))
+    }
+
+    @Test
+    fun aceitaLimitesMinimoEMaximoDeUmaTransferencia() {
+        assertEquals("100", VodacomUssdProtocol.roteiroTransferencia(100, "841234567")[2].resposta)
+        assertEquals("10240", VodacomUssdProtocol.roteiroTransferencia(10240, "851234567")[2].resposta)
+    }
+
+    @Test
+    fun bloqueiaQuantidadeForaDoIntervaloPermitido() {
+        assertThrows(IllegalArgumentException::class.java) {
+            VodacomUssdProtocol.roteiroTransferencia(99, "841234567")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            VodacomUssdProtocol.roteiroTransferencia(10241, "841234567")
+        }
+    }
+
+    @Test
+    fun bloqueiaDestinoQueNaoSejaVodacom84Ou85() {
+        assertThrows(IllegalArgumentException::class.java) {
+            VodacomUssdProtocol.roteiroTransferencia(100, "861234567")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            VodacomUssdProtocol.roteiroTransferencia(100, "84123456")
+        }
     }
 
     @Test
@@ -51,7 +76,7 @@ class VodacomUssdProtocolTest {
             "Transferência de 500 MB para 841234567. Responde 1 para confirmar."
         )
 
-        assertNull(resposta)
+        org.junit.Assert.assertNull(resposta)
         assertTrue(UssdRoteiro.temProximoPasso())
         UssdRoteiro.parar()
     }
