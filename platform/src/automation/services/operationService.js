@@ -50,7 +50,16 @@ function validarPedido(tenantId, deviceId, megas, destino, opcoes = {}) {
         return `Quantidade inválida. Use um valor inteiro entre ${MEGAS_MIN} e ${maxMegas} MB.`;
     }
 
-    if (typeof destino !== "string" || !/^\d{9,12}$/.test(destino)) return "Número de destino inválido.";
+    const destinoNumerico = String(destino || "").replace(/\D/g, "");
+    const destinoLocal = destinoNumerico.startsWith("258") && destinoNumerico.length === 12
+        ? destinoNumerico.slice(3)
+        : destinoNumerico;
+    // A transferência de megabytes publicada pela Vodacom é destinada
+    // a números 84/85. Validar isto no preflight evita pedir pagamento para
+    // números que o menu da operadora não aceita.
+    if (!/^(84|85)\d{7}$/.test(destinoLocal)) {
+        return "Número de destino inválido. A transferência Vodacom requer um número 84/85 com 9 dígitos.";
+    }
     return null;
 }
 
