@@ -299,6 +299,29 @@ function registrarLeituraInternet(deviceId, slot, subscriptionId, internetMB, em
     return { ok: true, sim };
 }
 
+/**
+ * Actualiza especificamente a quota mensal transferível lida após uma sessão
+ * USSD. Não altera o saldo geral de Internet: são métricas distintas.
+ */
+function registrarLeituraQuotaTransferivel(deviceId, slot, subscriptionId, internetTransferivelMB, emMs = Date.now(), persistir = true) {
+    if (!slotValido(slot) || !subscriptionIdValido(subscriptionId) ||
+        !Number.isSafeInteger(internetTransferivelMB) || internetTransferivelMB < 0) {
+        return { ok: false, error: "Leitura de quota transferível inválida." };
+    }
+
+    const sim = db.sims[chaveSim(deviceId, slot)];
+    if (!sim || sim.subscriptionId !== subscriptionId) {
+        return { ok: false, error: "A leitura pertence a uma subscrição que já não corresponde ao SIM registado." };
+    }
+
+    sim.internetTransferivelMB = internetTransferivelMB;
+    sim.internetTransferivelAtualizadoEmMs = emMs;
+    sim.internetTransferivelAtualizadaPor = "EVIDENCIA_USSD";
+    sim.atualizadoEmMs = emMs;
+    if (persistir) db.save();
+    return { ok: true, sim };
+}
+
 function listarSimsDoTenant(tenantId) {
     const agora = Date.now();
 
@@ -368,6 +391,7 @@ module.exports = {
     registrarStatus,
     registrarTransferenciaConcluida,
     registrarLeituraInternet,
+    registrarLeituraQuotaTransferivel,
     listarSimsDoTenant,
     escolherSimElegivel,
     obterSimOperacional,
