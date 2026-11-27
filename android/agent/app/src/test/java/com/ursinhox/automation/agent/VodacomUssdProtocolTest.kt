@@ -29,6 +29,45 @@ class VodacomUssdProtocolTest {
     }
 
     @Test
+    fun selecionaOpcao8ApenasQuandoExisteNoMenuComContextoDeInternet() {
+        val passo = VodacomUssdProtocol.roteiroTransferencia(500, "841234567").first()
+        assertTrue(UssdRoteiro.iniciarRoteiro(listOf(passo)))
+
+        val resposta = UssdRoteiro.proximoPasso(
+            "1. Consultar saldo  8. Internet  9. Outros serviços"
+        )
+
+        assertEquals("8", resposta)
+        UssdRoteiro.parar()
+    }
+
+    @Test
+    fun naoSelecionaOpcao8QuandoOTextoEDeOutroMenu() {
+        val passo = VodacomUssdProtocol.roteiroTransferencia(500, "841234567").first()
+        assertTrue(UssdRoteiro.iniciarRoteiro(listOf(passo)))
+
+        assertEquals(
+            null,
+            UssdRoteiro.proximoPasso("1. Consultar saldo  8. Saldo  9. Outros serviços")
+        )
+        assertTrue(UssdRoteiro.temProximoPasso())
+        UssdRoteiro.parar()
+    }
+
+    @Test
+    fun selecionaOpcao2ApenasQuandoOItemIndicaTransferencia() {
+        val passo = VodacomUssdProtocol.roteiroTransferencia(500, "841234567")[1]
+        assertTrue(UssdRoteiro.iniciarRoteiro(listOf(passo)))
+
+        val resposta = UssdRoteiro.proximoPasso(
+            "1. Consultar saldo  2. Transferir megas  3. Voltar"
+        )
+
+        assertEquals("2", resposta)
+        UssdRoteiro.parar()
+    }
+
+    @Test
     fun aceitaLimitesMinimoEMaximoDeUmaTransferencia() {
         assertEquals("100", VodacomUssdProtocol.roteiroTransferencia(100, "841234567")[2].resposta)
         assertEquals("10240", VodacomUssdProtocol.roteiroTransferencia(10240, "851234567")[2].resposta)
