@@ -104,7 +104,7 @@ test("alterar categoria diária recalcula validade e o catálogo público conser
 });
 
 test("o pedido guarda uma cópia da categoria e validade do pacote escolhido", () => {
-    const { tenant } = prepararLoja();
+    const { tenant, slug } = prepararLoja();
     const product = storefrontService.criarProduto(tenant.id, {
         nome: "Pacote 1 GB Mensal",
         precoMT: 30,
@@ -114,7 +114,7 @@ test("o pedido guarda uma cópia da categoria e validade do pacote escolhido", (
     assert.equal(product.error, undefined);
 
     const order = storefrontService.criarPedidoPublico(
-        "tenant-pacotes-validade",
+        slug,
         {
             nome: "Cliente Teste",
             telefone: "841234567",
