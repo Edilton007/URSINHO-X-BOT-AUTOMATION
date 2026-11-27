@@ -91,16 +91,30 @@ function reverPedidoWhatsApp(tenantId, orderId, decisaoInput, motivoInput) {
         return { error: "Este pagamento já foi rejeitado. É necessária nova pré-verificação e novo comprovativo.", code: "PAYMENT_ALREADY_REJECTED", status: 409 };
     }
 
-    if (pedido.estado !== "COMPROVATIVO_RECEBIDO") {
-        return { error: "O pedido ainda não tem um comprovativo associado e elegível para revisão.", code: "PROOF_NOT_READY", status: 409 };
-    }
-
-    const vinculacao = validarPagamentoAssociado(groupId, pedido);
-    if (vinculacao.error) return { ...vinculacao, status: 409 };
-
     const reviewer = "TENANT:" + tenantId;
+    const estadosComComprovativo = new Set([
+        "COMPROVATIVO_RECEBIDO",
+        "METODO_PAGAMENTO_DIVERGENTE",
+        "VALOR_DIVERGENTE"
+    ]);
 
     if (decisao === "REJEITAR") {
+        if (!estadosComComprovativo.has(pedido.estado) ||
+            !pedido.paymentReference ||
+            !Number.isSafeInteger(pedido.proofReceivedAtMs)) {
+            return { error: "O pedido não tem um comprovativo associado para rejeição.", code: "PROOF_NOT_READY", status: 409 };
+        }
+
+        // Um comprovativo que passou as verificações automáticas deve continuar
+        // ligado ao pedido e ao cliente antes de ser rejeitado no Tenant.
+        // Com método/valor divergentes, não existe associação financeira válida
+        // no pendingPayments; a decisão de rejeição é permitida apenas para
+        // registar a ocorrência, nunca para criar uma operação.
+        if (pedido.estado === "COMPROVATIVO_RECEBIDO") {
+            const vinculacao = validarPagamentoAssociado(groupId, pedido);
+            if (vinculacao.error) return { ...vinculacao, status: 409 };
+        }
+
         const review = { decisao, por: reviewer, emMs: agora, motivo };
         const atualizado = salesService.atualizarEstadoPedidoAutomation(
             groupId,
@@ -119,12 +133,19 @@ function reverPedidoWhatsApp(tenantId, orderId, decisaoInput, motivoInput) {
             tenantId,
             acao: "WHATSAPP_PAYMENT_REJECTED",
             pedidoId: pedido.id,
-            reviewer,
+            por: reviewer,
             motivo
         });
         automationDb.save();
         return { ok: true, decisao, pedido: atualizado };
     }
+
+    if (pedido.estado !== "COMPROVATIVO_RECEBIDO") {
+        return { error: "Só é possível confirmar um comprovativo cujo método, conta, titular e valor correspondem ao pedido.", code: "PROOF_NOT_VALID_FOR_CONFIRMATION", status: 409 };
+    }
+
+    const vinculacao = validarPagamentoAssociado(groupId, pedido);
+    if (vinculacao.error) return { ...vinculacao, status: 409 };
 
     const dispositivo = tenantService.getDeviceDoTenant(tenantId);
     if (!dispositivo || !dispositivo.autorizado) {
