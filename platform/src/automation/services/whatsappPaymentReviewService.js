@@ -204,7 +204,7 @@ function reverPedidoWhatsApp(tenantId, orderId, decisaoInput, motivoInput) {
         acao: "WHATSAPP_PAYMENT_CONFIRMED",
         pedidoId: pedido.id,
         operationId: resultado.operation.id,
-        reviewer,
+        por: reviewer,
         motivo
     });
     automationDb.save();
