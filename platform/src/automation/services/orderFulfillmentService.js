@@ -15,6 +15,17 @@ function normalizarDestinoVodacom(valor) {
     return numero;
 }
 
+function classificarEstadoFulfillment(estadoOperacao, subestados = []) {
+    const estados = [estadoOperacao, ...(Array.isArray(subestados) ? subestados : [])]
+        .filter(Boolean);
+    if (estados.includes("PENDENTE_REVISAO")) return "PENDENTE_REVISAO";
+    if (estados.includes("PENDENTE")) return "AGUARDANDO_RECURSOS";
+    if (estados.some(estado => ["AGUARDANDO_EXECUCAO", "EXECUTANDO"].includes(estado))) {
+        return "EM_PROCESSAMENTO";
+    }
+    return "EM_PROCESSAMENTO";
+}
+
 function calcularMegas(order) {
     if (!Array.isArray(order.items) || order.items.length === 0) {
         return { error: "O pedido não contém pacotes de Internet." };
@@ -167,9 +178,8 @@ function cumprirPedidoPago(orderId, tenantId) {
 
     order.operationId = operation?.id || operationIds[0] || null;
     order.operationIds = operationIds;
-    order.fulfillmentStatus = operation?.estado === "PENDENTE" || operation?.estado === "PENDENTE_REVISAO"
-        ? "AGUARDANDO_RECURSOS"
-        : "EM_PROCESSAMENTO";
+    const estadosSuboperacoes = pedido?.suboperacoes?.map(item => item.estado) || [];
+    order.fulfillmentStatus = classificarEstadoFulfillment(operation?.estado, estadosSuboperacoes);
     order.fulfillmentStartedAtMs ||= Date.now();
     order.fulfillmentUpdatedAtMs = Date.now();
     order.fulfillmentError = null;
@@ -199,5 +209,6 @@ function cumprirPedidoPago(orderId, tenantId) {
 module.exports = {
     cumprirPedidoPago,
     normalizarDestinoVodacom,
-    calcularMegas
+    calcularMegas,
+    classificarEstadoFulfillment
 };
