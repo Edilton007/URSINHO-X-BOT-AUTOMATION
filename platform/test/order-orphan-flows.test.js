@@ -29,6 +29,7 @@ function prepararPedido(megas = 30720) {
   const licenca = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, licenca.codigo);
   const device = tenants.registrarDevice(tenant.id, `device-fluxo-${contador}`);
+  tenants.marcarContactoDevice(device.id);
   const status = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 50, subscriptionId: 10 + contador
   });
