@@ -30,7 +30,8 @@ O `YOUTUBE_DL_SKIP_DOWNLOAD=true` evita que a instalação dependa de um pedido 
 - `/master/` — consola Master/Admin.
 - `/loja/:slug` — loja pública.
 - `/site/` — website institucional público; contacto de WhatsApp é opcional via `PUBLIC_CONTACT_NUMBER`.
-- `/painel/` — dashboard privado do Bot V2 (pede `API_KEY` na própria interface).
+- `/` — dashboard privado do Bot V2 (pede `API_KEY` na própria interface).
+- `/api/health` — estado autenticado do socket WhatsApp; requer o cabeçalho `x-api-key` e devolve `socketConnected`.
 - `/automation/tenants/:tenantId/saude` — saúde autenticada do tenant.
 - `/admin/tenants/:tenantId/auditoria` — auditoria autenticada por Admin.
 
