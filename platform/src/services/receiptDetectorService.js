@@ -1083,6 +1083,23 @@ function getMessagePushName(m) {
 }
 
 /* ============================================================
+   DETECTOR DISPONÍVEL PARA O GRUPO
+   ============================================================ */
+
+/**
+ * Grupos associados ao URSINHO Automation precisam sempre de analisar
+ * comprovativos: a pré-verificação e o pedido de pagamento são iniciados
+ * pelo próprio fluxo de Automation. O interruptor legado continua a
+ * controlar apenas grupos que não estão associados a um Tenant.
+ */
+function isReceiptDetectionEnabledForGroup(groupId) {
+    if (!groupId || !String(groupId).endsWith("@g.us")) return false;
+    if (isDetectorEnabled(groupId)) return true;
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+    return association?.ok === true;
+}
+
+/* ============================================================
    ANALISAR COMPROVATIVO
    ============================================================ */
 
@@ -1097,9 +1114,12 @@ async function analyzeReceipt(
 
     /* ========================================================
        DETECTOR DESLIGADO
+       --------------------------------------------------------
+       O fluxo Automation ativa a análise por associação do grupo.
+       Grupos sem Automation continuam a respeitar o comando legado.
        ======================================================== */
 
-    if (!isDetectorEnabled(groupId)) {
+    if (!isReceiptDetectionEnabledForGroup(groupId)) {
         return null;
     }
 
@@ -1674,6 +1694,7 @@ ${mismatch}
 
 module.exports = {
     analyzeReceipt,
+    isReceiptDetectionEnabledForGroup,
 
     formatReceiptResult,
 
