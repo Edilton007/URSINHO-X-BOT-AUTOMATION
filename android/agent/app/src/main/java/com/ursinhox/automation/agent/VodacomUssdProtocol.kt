@@ -28,20 +28,18 @@ internal object VodacomUssdProtocol {
 
         return listOf(
             UssdRoteiro.Passo(
-                "8",
-                setOf(
-                    "8. servicos de internet",
-                    "8 servicos de internet",
-                    "8. internet services",
-                    "8. internet",
-                    "8 internet",
-                    "8. transferir megas",
-                    "8 transferir megas"
-                )
+                resposta = "8",
+                gruposTermosAlternativos = listOf(
+                    setOf("internet", "dados", "megas", "transferir", "transferencia")
+                ),
+                opcaoEsperada = "8"
             ),
             UssdRoteiro.Passo(
-                "2",
-                setOf("2. transferir megas", "2 transferir megas", "2. transfer megabytes")
+                resposta = "2",
+                gruposTermosAlternativos = listOf(
+                    setOf("transferir", "transferencia", "transfer")
+                ),
+                opcaoEsperada = "2"
             ),
             UssdRoteiro.Passo(
                 quantidade,
