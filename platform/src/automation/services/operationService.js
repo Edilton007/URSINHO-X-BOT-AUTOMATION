@@ -37,6 +37,9 @@ function validarPedido(tenantId, deviceId, megas, destino, opcoes = {}) {
     if (!device || device.tenantId !== tenantId || device.autorizado === false) {
         return "Nenhum Device autorizado está associado a este Tenant.";
     }
+    if (tenant.deviceId !== deviceId) {
+        return "O Device indicado já não é o dispositivo actualmente associado a este Tenant.";
+    }
 
     const licenca = tenant.licencaId ? db.licenseCodes[tenant.licencaId] : null;
     if (!licenca || licenca.estado !== "ATIVA") return "Licença do tenant não está ativa.";
@@ -156,7 +159,15 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
     const agora = Date.now();
     const permitido = execucaoPermitida();
     const destinoOk = destinoPermitido(destino);
-    const simEscolhido = permitido && destinoOk
+    // Repetir a verificação do Device depois da confirmação do pagamento.
+    // Um Device offline não recebe tarefa: a operação permanece PENDENTE até
+    // um heartbeat autenticado voltar a confirmar o dispositivo actual.
+    const deviceAtual = tenantService.getDeviceDoTenant(tenantId);
+    const deviceOnline = !!deviceAtual &&
+        deviceAtual.id === deviceId &&
+        deviceAtual.autorizado === true &&
+        deviceAtual.online === true;
+    const simEscolhido = permitido && destinoOk && deviceOnline
         ? simTelemetryService.escolherSimElegivel(tenantId, deviceId, megas, LIMITE_DIARIO_PADRAO)
         : null;
 
@@ -185,7 +196,9 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
                 ? "Execução desativada no servidor (AUTOMATION_ALLOW_EXECUTION=false)."
                 : (!destinoOk
                     ? MOTIVO_DESTINO_FORA_DA_LISTA
-                    : "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível.")
+                    : (!deviceOnline
+                        ? "Android Agent offline ou não é o Device actualmente associado. A tarefa aguarda novo contacto autenticado."
+                        : "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível."))
         };
         Object.assign(db.operations[opId], extra);
         db.save();
@@ -681,6 +694,21 @@ function reprocessarPendentes(tenantId = null) {
         if (!destinoPermitido(op.destino)) {
             if (op.motivoPendente !== MOTIVO_DESTINO_FORA_DA_LISTA) {
                 op.motivoPendente = MOTIVO_DESTINO_FORA_DA_LISTA;
+                alterou = true;
+            }
+            continue;
+        }
+
+        // Não alocar uma tarefa enquanto o Agent não provar que voltou a
+        // estar online através de uma chamada autenticada recente.
+        const deviceAtual = tenantService.getDeviceDoTenant(op.tenantId);
+        if (!deviceAtual ||
+            deviceAtual.id !== op.deviceId ||
+            deviceAtual.autorizado !== true ||
+            deviceAtual.online !== true) {
+            const motivo = "Android Agent offline ou não é o Device actualmente associado. A aguardar novo contacto autenticado.";
+            if (op.motivoPendente !== motivo) {
+                op.motivoPendente = motivo;
                 alterou = true;
             }
             continue;
