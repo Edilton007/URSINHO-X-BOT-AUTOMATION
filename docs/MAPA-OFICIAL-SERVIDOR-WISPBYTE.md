@@ -66,9 +66,10 @@ Não apagar, recriar ou substituir estes dados para “limpar” o servidor. Pre
 2. `https://ursinho.wispbyte.org/tenant/` — Tenant Panel web.
 3. `https://ursinho.wispbyte.org/master/` — Master/Admin.
 4. `https://ursinho.wispbyte.org/site/` — site institucional.
-5. `https://ursinho.wispbyte.org/painel/` — painel web do Bot V2.
+5. `https://ursinho.wispbyte.org/` — painel web original do Bot V2 (acesso protegido por `API_KEY`).
+6. `https://ursinho.wispbyte.org/api/health` — estado do socket WhatsApp; requer o cabeçalho `x-api-key`. `status: "online"` e `socketConnected: true` confirmam a sessão autenticada.
 
-O health check comprova apenas que a API responde; não comprova sessão WhatsApp, credenciais Tenant/Device, SIM, telemetria ou execução USSD.
+A rota `/automation/health` comprova apenas que a API responde; não comprova a sessão WhatsApp, credenciais Tenant/Device, SIM, telemetria ou execução USSD. A rota privada `/api/health` confirma apenas o estado do socket WhatsApp e exige `x-api-key`; nunca colocar a chave na URL nem partilhá-la em capturas. A ausência de Agent autorizado e de telemetria no Tenant impede o teste físico, mesmo que o Bot V2 esteja online.
 
 ## 7. Configuração dos dois APKs de teste
 
