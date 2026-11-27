@@ -29,6 +29,39 @@ class VodacomUssdProtocolTest {
     }
 
     @Test
+    fun percorreSequenciaCompleta1628QuantidadeDestinoNaOrdemConfirmada() {
+        assertEquals("*162#", VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
+        val roteiro = VodacomUssdProtocol.roteiroTransferencia(10240, "258841234567")
+        assertTrue(UssdRoteiro.iniciarRoteiro(roteiro))
+
+        assertEquals(
+            "8",
+            UssdRoteiro.proximoPasso("1. Consultar saldo  8. Internet  9. Outros serviços")
+        )
+        assertEquals(
+            "2",
+            UssdRoteiro.proximoPasso("1. Consultar saldo  2. Transferir megas  3. Voltar")
+        )
+        assertEquals(
+            "10240",
+            UssdRoteiro.proximoPasso("Introduza a quantidade de megabytes que pretende transferir")
+        )
+        assertEquals(
+            "841234567",
+            UssdRoteiro.proximoPasso("Introduza o número de destino")
+        )
+        assertEquals(
+            "1",
+            UssdRoteiro.proximoPasso(
+                "Transferência de 10240 MB para 841234567. Responde 1 para confirmar."
+            )
+        )
+
+        assertTrue(!UssdRoteiro.temProximoPasso())
+        UssdRoteiro.parar()
+    }
+
+    @Test
     fun selecionaOpcao8ApenasQuandoExisteNoMenuComContextoDeInternet() {
         val passo = VodacomUssdProtocol.roteiroTransferencia(500, "841234567").first()
         assertTrue(UssdRoteiro.iniciarRoteiro(listOf(passo)))
