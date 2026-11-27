@@ -35,6 +35,7 @@ function validarPagamentoAssociado(groupId, pedido) {
         String(pagamento.sender || "") !== String(pedido.sender || "") ||
         String(pagamento.recipientNumber || "") !== String(pedido.recipientNumber || "") ||
         String(pagamento.reference || "") !== String(pedido.paymentReference || "") ||
+        String(pagamento.operator || "").toLowerCase() !== String(pedido.paymentOperator || "").toLowerCase() ||
         !Number.isFinite(Number(pagamento.amount)) ||
         Math.round(Number(pagamento.amount) * 100) !== Math.round(Number(pedido.expectedAmount) * 100) ||
         Number(pagamento.expectedMegas) !== Number(pedido.megas) ||
@@ -126,8 +127,8 @@ function reverPedidoWhatsApp(tenantId, orderId, decisaoInput, motivoInput) {
     }
 
     const dispositivo = tenantService.getDeviceDoTenant(tenantId);
-    if (!dispositivo) {
-        return { error: "Tenant sem Android Agent associado. O pagamento fica em revisão; nenhuma operação foi criada.", code: "DEVICE_NOT_ASSOCIATED", status: 409 };
+    if (!dispositivo || !dispositivo.autorizado) {
+        return { error: "Tenant sem Android Agent autorizado. O pagamento fica em revisão; nenhuma operação foi criada.", code: "DEVICE_NOT_ASSOCIATED", status: 409 };
     }
 
     const resultado = automationBridge.criarTransferenciaAprovada({
