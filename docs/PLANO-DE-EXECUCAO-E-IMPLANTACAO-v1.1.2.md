@@ -45,7 +45,7 @@ Configuração de arranque recomendada:
 
 - comando: `npm start`;
 - alternativa Startup File: `src/index.js`;
-- Node: versão 20 ou superior;
+- Node: versão 22 ou superior (Node 24 é suportado);
 - bind da API: `0.0.0.0`;
 - `PORT`: valor atribuído pelo painel do Wispbyte. Não presumir que a porta antiga 16292 continua ativa; confirme a porta no painel.
 
@@ -89,7 +89,7 @@ Não colocar chaves Gemini, Groq ou outros serviços se não as utilizar. Não r
 A partir da raiz `platform/`:
 
 ```bash
-npm ci
+YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci
 npm run preflight
 ```
 
@@ -117,8 +117,10 @@ A resposta esperada é HTTP 200 e JSON com `ok: true`, serviço `URSINHO X BOT A
 
 Esse endpoint confirma apenas que a API responde. Não comprova WhatsApp, base persistente, APK, Cloudflare, Agent, SIM ou USSD.
 
-5. Confirme também que `/painel/`, `/tenant/`, `/master/` e `/loja/` servem as páginas HTTPS esperadas. Os dados protegidos continuam a exigir suas chaves.
-6. No painel Bot `/painel/`, introduza `API_KEY` no formulário. A chave é guardada em `sessionStorage` desta aba; termine a sessão ao usar dispositivo partilhado.
+5. Confirme também que `/`, `/tenant/`, `/master/` e `/site/` servem as páginas HTTPS esperadas. O painel original do Bot V2 está na raiz `/`; `/painel/` não está montado e devolve 404.
+6. No painel Bot `/`, introduza `API_KEY` no formulário. A chave é guardada em `sessionStorage` desta aba; termine a sessão ao usar dispositivo partilhado.
+7. Para confirmar a sessão real do WhatsApp, consulte `/api/health` com o cabeçalho `x-api-key` (a mesma chave privada do painel). `socketConnected: true` confirma o socket autenticado. Nunca coloque a chave na URL, em logs públicos ou em capturas de ecrã.
+8. `/automation/health` confirma somente a disponibilidade da API, não o estado da sessão WhatsApp nem do Android Agent.
 
 Se a rota falhar, pare aqui. Não avance para Agent, tenants reais ou transferências.
 
