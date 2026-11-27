@@ -5,6 +5,8 @@ on:
     paths:
       - "platform/**"
       - "android/**"
+      - "docs/**"
+      - "README.md"
       - ".github/workflows/platform-validation.yml"
   push:
     branches:
@@ -12,6 +14,9 @@ on:
       - "feat/**"
     paths:
       - "platform/**"
+      - "android/**"
+      - "docs/**"
+      - "README.md"
       - ".github/workflows/platform-validation.yml"
 
 permissions:
