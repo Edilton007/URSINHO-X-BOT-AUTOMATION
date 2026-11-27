@@ -193,10 +193,10 @@ object UssdOperacoes {
     }
 
     /**
-     * Executa o menu publicado pela Vodacom:
-     * *111# → 5 (Internet) → 8 (Serviços de internet) → 2 (Transferir Megas)
-     * → quantidade → destino.
-     * A chamada só é iniciada após confirmar o PhoneAccount do subscriptionId.
+     * Executa o fluxo de transferência informado pelo responsável operacional:
+     * *162# → 8 → 2 → quantidade (100 a 10.240 MB) → número de destino.
+     * As opções são enviadas apenas quando o texto USSD visível corresponde
+     * ao passo esperado; a chamada usa o PhoneAccount do subscriptionId exacto.
      */
     fun executarTransferencia(
         context: Context,
