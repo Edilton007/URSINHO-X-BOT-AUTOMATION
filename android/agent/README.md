@@ -9,7 +9,7 @@ O Agent é o executor Android da plataforma. Ele deteta SIMs, publica telemetria
 - Android minSdk 24 para instalação/interface/deteção.
 - Java 17, Android Gradle Plugin 8.5.2, compileSdk 35 e Gradle 8.7.
 - O modelo de compilação está em `docs/ci-templates/android-build.yml`. A compilação também é executada pelo workflow principal `import-and-build.yml`.
-- O pacote não contém APK porque não houve ambiente Android SDK/Gradle disponível para uma compilação local nesta preparação.
+- O repositório contém o código-fonte, não APKs versionados. O workflow GitHub Actions `Platform validation` compila os APKs Debug do Agent e Tenant e publica o artefacto `URSINHO-X-APKs-DEBUG-TESTE` por 7 dias. São builds de teste, não APKs de produção assinados.
 
 ## Configuração no aparelho
 
@@ -30,4 +30,4 @@ O Agent é o executor Android da plataforma. Ele deteta SIMs, publica telemetria
 
 ## Validação
 
-O classificador USSD foi testado isoladamente em três cenários JVM: frase positiva explícita, frase negativa e resposta ambígua. A compilação completa Android e a execução USSD real permanecem pendentes de CI/aparelho.
+Em 27-11-2026, o workflow `Platform validation` concluiu com sucesso os testes unitários do Agent e a compilação dos APKs Debug do Agent e Tenant. Isto confirma apenas a compilação automatizada. A instalação física no Samsung Galaxy A04e, o contacto com o Wispbyte, a deteção de SIM Vodacom e a execução USSD/transação real continuam pendentes de aceitação no aparelho.
