@@ -196,7 +196,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
             <h1>Operação sob controle.</h1>
             <p>Monitoramento do tenant, Agent Android, SIMs e operações reais. Os dados exibidos vêm do Backend.</p>
             <div class="heroActions">
-              <button id="newOpBtn" class="btn primary">＋ NOVA OPERAÇÃO</button>
+              <span class="badge muted">Execução após pagamento confirmado</span>
               <span id="licenseBadge" class="badge muted">LICENÇA</span>
             </div>
           </div>
@@ -243,7 +243,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
     </section>
 
     <section id="pageOperations" class="page">
-      <div class="sectionHead"><h2>Operações</h2><button id="newOpBtn2" class="btn primary">＋ NOVA</button></div>
+      <div class="sectionHead"><div><h2>Pedidos e operações</h2><span>Execução gerada a partir de pedidos com pagamento confirmado</span></div></div>
       <div class="card" style="margin-bottom:12px">
         <div class="toolbar">
           <input id="opSearch" class="input" placeholder="Pesquisar operação, destino ou SIM">
@@ -858,7 +858,7 @@ function openDetail(id){
 }
 
 document.addEventListener('DOMContentLoaded',async()=>{
-  $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('newOpBtn').onclick=openModal;$('newOpBtn2').onclick=openModal;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
+  $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
   $('packageCategory').onchange=updatePackageValidityField;
   $('savePackageBtn').onclick=savePackage;
