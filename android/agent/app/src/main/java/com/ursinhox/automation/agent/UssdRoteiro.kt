@@ -68,7 +68,7 @@ object UssdRoteiro {
                 texto.contains(normalizar(frase))
             }
             val opcaoCorresponde = passo.opcaoEsperada?.let { opcao ->
-                Regex("(?:^|\\\\s)${Regex.escape(opcao)}(?:\\\\s+|[.)\\\\-:]\\\\s*)\\\\S+")
+                Regex("(?:^|\\s)${Regex.escape(opcao)}(?:\\s+|[.)\\-:]\\s*)\\S+")
                     .containsMatchIn(texto)
             } ?: true
             val termosPresentes = passo.termosObrigatorios.all { termo ->
