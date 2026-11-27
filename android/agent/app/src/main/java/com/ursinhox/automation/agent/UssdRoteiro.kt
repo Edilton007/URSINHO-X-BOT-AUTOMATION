@@ -16,7 +16,9 @@ object UssdRoteiro {
         val gruposTermosAlternativos: List<Set<String>> = emptyList(),
         // Palavras de custo/cobrança não autorizadas pela tarefa impedem
         // qualquer confirmação automática no menu da operadora.
-        val termosProibidos: Set<String> = emptySet()
+        val termosProibidos: Set<String> = emptySet(),
+        // Opção numérica exacta apresentada como item de menu (ex.: "8. Internet").
+        val opcaoEsperada: String? = null
     )
 
     @Volatile
@@ -60,11 +62,15 @@ object UssdRoteiro {
      */
     fun proximoPasso(textoPrompt: String): String? {
         val passo = fila.firstOrNull() ?: return null
-        if (passo.frasesEsperadas.isNotEmpty()) {
+        if (passo.frasesEsperadas.isNotEmpty() || passo.opcaoEsperada != null) {
             val texto = normalizar(textoPrompt)
-            val corresponde = passo.frasesEsperadas.any { frase ->
+            val corresponde = passo.frasesEsperadas.isEmpty() || passo.frasesEsperadas.any { frase ->
                 texto.contains(normalizar(frase))
             }
+            val opcaoCorresponde = passo.opcaoEsperada?.let { opcao ->
+                Regex("(?:^|\\\\s)${Regex.escape(opcao)}(?:\\\\s+|[.)\\\\-:]\\\\s*)\\\\S+")
+                    .containsMatchIn(texto)
+            } ?: true
             val termosPresentes = passo.termosObrigatorios.all { termo ->
                 texto.contains(normalizar(termo))
             }
@@ -74,11 +80,11 @@ object UssdRoteiro {
             val termoProibidoEncontrado = passo.termosProibidos.firstOrNull { termo ->
                 texto.contains(normalizar(termo))
             }
-            if (!corresponde || !termosPresentes || !gruposPresentes || termoProibidoEncontrado != null) {
+            if (!corresponde || !opcaoCorresponde || !termosPresentes || !gruposPresentes || termoProibidoEncontrado != null) {
                 val motivo = if (termoProibidoEncontrado != null) {
                     "termo de custo/cobrança não autorizado: ${termoProibidoEncontrado}"
                 } else {
-                    "frase, destino, quantidade ou contexto em falta"
+                    "opção numerada, frase, destino, quantidade ou contexto em falta"
                 }
                 registrar(
                     "SEGURANÇA: ecrã USSD recusado (${motivo}). " +
