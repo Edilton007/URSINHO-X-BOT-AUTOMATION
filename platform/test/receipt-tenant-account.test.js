@@ -79,6 +79,30 @@ test("OCR valida contra conta do Tenant e ignora conta legada diferente", () => 
     assert.equal(international.verified, true);
 });
 
+test("bloqueia reutilização da mesma referência entre grupos da plataforma", () => {
+    receipts.saveUsedReceipt("grupo-original@g.us", "TX-GLOBAL-001", {
+        reference: "TX-GLOBAL-001",
+        operator: "mpesa",
+        sender: "258844444444@s.whatsapp.net",
+        amount: 25
+    });
+
+    const sameOperator = receipts.getUsedReceipt(
+        "outro-grupo@g.us",
+        "TX-GLOBAL-001",
+        "mpesa"
+    );
+    assert.ok(sameOperator);
+    assert.equal(sameOperator.groupId, "grupo-original@g.us");
+
+    const otherOperator = receipts.getUsedReceipt(
+        "outro-grupo@g.us",
+        "TX-GLOBAL-001",
+        "emola"
+    );
+    assert.equal(otherOperator, null);
+});
+
 test("loja Tenant activa não permite fallback para método legado não configurado", () => {
     const tenant = tenants.criarTenant({ nome: "Tenant OCR Sem eMola" });
     const license = tenants.gerarCodigoLicenca(30);
