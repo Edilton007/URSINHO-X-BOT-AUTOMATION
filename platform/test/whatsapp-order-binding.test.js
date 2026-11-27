@@ -23,6 +23,8 @@ function criarPedido(groupId, sender) {
         expectedAmount: 25.5,
         productId: "PROD-1",
         productName: "Pacote 1 GB",
+        productCategory: "MENSAL",
+        validityDays: 30,
         paymentMethods: [
             { id: "PAY-MPESA", tipo: "MPESA", conta: "841222222", titular: "Titular M-Pesa" },
             { id: "PAY-EMOLA", tipo: "EMOLA", conta: "841333333", titular: "Titular e-Mola" }
@@ -39,6 +41,27 @@ test("pré-pedido guarda cliente, destino, pacote, preço e métodos de pagament
     assert.equal(result.pedido.paymentMethods.length, 2);
     assert.equal(result.pedido.estado, "AGUARDANDO_PAGAMENTO");
     assert.ok(result.pedido.expiraEmMs > result.pedido.criadoEmMs);
+});
+
+test("lista apenas pedidos dos grupos autorizados e devolve campos comerciais seguros", () => {
+    const tenantGroup = "123456789-1234567896@g.us";
+    const otherGroup = "123456789-1234567897@g.us";
+    const tenantOrder = criarPedido(tenantGroup, "258844444450@s.whatsapp.net");
+    const otherOrder = criarPedido(otherGroup, "258844444451@s.whatsapp.net");
+    assert.equal(tenantOrder.ok, true);
+    assert.equal(otherOrder.ok, true);
+
+    const listed = sales.listarPedidosAutomationPorGrupos([tenantGroup]);
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].id, tenantOrder.pedido.id);
+    assert.equal(listed[0].groupId, tenantGroup);
+    assert.equal(listed[0].productCategory, "MENSAL");
+    assert.equal(listed[0].validityDays, 30);
+    assert.equal(Object.prototype.hasOwnProperty.call(listed[0], "paymentMethods"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(listed[0], "apiKey"), false);
+
+    assert.equal(sales.listarPedidosAutomationPorGrupos([otherGroup])[0].id, otherOrder.pedido.id);
+    assert.deepEqual(sales.listarPedidosAutomationPorGrupos(["not-a-group@g.us"]), []);
 });
 
 test("associa comprovativo apenas com valor exacto e método oferecido", () => {
