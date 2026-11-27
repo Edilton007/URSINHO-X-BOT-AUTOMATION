@@ -95,11 +95,12 @@ class UssdAccessibilityService : AccessibilityService() {
         if (campoTexto == null && UssdDialogClassifier.deveFecharComOk(textoDialogo)) {
             // Só fecha diálogos informativos conhecidos. Um OK associado a
             // confirmação, compra, cobrança ou escolha nunca chega a este ramo.
+            val resultadoTerminal = UssdDialogClassifier.ehResultadoTerminal(textoDialogo)
             val botaoOk = encontrarBotaoOk(root)
             if (botaoOk?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) {
                 log("Diálogo informativo reconhecido: botão OK pressionado automaticamente.")
-                if (!UssdRoteiro.temProximoPasso()) {
-                    log("Resposta final da rede fechada. O resultado continua sujeito à validação do Backend.")
+                if (resultadoTerminal || !UssdRoteiro.temProximoPasso()) {
+                    log("A operadora terminou a sessão USSD. O resultado continua sujeito à validação do Backend.")
                     UssdRoteiro.parar()
                 } else {
                     log("Aviso informativo fechado. A sessão USSD permanece ativa para o próximo passo previsto.")
