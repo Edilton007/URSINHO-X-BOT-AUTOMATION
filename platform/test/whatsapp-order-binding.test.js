@@ -105,6 +105,35 @@ test("recusa comprovativo de método correcto mas conta diferente da conta apres
     assert.equal(result.code, "PAYMENT_METHOD_MISMATCH");
 });
 
+
+test("associa conta de pagamento com indicativo +258 à conta local apresentada no checkout", () => {
+    const groupId = "123456789-1234567895@g.us";
+    const sender = "258844444449@s.whatsapp.net";
+    const result = sales.criarPedidoAutomationPendente(groupId, {
+        sender,
+        recipientNumber: "841234567",
+        megas: 1024,
+        expectedAmount: 25.5,
+        productId: "PROD-258",
+        productName: "Pacote 1 GB",
+        paymentMethods: [
+            { id: "PAY-MPESA-258", tipo: "MPESA", conta: "+258 84 122 2222", titular: "Titular M-Pesa" }
+        ]
+    });
+    assert.equal(result.ok, true);
+
+    const proof = sales.associarComprovativoAoPedidoAutomation(groupId, sender, {
+        reference: "TX-258-ACCOUNT",
+        operator: "mpesa",
+        amount: 25.5,
+        destination: "841222222",
+        destinationName: "Titular M-Pesa"
+    });
+
+    assert.equal(proof.ok, true);
+    assert.equal(proof.pedido.estado, "COMPROVATIVO_RECEBIDO");
+});
+
 test("expiração bloqueia a associação tardia do comprovativo", () => {
     const groupId = "123456789-1234567892@g.us";
     const sender = "258844444446@s.whatsapp.net";
