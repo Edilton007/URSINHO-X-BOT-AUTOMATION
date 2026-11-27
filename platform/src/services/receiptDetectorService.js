@@ -124,6 +124,13 @@ function cleanNumber(value) {
         .replace(/[^\d]/g, "");
 }
 
+function normalizeMozPaymentNumber(value) {
+    const number = cleanNumber(value);
+    return number.startsWith("258") && number.length === 12
+        ? number.slice(3)
+        : number;
+}
+
 /* ============================================================
    EXTRAIR TEXTO DA MENSAGEM
    ============================================================ */
@@ -704,7 +711,7 @@ function extractPhoneNumbers(text) {
             /(?:\+?258[\s-]?)?(?:8[2-7]\d{7})\b/g
         ) || [];
 
-    return matches.map(cleanNumber);
+    return matches.map(normalizeMozPaymentNumber);
 }
 
 /* ============================================================
@@ -784,7 +791,7 @@ function verifyDestination(
     }
 
     const configuredNumber =
-        cleanNumber(
+        normalizeMozPaymentNumber(
             account.number
         );
 
@@ -804,15 +811,13 @@ function verifyDestination(
 
     if (destination) {
         numberMatch =
-            cleanNumber(destination) ===
+            normalizeMozPaymentNumber(destination) ===
             configuredNumber;
     } else {
         numberMatch =
             foundNumbers.some(
                 number =>
-                    number === configuredNumber ||
-                    number.endsWith(configuredNumber) ||
-                    configuredNumber.endsWith(number)
+                    normalizeMozPaymentNumber(number) === configuredNumber
             );
     }
 
