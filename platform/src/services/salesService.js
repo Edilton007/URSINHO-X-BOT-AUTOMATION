@@ -849,6 +849,12 @@ function listarPedidosAutomationPorGrupos(groupIds = []) {
                 paymentReference: order.paymentReference ? String(order.paymentReference).slice(0, 120) : null,
                 paymentOperator: order.paymentOperator ? String(order.paymentOperator).slice(0, 30) : null,
                 proofReceivedAtMs: Number.isSafeInteger(order.proofReceivedAtMs) ? order.proofReceivedAtMs : null,
+                paymentReview: order.paymentReview ? {
+                    decisao: String(order.paymentReview.decisao || "").slice(0, 20),
+                    por: String(order.paymentReview.por || "").slice(0, 140),
+                    emMs: Number.isSafeInteger(order.paymentReview.emMs) ? order.paymentReview.emMs : null,
+                    motivo: String(order.paymentReview.motivo || "").slice(0, 500)
+                } : null,
                 operationId: order.operationId ? String(order.operationId).slice(0, 128) : null,
                 criadoEmMs: Number.isSafeInteger(order.criadoEmMs) ? order.criadoEmMs : null,
                 expiraEmMs: Number.isSafeInteger(order.expiraEmMs) ? order.expiraEmMs : null,
