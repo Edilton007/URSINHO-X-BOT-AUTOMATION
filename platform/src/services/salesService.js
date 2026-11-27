@@ -674,6 +674,10 @@ function criarPedidoAutomationPendente(groupId, dados) {
         expectedAmount: Math.round(expectedAmount * 100) / 100,
         productId,
         productName: String(dados.productName || "").slice(0, 100),
+        productCategory: String(dados.productCategory || "NAO_DEFINIDA").trim().toUpperCase(),
+        validityDays: Number.isSafeInteger(Number(dados.validityDays)) && dados.validityDays != null
+            ? Number(dados.validityDays)
+            : null,
         paymentMethods: Array.isArray(dados.paymentMethods)
             ? dados.paymentMethods
                 .filter(method => method && method.ativo !== false)
