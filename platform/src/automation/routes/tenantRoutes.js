@@ -26,6 +26,7 @@ const deviceHealthService = require("../services/deviceHealthService");
 const orderFulfillmentService = require("../services/orderFulfillmentService");
 const customerIdentityService = require("../services/customerIdentityService");
 const salesService = require("../../services/salesService");
+const whatsappPaymentReviewService = require("../services/whatsappPaymentReviewService");
 
 router.use("/:tenantId", autenticarTenant);
 
@@ -109,6 +110,28 @@ router.get("/:tenantId/whatsapp/orders", (req, res) => {
         gruposAssociados: grupos.length,
         pedidos
     });
+});
+
+/**
+ * Revisão humana de pagamento de pedidos WhatsApp pertencentes a este Tenant.
+ * A autenticação vem da chave Tenant; groupId, sender e referência são sempre
+ * recuperados do pedido persistido, nunca confiados ao corpo do cliente.
+ */
+router.post("/:tenantId/whatsapp/orders/:orderId/payment-review", (req, res) => {
+    const resultado = whatsappPaymentReviewService.reverPedidoWhatsApp(
+        req.params.tenantId,
+        req.params.orderId,
+        req.body?.decisao,
+        req.body?.motivo
+    );
+    if (resultado.error) {
+        return res.status(resultado.status || 409).json({
+            ok: false,
+            code: resultado.code || "PAYMENT_REVIEW_FAILED",
+            error: resultado.error
+        });
+    }
+    res.json(resultado);
 });
 
 router.get("/:tenantId/sims", (req, res) => {
