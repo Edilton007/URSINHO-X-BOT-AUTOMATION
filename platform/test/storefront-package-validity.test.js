@@ -19,14 +19,15 @@ test.after(() => {
 function prepararLoja() {
     const tenant = tenantService.criarTenant({ nome: "Tenant Pacotes" });
     assert.equal(tenant.error, undefined);
+    const slug = "tenant-pacotes-" + tenant.id.slice(-8).toLowerCase();
     const store = storefrontService.configurarLoja(tenant.id, {
-        slug: "tenant-pacotes-validade",
+        slug,
         nome: "Pacotes Tenant",
         publicado: true,
         metodosPagamento: []
     });
     assert.equal(store.error, undefined);
-    return { tenant, store: store.loja };
+    return { tenant, store: store.loja, slug };
 }
 
 test("cria pacotes diários, semanais, mensais e personalizados com validade explícita", () => {
@@ -79,7 +80,7 @@ test("rejeita validade incompatível com categoria fixa", () => {
 });
 
 test("alterar categoria diária recalcula validade e o catálogo público conserva o pacote", () => {
-    const { tenant } = prepararLoja();
+    const { tenant, slug } = prepararLoja();
     const created = storefrontService.criarProduto(tenant.id, {
         nome: "Pacote mensal",
         precoMT: 50,
@@ -96,7 +97,7 @@ test("alterar categoria diária recalcula validade e o catálogo público conser
     assert.equal(updated.produto.categoria, "DIARIO");
     assert.equal(updated.produto.validadeDias, 1);
 
-    const catalog = storefrontService.catalogoPublico("tenant-pacotes-validade");
+    const catalog = storefrontService.catalogoPublico(slug);
     const product = catalog.produtos.find(item => item.id === created.produto.id);
     assert.equal(product.categoria, "DIARIO");
     assert.equal(product.validadeDias, 1);
