@@ -212,6 +212,8 @@ function obterCheckoutGrupo({ groupId, megas }) {
                 id: products[0].id,
                 nome: products[0].nome,
                 quantidadeMB: products[0].quantidadeMB,
+                categoria: products[0].categoria || "NAO_DEFINIDA",
+                validadeDias: products[0].validadeDias ?? null,
                 precoMT: products[0].precoMT
             },
             metodosPagamento
