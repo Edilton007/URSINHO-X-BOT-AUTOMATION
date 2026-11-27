@@ -753,13 +753,19 @@ function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
         bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL", "MKESH"])
     };
     const allowedTypes = acceptedTypes[operator] || new Set();
-    const proofAccount = String(proof.destination || "").replace(/\D/g, "");
+    const normalizarContaPagamento = value => {
+        const digits = String(value || "").replace(/\D/g, "");
+        return digits.startsWith("258") && digits.length === 12
+            ? digits.slice(3)
+            : digits;
+    };
+    const proofAccount = normalizarContaPagamento(proof.destination);
     const proofHolder = String(proof.destinationName || "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toLowerCase().replace(/\s+/g, " ").trim();
     const methodMatches = Array.isArray(order.paymentMethods) &&
         order.paymentMethods.some(method => {
-            const methodAccount = String(method.conta || "").replace(/\D/g, "");
+            const methodAccount = normalizarContaPagamento(method.conta);
             const methodHolder = String(method.titular || "")
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .toLowerCase().replace(/\s+/g, " ").trim();
