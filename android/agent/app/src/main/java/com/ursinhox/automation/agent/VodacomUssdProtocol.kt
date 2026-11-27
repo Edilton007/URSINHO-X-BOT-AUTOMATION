@@ -58,6 +58,14 @@ internal object VodacomUssdProtocol {
                 gruposTermosAlternativos = listOf(
                     setOf("$quantidade mb", "${quantidade}mb"),
                     setOf("transferir", "transferencia", "transfer")
+                ),
+                // A tarefa não transporta uma autorização de preço/taxa USSD.
+                // Qualquer referência a cobrança exige revisão humana.
+                termosProibidos = setOf(
+                    "taxa", "taxas", "custo", "custos", "fee", "fees",
+                    "charge", "charged", "cobrar", "cobrado", "cobrada",
+                    "debitado", "debitada", "sera debitado", "serao debitados",
+                    "pagar", "pagamento", "payment"
                 )
             )
         )
