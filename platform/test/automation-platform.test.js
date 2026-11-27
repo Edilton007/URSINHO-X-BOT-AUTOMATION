@@ -538,6 +538,15 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
   assert.equal(result.estado, "CONCLUIDA");
   assert.equal(db.operations[op.id].estado, "CONCLUIDA");
   assert.equal(db.operations[op.id].diferencaObservadaMB, 100);
+
+  // O saldo final da consulta USSD é a quota transferível mensal:
+  // deve actualizar esse campo sem sobrescrever o saldo geral de Internet.
+  const simDepois = telemetry.obterSimOperacional(device.id, 0);
+  assert.equal(simDepois.internetMB, 1200);
+  assert.equal(simDepois.internetTransferivelMB, 1100);
+  assert.ok(simDepois.internetTransferivelAtualizadoEmMs >= db.operations[op.id].finalizadaEmMs);
+  assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 1101, 10), null);
+
   process.env.AUTOMATION_ALLOW_EXECUTION = "false";
 });
 
