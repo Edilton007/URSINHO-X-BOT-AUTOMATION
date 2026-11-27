@@ -25,6 +25,7 @@ function prepararTenant(nome, deviceNome) {
   const licenca = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, licenca.codigo);
   const device = tenants.registrarDevice(tenant.id, deviceNome);
+  tenants.marcarContactoDevice(device.id);
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 50, subscriptionId: 5
   });
