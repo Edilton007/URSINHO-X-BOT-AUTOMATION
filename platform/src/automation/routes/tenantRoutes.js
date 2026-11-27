@@ -227,8 +227,6 @@ router.get("/:tenantId/store-orders", (req, res) => {
 
 
 
-const customerIdentityService = require("../services/customerIdentityService");
-
 // Associação de grupos: o Tenant gera um código temporário;
 // o Bot só conclui a associação depois de observar esse código no grupo.
 router.post("/:tenantId/whatsapp/groups/pairing", (req, res) => {
