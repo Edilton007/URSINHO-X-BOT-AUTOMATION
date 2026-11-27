@@ -115,3 +115,22 @@ test("destino fora do padrão Vodacom 84/85 não é convertido em operação", (
     assert.equal(result.code, "INVALID_VODACOM_DESTINATION");
     assert.equal(Object.keys(db.operations).length, antes);
 });
+
+test("estado de revisão nunca é apresentado como simples falta de recursos", () => {
+    assert.equal(
+        fulfillmentService.classificarEstadoFulfillment("PENDENTE_REVISAO"),
+        "PENDENTE_REVISAO"
+    );
+    assert.equal(
+        fulfillmentService.classificarEstadoFulfillment("AGUARDANDO_EXECUCAO"),
+        "EM_PROCESSAMENTO"
+    );
+    assert.equal(
+        fulfillmentService.classificarEstadoFulfillment("PENDENTE"),
+        "AGUARDANDO_RECURSOS"
+    );
+    assert.equal(
+        fulfillmentService.classificarEstadoFulfillment("CONCLUIDA", ["PENDENTE_REVISAO"]),
+        "PENDENTE_REVISAO"
+    );
+});
