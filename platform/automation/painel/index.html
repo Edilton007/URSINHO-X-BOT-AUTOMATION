@@ -646,7 +646,7 @@ function renderPackages(){
   const products=Array.isArray(state.products)?state.products:[];
   $('packageCount').textContent=String(products.length)+' pacote(s)';
   $('packageList').innerHTML=products.length?products.map(product=>{
-    const volume=formatMB(product.quantidadeMB);
+    const volume=formatMB(product.quantidadeMB==null?NaN:product.quantidadeMB);
     const active=product.ativo!==false;
     return '<article class="card packageCard"><div class="row" style="justify-content:space-between"><b>'+esc(product.nome||'Pacote sem nome')+'</b>'+badge(active?'ATIVO':'INATIVO',active?'ATIVO':'INATIVO')+'</div>' +
       '<div class="packagePrice">'+esc(fmtDecimal(number(product.precoMT)||0))+' MT</div>' +
@@ -676,7 +676,7 @@ function editPackage(productId){
 async function savePackage(){
   const nome=$('packageName').value.trim();const quantidadeMB=mbFromPackageInput();const precoMT=Number(String($('packagePrice').value||'').replace(',','.'));const categoria=$('packageCategory').value;
   if(nome.length<2)return setPackageMessage('Indica um nome válido para o pacote.',true);
-  if(!Number.isSafeInteger(quantidadeMB)||quantidadeMB<100||quantidadeMB>10485760)return setPackageMessage('A quantidade deve ser um número inteiro entre 100 MB e 10 GB.',true);
+  if(!Number.isSafeInteger(quantidadeMB)||quantidadeMB<100||quantidadeMB>10240)return setPackageMessage('A quantidade deve ser um número inteiro entre 100 MB e 10 GB.',true);
   if(!Number.isFinite(precoMT)||precoMT<=0)return setPackageMessage('Indica um preço válido em MT.',true);
   if(!categoria)return setPackageMessage('Seleciona a categoria e validade do pacote.',true);
   const payload={nome,quantidadeMB,precoMT,categoria,descricao:$('packageDescription').value.trim()};
@@ -870,7 +870,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
     if(toggle)togglePackage(toggle.dataset.togglePackage,toggle.dataset.active==='true');
   });
   $('savePaymentsBtn').onclick=savePaymentMethods;
-  ['paymentMpesaConta','paymentMpesaTitular','paymentMpesaInstrucoes','paymentMpesaAtivo','paymentEmolaConta','paymentEmolaTitular','paymentEmolaInstrucoes','paymentEmolaAtivo','paymentBancoConta','paymentBancoTitular','paymentBancoNome','paymentBancoInstrucoes','paymentBancoAtivo'].forEach(id=>$(id).addEventListener('input',()=>{paymentFormDirty=true}));
+  ['paymentMpesaConta','paymentMpesaTitular','paymentMpesaInstrucoes','paymentMpesaAtivo','paymentEmolaConta','paymentEmolaTitular','paymentEmolaInstrucoes','paymentEmolaAtivo','paymentBancoConta','paymentBancoTitular','paymentBancoNome','paymentBancoInstrucoes','paymentBancoAtivo'].forEach(id=>{const input=$(id);input.addEventListener('input',()=>{paymentFormDirty=true});input.addEventListener('change',()=>{paymentFormDirty=true})});
   $('refreshPaymentsBtn').onclick=()=>{paymentFormDirty=false;loadPanel().then(()=>showToast('Pagamentos atualizados')).catch(e=>showToast(e.message))};
   $('createPairingBtn').onclick=createGroupPairing;
   $('refreshGroupsBtn').onclick=()=>loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
