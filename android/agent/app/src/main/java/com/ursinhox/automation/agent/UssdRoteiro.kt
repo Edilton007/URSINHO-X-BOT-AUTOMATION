@@ -13,7 +13,10 @@ object UssdRoteiro {
         val resposta: String,
         val frasesEsperadas: Set<String> = emptySet(),
         val termosObrigatorios: Set<String> = emptySet(),
-        val gruposTermosAlternativos: List<Set<String>> = emptyList()
+        val gruposTermosAlternativos: List<Set<String>> = emptyList(),
+        // Palavras de custo/cobrança não autorizadas pela tarefa impedem
+        // qualquer confirmação automática no menu da operadora.
+        val termosProibidos: Set<String> = emptySet()
     )
 
     @Volatile
@@ -68,10 +71,17 @@ object UssdRoteiro {
             val gruposPresentes = passo.gruposTermosAlternativos.all { grupo ->
                 grupo.any { termo -> texto.contains(normalizar(termo)) }
             }
-            if (!corresponde || !termosPresentes || !gruposPresentes) {
+            val termoProibidoEncontrado = passo.termosProibidos.firstOrNull { termo ->
+                texto.contains(normalizar(termo))
+            }
+            if (!corresponde || !termosPresentes || !gruposPresentes || termoProibidoEncontrado != null) {
+                val motivo = if (termoProibidoEncontrado != null) {
+                    "termo de custo/cobrança não autorizado: ${termoProibidoEncontrado}"
+                } else {
+                    "frase, destino, quantidade ou contexto em falta"
+                }
                 registrar(
-                    "SEGURANÇA: ecrã USSD não corresponde integralmente ao passo esperado " +
-                        "(frase, destino, quantidade ou contexto em falta). " +
+                    "SEGURANÇA: ecrã USSD recusado (${motivo}). " +
                         "Resposta não enviada; sessão deve ser interrompida para revisão."
                 )
                 return null
