@@ -275,6 +275,8 @@ html,body{overscroll-behavior-y:contain}
       </div>
       <div class="sectionHead"><div><h2>Pedidos recebidos no WhatsApp</h2><span id="whatsappOrdersCount">0 pedidos</span></div><button id="refreshWhatsappOrdersBtn" class="btn">ATUALIZAR</button></div>
       <div class="card"><div id="whatsappOrdersList" class="grid"></div></div>
+      <div class="sectionHead"><div><h2>Pedidos da Loja pública</h2><span id="storeOrdersCount">0 pedidos</span></div><button id="refreshStoreOrdersBtn" class="btn">ATUALIZAR</button></div>
+      <div class="card"><div id="storeOrdersList" class="grid"></div></div>
     </section>
 
     <section id="pagePackages" class="page">
@@ -305,6 +307,9 @@ html,body{overscroll-behavior-y:contain}
     <section id="pagePayments" class="page">
       <div class="sectionHead"><div><div class="eyebrow">RECEBIMENTOS</div><h2>Métodos de pagamento</h2><span>Contas apresentadas ao cliente no pedido</span></div><button id="refreshPaymentsBtn" class="btn">ATUALIZAR</button></div>
       <div class="notice warn" style="margin-bottom:12px">O comprovativo é analisado quanto ao método, conta, titular e valor. A imagem, por si só, não prova que o dinheiro entrou. A confirmação continua manual até existir integração oficial e validada com o prestador.</div>
+      <div class="sectionHead"><div><h3>Pagamentos da Loja pública</h3><span id="storePaymentsCount">0 pedidos pendentes</span></div></div>
+      <div class="notice warn" style="margin-bottom:12px">Nesta fila, a confirmação exige consulta real da transação no M-Pesa, e-Mola ou banco. A Loja pública ainda não recebe ficheiros de comprovativo; não aproves apenas com base nos dados do pedido.</div>
+      <div class="card" style="margin-bottom:14px"><div id="storePaymentsList" class="grid"></div></div>
       <div class="grid three" id="paymentMethodsGrid">
         <div class="card">
           <div class="sectionHead"><h3>M-Pesa</h3><span>VODACOM</span></div>
@@ -430,7 +435,7 @@ const DEVICE_ONLINE_WINDOW_MS=120*1000;
 const SIM_ONLINE_WINDOW_MS=45*60*1000;
 const QUOTA_FRESH_WINDOW_MS=30*60*1000;
 let session=null;
-let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],whatsappOrders:[],products:[],storefront:null,loadedAt:null};
+let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],whatsappOrders:[],storeOrders:[],products:[],storefront:null,loadedAt:null};
 let editingPackageId=null;
 let paymentFormDirty=false;
 let refreshTimer=null;
@@ -571,6 +576,7 @@ async function loadPanel(){
   const opsR=await api(`/automation/tenants/${tid}/operacoes`);
   const whatsappOrdersR=await api(`/automation/tenants/${tid}/whatsapp/orders`);
   const productsR=await api(`/automation/tenants/${tid}/products`);
+  const storeOrdersR=await api(`/automation/tenants/${tid}/store-orders`);
   let storefrontR=null;
   try{storefrontR=await api(`/automation/tenants/${tid}/storefront`)}catch(e){if(e.status!==404)throw e}
   try{simsR=await api(`/automation/tenants/${tid}/sims`)}catch(e){if(e.status!==404)throw e}
@@ -582,6 +588,7 @@ async function loadPanel(){
   state.whatsappOrders=Array.isArray(whatsappOrdersR?.pedidos)?whatsappOrdersR.pedidos:[];
   state.sims=asArray(simsR).map(normalizeSim);
   state.products=Array.isArray(productsR?.produtos)?productsR.produtos:asArray(productsR);
+  state.storeOrders=Array.isArray(storeOrdersR?.pedidos)?storeOrdersR.pedidos:[];
   state.storefront=storefrontR?.loja||null;
   state.loadedAt=Date.now();
   renderAll();backendState(true);return state;
@@ -723,7 +730,7 @@ function configurarPullToRefresh(){
   document.addEventListener('touchcancel',terminar,{passive:true});
 }
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
-function renderAll(){renderDashboard();renderOperations();renderWhatsAppOrders();renderSims();renderSystem();renderPackages();renderPayments()}
+function renderAll(){renderDashboard();renderOperations();renderWhatsAppOrders();renderStoreOrders();renderStorePayments();renderSims();renderSystem();renderPackages();renderPayments()}
 
 function packageValidityLabel(product){
   const days=Number(product?.validadeDias);
@@ -780,6 +787,81 @@ function renderWhatsAppOrders(){
       (['METODO_PAGAMENTO_DIVERGENTE','VALOR_DIVERGENTE'].includes(paymentState)?'<div class="notice err" style="margin-top:12px">O comprovativo não corresponde ao método ou valor do pedido. A confirmação está bloqueada; revê os dados e rejeita o comprovativo, se aplicável.</div><div class="packageActions"><button class="btn" data-review-whatsapp="'+esc(order.id)+'" data-decision="REJEITAR">REJEITAR COMPROVATIVO</button></div>':'')+
       '<small class="muted">'+esc(order.groupId||'Grupo WhatsApp')+'</small></article>';
   }).join(''):'<div class="empty"><b>Sem pedidos WhatsApp</b>Os pedidos pré-validados e comprovativos associados aos grupos deste Tenant aparecerão aqui.</div>';
+}
+
+function storeOrderVolume(order){
+  if(!Array.isArray(order.items))return null;
+  const total=order.items.reduce((sum,item)=>{
+    const mb=Number(item.quantidadeMB);const quantity=Number(item.quantity);
+    return Number.isSafeInteger(mb)&&mb>0&&Number.isSafeInteger(quantity)&&quantity>0
+      ?sum+mb*quantity:sum;
+  },0);
+  return total>0?total:null;
+}
+function renderStoreOrderCard(order,allowReview){
+  const volume=storeOrderVolume(order);
+  const items=Array.isArray(order.items)?order.items.map(item=>`${item.nome||'Pacote'} × ${item.quantity||1}`).join(', '):'Não disponível';
+  const method=order.pagamentoMetodo?.nome||order.pagamentoMetodo?.tipo||'Não indicado';
+  const stateLabel=String(order.pagamentoEstado||'PENDENTE_VERIFICACAO').replace(/_/g,' ');
+  const fulfillment=String(order.fulfillmentStatus||'AGUARDANDO_PAGAMENTO').replace(/_/g,' ');
+  const review=order.revisaoPagamento;
+  return '<article class="card packageCard">'+
+    '<div class="row" style="justify-content:space-between"><b>'+esc(order.reference||order.id||'Pedido')+'</b>'+badge(stateLabel,stateLabel)+'</div>'+
+    '<div class="kv"><span>Cliente</span><span>'+esc(order.nome||'Não informado')+'</span></div>'+
+    '<div class="kv"><span>Contacto</span><span>'+esc(order.telefone||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Destino Vodacom</span><span>'+esc(order.destino||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Pacotes</span><span>'+esc(items)+'</span></div>'+
+    '<div class="kv"><span>Volume</span><span>'+esc(volume?formatMB(volume).main:'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Total</span><span>'+esc(fmtDecimal(Number(order.totalMT)||0))+' MT</span></div>'+
+    '<div class="kv"><span>Método</span><span>'+esc(method)+'</span></div>'+
+    '<div class="kv"><span>Operação</span><span>'+esc(fulfillment)+'</span></div>'+
+    '<div class="kv"><span>Recebido</span><span>'+esc(fmtDate(order.criadoEmMs))+'</span></div>'+
+    (review?'<div class="notice '+(review.decisao==='REJEITADO'?'err':'')+'" style="margin-top:10px"><b>Revisão: '+esc(review.decisao)+'</b><div>'+esc(review.motivo||'')+'</div>'+(review.referencia?'<small>Referência: '+esc(review.referencia)+'</small>':'')+'<small>'+esc(fmtDate(review.emMs))+'</small></div>':'')+
+    (allowReview&&order.pagamentoEstado==='PENDENTE_VERIFICACAO'
+      ?'<div class="notice warn" style="margin-top:10px">Confirma apenas depois de veres a entrada efectiva do valor no serviço de pagamento.</div><div class="packageActions"><button class="btn primary" data-review-store-order="'+esc(order.id)+'" data-decision="CONFIRMADO">CONFIRMAR PAGAMENTO</button><button class="btn" data-review-store-order="'+esc(order.id)+'" data-decision="REJEITADO">REJEITAR</button></div>'
+      :'')+
+    '</article>';
+}
+function renderStoreOrders(){
+  const orders=Array.isArray(state.storeOrders)?state.storeOrders:[];
+  $('storeOrdersCount').textContent=String(orders.length)+' pedido(s)';
+  $('storeOrdersList').innerHTML=orders.length
+    ?orders.slice().sort((a,b)=>(Number(b.criadoEmMs)||0)-(Number(a.criadoEmMs)||0)).map(order=>renderStoreOrderCard(order,false)).join('')
+    :'<div class="empty"><b>Sem pedidos da Loja</b>Os pedidos públicos efectuados pelos clientes aparecerão aqui.</div>';
+}
+function renderStorePayments(){
+  const orders=Array.isArray(state.storeOrders)?state.storeOrders:[];
+  const pending=orders.filter(order=>order.pagamentoEstado==='PENDENTE_VERIFICACAO');
+  $('storePaymentsCount').textContent=pending.length+' por confirmar · '+orders.length+' no histórico';
+  $('storePaymentsList').innerHTML=orders.length
+    ?orders.slice().sort((a,b)=>(Number(b.criadoEmMs)||0)-(Number(a.criadoEmMs)||0)).map(order=>renderStoreOrderCard(order,true)).join('')
+    :'<div class="empty"><b>Sem pagamentos da Loja</b>Quando um cliente concluir um pedido público, o pagamento ficará disponível para revisão aqui.</div>';
+}
+async function reviewStoreOrderPayment(orderId,decision){
+  const confirming=decision==='CONFIRMADO';
+  if(confirming&&!confirm('Consultaste a transação no M-Pesa, e-Mola ou banco e confirmaste que o valor entrou? O pedido, por si só, não prova o pagamento.'))return;
+  const motivo=prompt(confirming
+    ?'Regista como verificaste a entrada real do dinheiro (mínimo 5 caracteres):'
+    :'Regista o motivo da rejeição (mínimo 5 caracteres):');
+  if(!motivo||motivo.trim().length<5)return showToast('A justificação é obrigatória (mínimo 5 caracteres).');
+  const referencia=prompt('Referência da transação (opcional):')||'';
+  try{
+    const tid=encodeURIComponent(session.tenantId);
+    const result=await api('/automation/tenants/'+tid+'/store-orders/'+encodeURIComponent(orderId)+'/payment-review',{
+      method:'POST',
+      body:JSON.stringify({decisao,motivo:motivo.trim(),referencia})
+    });
+    if(result.fulfillment?.error){
+      showToast('Pagamento confirmado. A entrega ficou em revisão: '+result.fulfillment.error);
+    }else if(confirming){
+      showToast('Pagamento confirmado manualmente. O pedido foi encaminhado ao Backend.');
+    }else{
+      showToast('Pagamento rejeitado. Nenhuma operação foi criada.');
+    }
+    await loadPanel();
+  }catch(error){
+    showToast('Não foi possível rever o pagamento: '+error.message);
+  }
 }
 function renderPackages(){
   const products=Array.isArray(state.products)?state.products:[];
@@ -1003,6 +1085,11 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
   $('refreshWhatsappOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos WhatsApp atualizados')).catch(e=>showToast(e.message));
+  $('refreshStoreOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos da Loja actualizados')).catch(e=>showToast(e.message));
+  $('storePaymentsList').addEventListener('click',event=>{
+    const button=event.target.closest('[data-review-store-order]');
+    if(button)reviewStoreOrderPayment(button.dataset.reviewStoreOrder,button.dataset.decision);
+  });
   $('whatsappOrdersList').addEventListener('click',event=>{
     const button=event.target.closest('[data-review-whatsapp]');
     if(button)reviewWhatsAppOrder(button.dataset.reviewWhatsapp,button.dataset.decision);
