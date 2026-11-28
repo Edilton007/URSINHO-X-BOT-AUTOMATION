@@ -97,7 +97,9 @@ function cumprirPedidoPago(orderId, tenantId) {
         };
     }
 
-    const destino = normalizarDestinoVodacom(order.telefone);
+    // Novos pedidos guardam o destino separadamente do contacto do cliente.
+    // Pedidos antigos continuam compatíveis: telefone era o destino no modelo anterior.
+    const destino = normalizarDestinoVodacom(order.destino || order.telefone);
     if (!destino) {
         return { error: "O destino não é um número Vodacom 84/85 válido.", code: "INVALID_VODACOM_DESTINATION" };
     }
