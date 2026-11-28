@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const root = path.join(__dirname, "..");
+const root = path.join(__dirname, "..", "..");
 const layout = fs.readFileSync(
     path.join(root, "android", "agent", "app", "src", "main", "res", "layout", "activity_main.xml"),
     "utf8"
