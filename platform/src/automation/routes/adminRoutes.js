@@ -143,13 +143,35 @@ router.get("/store-orders", (req, res) => {
 
 router.post("/store-orders/:orderId/payment-review", (req, res) => {
     const { decisao, motivo, referencia } = req.body || {};
-    const result = storefrontService.resolverPagamento(req.params.orderId, decisao, motivo, referencia, "admin");
+    const orderId = String(req.params.orderId || "");
+    const order = storefrontService.todosPedidos().find(item => item.id === orderId);
+
+    if (!order) {
+        return res.status(404).json({ ok: false, code: "ORDER_NOT_FOUND", error: "Pedido não encontrado." });
+    }
+    if (order.pagamentoEstado !== "PENDENTE_VERIFICACAO") {
+        return res.status(409).json({
+            ok: false,
+            code: "ORDER_ALREADY_REVIEWED",
+            error: "Este pedido já recebeu uma decisão de pagamento. A decisão não pode ser substituída."
+        });
+    }
+    if (!["CONFIRMADO", "REJEITADO"].includes(String(decisao || "").toUpperCase())) {
+        return res.status(400).json({
+            ok: false,
+            code: "INVALID_PAYMENT_DECISION",
+            error: "A decisão deve ser CONFIRMADO ou REJEITADO."
+        });
+    }
+
+    const decisaoNormalizada = String(decisao).toUpperCase();
+    const result = storefrontService.resolverPagamento(orderId, decisaoNormalizada, motivo, referencia, "admin");
     if (result.error) return res.status(result.status || 400).json({ ok: false, error: result.error });
 
     // Só uma confirmação registada pelo serviço de pagamentos pode iniciar
     // o fulfillment telecom. Rejeições nunca criam tarefas USSD.
-    const fulfillment = decisao === "CONFIRMADO"
-        ? orderFulfillmentService.cumprirPedidoPago(req.params.orderId, result.pedido.tenantId)
+    const fulfillment = decisaoNormalizada === "CONFIRMADO"
+        ? orderFulfillmentService.cumprirPedidoPago(orderId, result.pedido.tenantId)
         : null;
 
     res.json({ ...result, fulfillment });
