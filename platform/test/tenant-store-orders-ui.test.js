@@ -36,3 +36,30 @@ test("painel Tenant conserva sintaxe JavaScript válida após integrar pedidos p
         filename: "automation/painel/index.html"
     }));
 });
+
+test("revisão de pagamento usa modal próprio, sem prompts do navegador", () => {
+    for (const id of [
+        "storePaymentReviewModal",
+        "storeReviewSummary",
+        "storeReviewWarning",
+        "storeReviewVerified",
+        "storeReviewReference",
+        "storeReviewReason",
+        "submitStoreReview"
+    ]) {
+        assert.match(html, new RegExp(`id="${id}"`));
+    }
+    assert.match(html, /Consultei a transacção no M-Pesa, e-Mola ou banco/);
+    assert.match(html, /function closeStorePaymentReview\(\)/);
+    assert.match(html, /async function submitStoreOrderPaymentReview\(\)/);
+
+    const start = html.indexOf("async function submitStoreOrderPaymentReview()");
+    const end = html.indexOf("\nfunction renderPackages()", start);
+    assert.notEqual(start, -1);
+    assert.notEqual(end, -1);
+    const handler = html.slice(start, end);
+    assert.match(handler, /!\$\('storeReviewVerified'\)\.checked/);
+    assert.match(handler, /motivo\.length<5/);
+    assert.match(handler, /referencia:\$\('storeReviewReference'\)\.value\.trim\(\)/);
+    assert.doesNotMatch(handler, /prompt\s*\(/);
+});
