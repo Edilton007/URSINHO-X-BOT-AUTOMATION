@@ -78,6 +78,22 @@ router.post("/:slug/orders", publicOrderLimit, (req, res) => {
         return res.status(200).json(repeated);
     }
 
+    const metodosAtivos = Array.isArray(catalog.loja?.metodosPagamento)
+        ? catalog.loja.metodosPagamento
+        : [];
+    const pagamentoLegadoConfigurado = !!(
+        String(catalog.loja?.mpesa || "").trim() ||
+        String(catalog.loja?.emola || "").trim() ||
+        String(catalog.loja?.instrucoesPagamento || "").trim()
+    );
+    if (metodosAtivos.length === 0 && !pagamentoLegadoConfigurado) {
+        return res.status(409).json({
+            ok: false,
+            code: "PAYMENT_METHOD_UNAVAILABLE",
+            error: "Esta loja não tem nenhum método de pagamento activo. O pedido não foi criado."
+        });
+    }
+
     if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 20) {
         return res.status(400).json({ ok: false, code: "CART_INVALID", error: "Carrinho inválido." });
     }
