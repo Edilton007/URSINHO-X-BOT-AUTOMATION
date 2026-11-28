@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const html = fs.readFileSync(
     path.join(__dirname, "..", "storefront", "index.html"),
@@ -31,4 +32,12 @@ test("checkout apresenta validade dos pacotes e impede produtos sem volume trans
 test("frontend só apresenta as instruções do método escolhido após criar o pedido", () => {
     assert.match(html, /Instruções do método seleccionado/);
     assert.doesNotMatch(html, /configured\.map\(m=>\[m\.nome\|\|m\.tipo/);
+});
+
+test("JavaScript incorporado na Loja pública tem sintaxe válida", () => {
+    const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)];
+    assert.equal(scripts.length, 1);
+    assert.doesNotThrow(() => new vm.Script(scripts[0][1], {
+        filename: "storefront/index.html"
+    }));
 });
