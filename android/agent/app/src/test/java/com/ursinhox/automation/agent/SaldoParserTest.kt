@@ -67,6 +67,11 @@ class SaldoParserTest {
         )
         assertNull(
             SaldoParser.extrairSaldoMensalTransferivelMB(
+                listOf("2 GB de dados mensais, taxa de transferência de saldo: 3 MT")
+            )
+        )
+        assertNull(
+            SaldoParser.extrairSaldoMensalTransferivelMB(
                 listOf("Internet: 500 MB", "Dados diários: 1 GB")
             )
         )
