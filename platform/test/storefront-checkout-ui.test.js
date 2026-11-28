@@ -13,6 +13,10 @@ const html = fs.readFileSync(
 
 test("checkout público permite escolher método de pagamento", () => {
     assert.match(html, /id="paymentMethod"/);
+    assert.match(html, /id="destination"/);
+    assert.match(html, /Telefone de contacto/);
+    assert.match(html, /Número Vodacom de destino/);
+    assert.match(html, /destino:\$\('destination'\)\.value/);
     assert.match(html, /function renderPaymentMethods\(\)/);
     assert.match(html, /paymentMethodId/);
     assert.match(html, /Selecciona o método de pagamento/);
