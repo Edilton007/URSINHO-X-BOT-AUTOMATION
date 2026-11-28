@@ -19,6 +19,8 @@ test("checkout público permite escolher método de pagamento", () => {
     assert.match(html, /destino:\$\('destination'\)\.value/);
     assert.match(html, /function renderPaymentMethods\(\)/);
     assert.match(html, /paymentMethodId/);
+    assert.match(html, /legacyPaymentConfigured/);
+    assert.match(html, /Esta loja não tem método de pagamento activo/);
     assert.match(html, /Selecciona o método de pagamento/);
     assert.match(html, /const method=methods\.find\(m=>m\.id===paymentMethodId\)/);
 });
