@@ -19,7 +19,7 @@ object SaldoParser {
         RegexOption.IGNORE_CASE
     )
     private val INDICADOR_TRANSFERIVEL = Regex(
-        """transferível|transferivel|transferable|partilhável|partilhavel|shareable|disponível\\s+para\\s+(?:transferência|transferencia|transferir|partilhar)|disponivel\\s+para\\s+(?:transferencia|transferir|partilhar)|para\\s+(?:transferência|transferencia|transferir|partilhar)""",
+        """transferível|transferivel|transferable|partilhável|partilhavel|shareable|disponível\s+para\s+(?:transferência|transferencia|transferir|partilhar)|disponivel\s+para\s+(?:transferencia|transferir|partilhar)|para\s+(?:transferência|transferencia|transferir|partilhar)""",
         RegexOption.IGNORE_CASE
     )
 
