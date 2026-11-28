@@ -10,11 +10,6 @@ object SaldoParser {
         Regex("""(\d+(?:[.,]\d+)?)\s*(mb|gb)\s*(?:de\s*)?(?:internet|dados)""", RegexOption.IGNORE_CASE)
     )
 
-    /**
-     * Só identifica quota transferível quando a própria resposta da operadora
-     * a designa explicitamente como mensal/monthly. Saldo geral ou diário não
-     * é convertido em quota mensal por inferência.
-     */
     private val PADRAO_QUANTIDADE = Regex(
         """(\d+(?:[.,]\d+)?)\s*(mb|gb)""",
         RegexOption.IGNORE_CASE
@@ -23,9 +18,19 @@ object SaldoParser {
         """mensal|mensais|monthly""",
         RegexOption.IGNORE_CASE
     )
+    private val INDICADOR_TRANSFERIVEL = Regex(
+        """transferível|transferivel|transferable|transferência|transferencia|transferir|partilhável|partilhavel|partilha|partilhar|shareable""",
+        RegexOption.IGNORE_CASE
+    )
 
+    /**
+     * Só devolve o saldo geral quando a linha não descreve especificamente
+     * uma quota mensal transferível. A quota não pode ser copiada para os dois
+     * campos nem usada como substituto do saldo geral.
+     */
     fun extrairSaldoMB(linhasDeLog: List<String>): Int? {
         for (linha in linhasDeLog.asReversed()) {
+            if (linhaDescreveQuotaMensalTransferivel(linha)) continue
             for (padrao in PADROES_SALDO_GERAL) {
                 val encontrado = padrao.find(linha)
                 if (encontrado != null) {
@@ -39,15 +44,19 @@ object SaldoParser {
         return null
     }
 
+    /**
+     * Só identifica quota transferível quando a própria resposta associa
+     * explicitamente a quantidade a um período mensal E à possibilidade de
+     * transferência/partilha. "Dados mensais" sem essa segunda indicação
+     * continuam a ser uma quota desconhecida para fins de automação.
+     */
     fun extrairSaldoMensalTransferivelMB(linhasDeLog: List<String>): Int? {
         for (linha in linhasDeLog.asReversed()) {
             for (encontrado in PADRAO_QUANTIDADE.findAll(linha).toList().asReversed()) {
-                // O rótulo mensal tem de pertencer à mesma linha e estar
-                // próximo da quantidade. Não inferir a partir de saldo geral.
-                val inicio = (encontrado.range.first - 40).coerceAtLeast(0)
-                val fim = (encontrado.range.last + 41).coerceAtMost(linha.length)
+                val inicio = (encontrado.range.first - 100).coerceAtLeast(0)
+                val fim = (encontrado.range.last + 101).coerceAtMost(linha.length)
                 val contexto = linha.substring(inicio, fim)
-                if (!INDICADOR_MENSAL.containsMatchIn(contexto)) continue
+                if (!indicadaComoQuotaMensalTransferivel(contexto)) continue
 
                 val quantidade = quantidadeParaMB(
                     encontrado.groupValues[1],
@@ -57,6 +66,15 @@ object SaldoParser {
             }
         }
         return null
+    }
+
+    private fun linhaDescreveQuotaMensalTransferivel(linha: String): Boolean {
+        return indicadaComoQuotaMensalTransferivel(linha)
+    }
+
+    private fun indicadaComoQuotaMensalTransferivel(texto: String): Boolean {
+        return INDICADOR_MENSAL.containsMatchIn(texto) &&
+            INDICADOR_TRANSFERIVEL.containsMatchIn(texto)
     }
 
     private fun quantidadeParaMB(valor: String, unidade: String): Int? {
