@@ -247,6 +247,63 @@ router.patch("/:tenantId/products/:productId", (req, res) => {
 router.get("/:tenantId/store-orders", (req, res) => {
     res.json({ ok: true, pedidos: storefrontService.listarPedidos(req.params.tenantId) });
 });
+router.post("/:tenantId/store-orders/:orderId/payment-review", (req, res) => {
+    const tenantId = req.params.tenantId;
+    const orderId = String(req.params.orderId || "");
+    const order = storefrontService.listarPedidos(tenantId).find(item => item.id === orderId);
+
+    if (!order) {
+        return res.status(404).json({
+            ok: false,
+            code: "ORDER_NOT_FOUND",
+            error: "Pedido não encontrado para este Tenant."
+        });
+    }
+    if (order.pagamentoEstado !== "PENDENTE_VERIFICACAO") {
+        return res.status(409).json({
+            ok: false,
+            code: "ORDER_ALREADY_REVIEWED",
+            error: "Este pedido já recebeu uma decisão de pagamento. A decisão não pode ser substituída."
+        });
+    }
+
+    const decisao = String(req.body?.decisao || "").toUpperCase();
+    if (!["CONFIRMADO", "REJEITADO"].includes(decisao)) {
+        return res.status(400).json({
+            ok: false,
+            code: "INVALID_PAYMENT_DECISION",
+            error: "A decisão deve ser CONFIRMADO ou REJEITADO."
+        });
+    }
+
+    const motivo = String(req.body?.motivo || "").trim();
+    if (motivo.length < 5) {
+        return res.status(400).json({
+            ok: false,
+            code: "REVIEW_REASON_REQUIRED",
+            error: "Registe como verificou o pagamento (mínimo 5 caracteres)."
+        });
+    }
+
+    const result = storefrontService.resolverPagamento(
+        orderId,
+        decisao,
+        motivo,
+        req.body?.referencia,
+        "tenant"
+    );
+    if (result.error) {
+        return res.status(result.status || 400).json({ ok: false, ...result });
+    }
+
+    // Só uma confirmação manual efectivamente guardada pode iniciar o
+    // fulfillment. Uma rejeição nunca cria operação ou tarefa USSD.
+    const fulfillment = decisao === "CONFIRMADO"
+        ? orderFulfillmentService.cumprirPedidoPago(orderId, tenantId)
+        : null;
+
+    res.json({ ...result, fulfillment });
+});
 
 
 
