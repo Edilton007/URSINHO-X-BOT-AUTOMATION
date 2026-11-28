@@ -124,6 +124,68 @@ function preverDisponibilidade(tenantId, deviceId, megas, destino) {
     };
 }
 
+/**
+ * Pré-verifica a capacidade de um pedido de várias partes antes de apresentar
+ * instruções de pagamento. Não reserva quota nem cria operações; após o
+ * pagamento, cada parte é novamente validada antes de receber tarefa.
+ */
+function preverDisponibilidadePedido(tenantId, deviceId, megas, destino) {
+    const maxPedido = Math.min(PEDIDO_MAX_MB, 204800);
+    const erroValidacao = validarPedido(tenantId, deviceId, megas, destino, {
+        maxMegas: maxPedido
+    });
+    if (erroValidacao) {
+        return { disponivel: false, codigo: "PEDIDO_INVALIDO", motivo: erroValidacao };
+    }
+
+    if (!execucaoPermitida()) {
+        return {
+            disponivel: false,
+            codigo: "EXECUCAO_DESATIVADA",
+            motivo: "As transferências automáticas estão temporariamente desactivadas."
+        };
+    }
+
+    if (!destinoPermitido(destino)) {
+        return {
+            disponivel: false,
+            codigo: "DESTINO_NAO_AUTORIZADO",
+            motivo: "O número de destino não está autorizado para esta fase."
+        };
+    }
+
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device || device.id !== deviceId || !device.autorizado || !device.online) {
+        return {
+            disponivel: false,
+            codigo: "AGENT_OFFLINE",
+            motivo: "O Android Agent não está ligado e autenticado neste momento."
+        };
+    }
+
+    const partes = megas <= MEGAS_MAX ? [megas] : dividirMegas(megas);
+    const capacidade = simTelemetryService.preverPlanoTransferencias(
+        tenantId,
+        deviceId,
+        partes,
+        LIMITE_DIARIO_PADRAO
+    );
+    if (!capacidade.disponivel) {
+        return {
+            disponivel: false,
+            codigo: "SIM_MENSAL_NAO_ELEGIVEL",
+            motivo: capacidade.motivo
+        };
+    }
+
+    return {
+        disponivel: true,
+        codigo: "CAPACIDADE_CONFIRMADA",
+        motivo: "Há capacidade actual para todas as partes do pedido. A elegibilidade será novamente verificada após a confirmação manual do pagamento.",
+        totalPartes: capacidade.totalPartes
+    };
+}
+
 function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
     const erroValidacao = validarPedido(tenantId, deviceId, megas, destino);
     if (erroValidacao) return { error: erroValidacao };
@@ -995,6 +1057,7 @@ function listarOperacoes(tenantId) {
 
 module.exports = {
     preverDisponibilidade,
+    preverDisponibilidadePedido,
     criarPedido,
     listarPedidos,
     resolverRevisao,
