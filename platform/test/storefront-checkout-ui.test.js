@@ -35,7 +35,7 @@ test("frontend só apresenta as instruções do método escolhido após criar o 
 });
 
 test("JavaScript incorporado na Loja pública tem sintaxe válida", () => {
-    const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)];
+    const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
     assert.equal(scripts.length, 1);
     assert.doesNotThrow(() => new vm.Script(scripts[0][1], {
         filename: "storefront/index.html"
