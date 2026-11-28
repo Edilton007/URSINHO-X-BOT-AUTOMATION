@@ -26,7 +26,8 @@ test("Tenant disponibiliza revisão de pagamentos e histórico na área Pagament
     assert.match(html, /function reviewStoreOrderPayment\(orderId,decision\)/);
     assert.match(html, /data-review-store-order/);
     assert.match(html, /\/store-orders\/.*\/payment-review/);
-    assert.match(html, /O pedido, por si só, não prova o pagamento/);
+    assert.match(html, /storeReviewWarning/);
+    assert.match(html, /Consultei a transacção no M-Pesa, e-Mola ou banco/);
 });
 
 test("painel Tenant conserva sintaxe JavaScript válida após integrar pedidos públicos", () => {
