@@ -106,7 +106,7 @@ async function criarPedido(fixture, key, extra = {}) {
         body: JSON.stringify({
             nome: "Cliente Teste",
             telefone: "861234567",
-            destino: "841234567",
+            destino: "+258 84 123 4567",
             paymentMethodId: "mpesa-teste",
             items: [{ productId: fixture.product.id, quantity: 1 }],
             ...extra
@@ -140,15 +140,18 @@ test("checkout público só cria pedido depois de confirmar capacidade e método
 
 test("checkout público não cria pedido nem apresenta pagamento quando a quota é insuficiente", async () => {
     const fixture = prepararLoja({ quotaMB: 200, quantidadeMB: 500 });
-    const ordersBefore = Object.keys(db.storeOrders).length;
+    const ordersBefore = Object.values(db.storeOrders).filter(order => order.tenantId === fixture.tenant.id).length;
 
     const response = await criarPedido(fixture, "storefront-preflight-insufficient-001");
     assert.equal(response.status, 409);
     const body = await response.json();
     assert.equal(body.code, "SIM_MENSAL_NAO_ELEGIVEL");
     assert.match(body.error, /quota mensal transferível livre/);
-    assert.equal(Object.keys(db.storeOrders).length, ordersBefore);
-    assert.equal(Object.values(db.pendingTasks).length, 0);
+    assert.equal(
+        Object.values(db.storeOrders).filter(order => order.tenantId === fixture.tenant.id).length,
+        ordersBefore
+    );
+    assert.equal(Object.values(db.pendingTasks).filter(task => task.tenantId === fixture.tenant.id).length, 0);
 });
 
 test("pré-verificação distribui pedido grande por dois SIMs sem ultrapassar 10 GB por parte", () => {
