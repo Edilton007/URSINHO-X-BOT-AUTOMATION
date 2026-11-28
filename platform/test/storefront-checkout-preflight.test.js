@@ -43,7 +43,7 @@ test.after(async () => {
     fs.rmSync(temp, { recursive: true, force: true });
 });
 
-function prepararLoja({ quotaMB = 1000, quantidadeMB = 500, segundoSimMB = null } = {}) {
+function prepararLoja({ quotaMB = 1000, quantidadeMB = 500, segundoSimMB = null, paymentActive = true } = {}) {
     sequence += 1;
     const tenant = tenantService.criarTenant({ nome: `Tenant Loja Preflight ${sequence}` });
     const device = tenantService.registrarDevice(tenant.id, `device-storefront-preflight-${sequence}`);
@@ -80,7 +80,7 @@ function prepararLoja({ quotaMB = 1000, quantidadeMB = 500, segundoSimMB = null 
             nome: "M-Pesa",
             conta: "841111111",
             titular: "Loja de Teste",
-            ativo: true
+            ativo: paymentActive
         }]
     }).error, undefined);
 
@@ -136,6 +136,21 @@ test("checkout público só cria pedido depois de confirmar capacidade e método
     assert.ok(operation);
     assert.equal(operation.destino, "841234567");
     assert.equal(Object.values(db.pendingTasks).filter(task => task.tenantId === fixture.tenant.id).length, 1);
+});
+
+test("checkout público bloqueia pedido quando não existe método de pagamento activo", async () => {
+    const fixture = prepararLoja({ paymentActive: false });
+    const before = Object.values(db.storeOrders).filter(order => order.tenantId === fixture.tenant.id).length;
+
+    const response = await criarPedido(fixture, "storefront-preflight-no-payment-method-001");
+    assert.equal(response.status, 409);
+    const body = await response.json();
+    assert.equal(body.code, "PAYMENT_METHOD_UNAVAILABLE");
+    assert.match(body.error, /nenhum método de pagamento activo/);
+    assert.equal(
+        Object.values(db.storeOrders).filter(order => order.tenantId === fixture.tenant.id).length,
+        before
+    );
 });
 
 test("checkout público não cria pedido nem apresenta pagamento quando a quota é insuficiente", async () => {
