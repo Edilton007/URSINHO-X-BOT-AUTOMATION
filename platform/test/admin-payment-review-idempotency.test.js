@@ -124,6 +124,7 @@ test("uma confirmação de pagamento não pode ser repetida nem substituída", a
 
 test("um pagamento rejeitado não pode ser posteriormente confirmado pela mesma decisão", async () => {
     const { order } = criarPedido();
+    const operationCount = Object.keys(db.operations).length;
 
     const first = await rever(order.id, "REJEITADO");
     assert.equal(first.status, 200);
@@ -139,7 +140,7 @@ test("um pagamento rejeitado não pode ser posteriormente confirmado pela mesma 
     const updatedOrder = storefrontService.todosPedidos().find(item => item.id === order.id);
     assert.equal(updatedOrder.pagamentoEstado, "REJEITADO_MANUALMENTE");
     assert.equal(updatedOrder.revisaoPagamento.decisao, "REJEITADO");
-    assert.equal(Object.keys(db.operations).length, 0);
+    assert.equal(Object.keys(db.operations).length, operationCount);
 });
 
 test("decisões inválidas são recusadas sem alterar o pedido", async () => {
