@@ -24,7 +24,7 @@ function publicOrderLimit(req, res, next) {
 }
 
 function normalizarDestino(valor) {
-    let numero = String(valor || "").replace(/\\D/g, "");
+    let numero = String(valor || "").replace(/\D/g, "");
     if (numero.startsWith("258") && numero.length === 12) numero = numero.slice(3);
     return numero;
 }
