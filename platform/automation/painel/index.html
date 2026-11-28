@@ -417,6 +417,29 @@ html,body{overscroll-behavior-y:contain}
   </div>
 </div>
 
+<div id="storePaymentReviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="storeReviewTitle">
+  <div class="sheet">
+    <div class="sheetHead"><h3 id="storeReviewTitle">Revisão de pagamento</h3><button id="closeStoreReview" class="iconbtn" aria-label="Fechar">×</button></div>
+    <div id="storeReviewSummary" class="notice" style="margin-bottom:12px"></div>
+    <div id="storeReviewWarning" class="notice warn" style="margin-bottom:12px"></div>
+    <div id="storeReviewVerifiedWrap" class="notice" style="margin-bottom:12px">
+      <label style="display:flex;align-items:flex-start;gap:9px;color:var(--text)">
+        <input id="storeReviewVerified" type="checkbox" style="margin-top:2px;width:auto">
+        <span>Consultei a transacção no M-Pesa, e-Mola ou banco e confirmei que o valor entrou na conta do negócio.</span>
+      </label>
+    </div>
+    <div class="formGrid">
+      <div class="field full"><label for="storeReviewReference">Referência da transacção (opcional)</label><input id="storeReviewReference" class="input" maxlength="120" placeholder="Ex.: código da transacção"></div>
+      <div class="field full"><label for="storeReviewReason">Justificação da decisão</label><textarea id="storeReviewReason" class="input" rows="3" maxlength="300" placeholder="Descreve como verificaste o pagamento ou o motivo da rejeição."></textarea></div>
+    </div>
+    <div id="storeReviewMessage" class="notice hidden" style="margin-top:10px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button id="cancelStoreReview" class="btn">CANCELAR</button>
+      <button id="submitStoreReview" class="btn primary">CONFIRMAR PAGAMENTO</button>
+    </div>
+  </div>
+</div>
+
 <div id="detailModal" class="modal">
   <div class="sheet">
     <div class="sheetHead"><h3>Detalhes da operação</h3><button id="closeDetail" class="iconbtn">×</button></div>
@@ -442,6 +465,7 @@ let refreshTimer=null;
 let refreshInProgress=false;
 let whatsappGroups=[];
 let pendingGroupPairing=null;
+let pendingStoreReview=null;
 
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -840,32 +864,81 @@ function renderStorePayments(){
     ?orders.slice().sort((a,b)=>(Number(b.criadoEmMs)||0)-(Number(a.criadoEmMs)||0)).map(order=>renderStoreOrderCard(order,true)).join('')
     :'<div class="empty"><b>Sem pagamentos da Loja</b>Quando um cliente concluir um pedido público, o pagamento ficará disponível para revisão aqui.</div>';
 }
-async function reviewStoreOrderPayment(orderId,decision){
+function reviewStoreOrderPayment(orderId,decision){
+  const order=state.storeOrders.find(item=>String(item.id)===String(orderId));
+  if(!order||order.pagamentoEstado!=='PENDENTE_VERIFICACAO'){
+    showToast('Este pedido já não está pendente de revisão.');
+    return;
+  }
+  pendingStoreReview={orderId:String(orderId),decision};
   const confirming=decision==='CONFIRMADO';
-  if(confirming&&!confirm('Consultaste a transação no M-Pesa, e-Mola ou banco e confirmaste que o valor entrou? O pedido, por si só, não prova o pagamento.'))return;
-  const motivo=prompt(confirming
-    ?'Regista como verificaste a entrada real do dinheiro (mínimo 5 caracteres):'
-    :'Regista o motivo da rejeição (mínimo 5 caracteres):');
-  if(!motivo||motivo.trim().length<5)return showToast('A justificação é obrigatória (mínimo 5 caracteres).');
-  const referencia=prompt('Referência da transação (opcional):')||'';
+  $('storeReviewTitle').textContent=confirming?'Confirmar pagamento':'Rejeitar pagamento';
+  $('storeReviewSummary').innerHTML='<b>'+esc(order.reference||order.id)+'</b>'+
+    '<div class="kv"><span>Cliente</span><span>'+esc(order.nome||'Não informado')+'</span></div>'+
+    '<div class="kv"><span>Contacto</span><span>'+esc(order.telefone||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Destino</span><span>'+esc(order.destino||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Valor</span><span>'+esc(fmtDecimal(Number(order.totalMT)||0))+' MT</span></div>';
+  $('storeReviewWarning').textContent=confirming
+    ?'A aprovação grava o pagamento e encaminha o pedido para o Backend. A execução continua sujeita à validação do dispositivo, SIM, quota e limites.'
+    :'A rejeição fica registada e não cria qualquer operação de transferência.';
+  $('storeReviewVerifiedWrap').classList.toggle('hidden',!confirming);
+  $('storeReviewVerified').checked=false;
+  $('storeReviewReference').value='';
+  $('storeReviewReason').value='';
+  $('storeReviewMessage').classList.add('hidden');
+  $('submitStoreReview').textContent=confirming?'CONFIRMAR E ENCAMINHAR':'REJEITAR PAGAMENTO';
+  $('submitStoreReview').classList.toggle('danger',!confirming);
+  $('storePaymentReviewModal').classList.add('open');
+  $('storeReviewReason').focus();
+}
+function closeStorePaymentReview(){
+  $('storePaymentReviewModal').classList.remove('open');
+  pendingStoreReview=null;
+}
+async function submitStoreOrderPaymentReview(){
+  const pending=pendingStoreReview;
+  if(!pending)return;
+  const confirming=pending.decision==='CONFIRMADO';
+  const motivo=$('storeReviewReason').value.trim();
+  if(confirming&&!$('storeReviewVerified').checked){
+    $('storeReviewMessage').textContent='Confirmação bloqueada: assinala que consultaste a transacção e verificaste a entrada do dinheiro.';
+    $('storeReviewMessage').classList.remove('hidden');
+    return;
+  }
+  if(motivo.length<5){
+    $('storeReviewMessage').textContent='A justificação é obrigatória e deve ter pelo menos 5 caracteres.';
+    $('storeReviewMessage').classList.remove('hidden');
+    return;
+  }
+  const button=$('submitStoreReview');
+  button.disabled=true;
   try{
     const tid=encodeURIComponent(session.tenantId);
-    const result=await api('/automation/tenants/'+tid+'/store-orders/'+encodeURIComponent(orderId)+'/payment-review',{
+    const result=await api('/automation/tenants/'+tid+'/store-orders/'+encodeURIComponent(pending.orderId)+'/payment-review',{
       method:'POST',
-      body:JSON.stringify({decisao,motivo:motivo.trim(),referencia})
+      body:JSON.stringify({
+        decisao:pending.decision,
+        motivo,
+        referencia:$('storeReviewReference').value.trim()
+      })
     });
+    closeStorePaymentReview();
     if(result.fulfillment?.error){
       showToast('Pagamento confirmado. A entrega ficou em revisão: '+result.fulfillment.error);
     }else if(confirming){
-      showToast('Pagamento confirmado manualmente. O pedido foi encaminhado ao Backend.');
+      showToast('Pagamento confirmado. Pedido encaminhado ao Backend.');
     }else{
       showToast('Pagamento rejeitado. Nenhuma operação foi criada.');
     }
     await loadPanel();
   }catch(error){
-    showToast('Não foi possível rever o pagamento: '+error.message);
+    $('storeReviewMessage').textContent='Não foi possível registar a decisão: '+error.message;
+    $('storeReviewMessage').classList.remove('hidden');
+  }finally{
+    button.disabled=false;
   }
 }
+
 function renderPackages(){
   const products=Array.isArray(state.products)?state.products:[];
   $('packageCount').textContent=String(products.length)+' pacote(s)';
@@ -1092,6 +1165,12 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('storePaymentsList').addEventListener('click',event=>{
     const button=event.target.closest('[data-review-store-order]');
     if(button)reviewStoreOrderPayment(button.dataset.reviewStoreOrder,button.dataset.decision);
+  });
+  $('closeStoreReview').onclick=closeStorePaymentReview;
+  $('cancelStoreReview').onclick=closeStorePaymentReview;
+  $('submitStoreReview').onclick=submitStoreOrderPaymentReview;
+  $('storePaymentReviewModal').addEventListener('click',event=>{
+    if(event.target===$('storePaymentReviewModal'))closeStorePaymentReview();
   });
   $('whatsappOrdersList').addEventListener('click',event=>{
     const button=event.target.closest('[data-review-whatsapp]');
