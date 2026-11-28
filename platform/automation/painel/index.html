@@ -158,6 +158,12 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
 .packageCard .packagePrice{font-size:20px;font-weight:800;color:var(--ux-text)}
 @media(max-width:380px){#bottomNav .nav{font-size:8px}}
 </style>
+<style id="tenant-pull-refresh-quota">
+html,body{overscroll-behavior-y:contain}
+.pullRefreshIndicator{position:fixed;z-index:70;top:10px;left:50%;transform:translate(-50%,-150%);opacity:0;pointer-events:none;padding:10px 15px;border:1px solid #425a83;border-radius:999px;background:#172844;color:#dce5ff;font-size:11px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.28);transition:transform .18s ease,opacity .18s ease;white-space:nowrap}
+.pullRefreshIndicator.visible{transform:translate(-50%,0);opacity:1}
+@media(prefers-reduced-motion:reduce){.pullRefreshIndicator{transition:none}}
+</style>
 </head>
 <body>
 <div id="loginView" class="app login">
@@ -186,6 +192,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <button id="refreshBtn" class="iconbtn" title="Atualizar">↻</button>
     </div>
   </header>
+  <div id="pullRefreshIndicator" class="pullRefreshIndicator" aria-live="polite" aria-hidden="true">Puxe para baixo para actualizar</div>
 
   <main>
     <section id="pageDashboard" class="page active">
@@ -343,7 +350,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <div class="card">
         <div class="tableWrap">
           <table class="table">
-            <thead><tr><th>SIM</th><th>Operadora</th><th>Internet</th><th>Saldo</th><th>Atualização</th></tr></thead>
+            <thead><tr><th>SIM</th><th>Operadora</th><th>Internet total</th><th>Quota mensal transferível</th><th>Saldo</th><th>Atualização</th></tr></thead>
             <tbody id="simTable"></tbody>
           </table>
         </div>
@@ -421,11 +428,13 @@ const API_BASE=location.origin;
 const SESSION_KEY='ursinho_x_tenant_session_v3';
 const DEVICE_ONLINE_WINDOW_MS=120*1000;
 const SIM_ONLINE_WINDOW_MS=45*60*1000;
+const QUOTA_FRESH_WINDOW_MS=30*60*1000;
 let session=null;
 let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],whatsappOrders:[],products:[],storefront:null,loadedAt:null};
 let editingPackageId=null;
 let paymentFormDirty=false;
 let refreshTimer=null;
+let refreshInProgress=false;
 let whatsappGroups=[];
 let pendingGroupPairing=null;
 
@@ -465,6 +474,29 @@ function formatMB(mb){
   if(!Number.isFinite(n))return{main:'Não disponível',secondary:''};
   if(n>=1024){return{main:`${fmtDecimal(n/1024)} GB`,secondary:`${fmtDecimal(n)} MB`}}
   return{main:`${fmtDecimal(n)} MB`,secondary:''};
+}
+
+function quotaMensalTransferivel(sim){
+  const value=sim?.internetTransferivelMB;
+  if(!Number.isSafeInteger(value)||value<0){
+    return{value:'Não identificada',freshness:'Sem leitura mensal explícita',fresh:false};
+  }
+  const formatted=formatMB(value);
+  const stamp=sim?.internetTransferivelAtualizadoEmMs;
+  const timestamp=toMs(stamp);
+  if(!timestamp){
+    return{value:formatted.main,secondary:formatted.secondary,freshness:'Data da leitura não disponível',fresh:false};
+  }
+  if(timestamp>Date.now()+120000){
+    return{value:formatted.main,secondary:formatted.secondary,freshness:'Data da leitura inválida',fresh:false};
+  }
+  const fresh=online(stamp,QUOTA_FRESH_WINDOW_MS);
+  return{
+    value:formatted.main,
+    secondary:formatted.secondary,
+    freshness:fresh?`Actualizada ${age(stamp)}`:`Desactualizada ${age(stamp)}`,
+    fresh
+  };
 }
 
 function mbFromInput(){
@@ -648,7 +680,48 @@ async function removeWhatsAppGroup(groupId){
 }
 
 function backendState(ok){$('backendDot').className='dot '+(ok?'on':'err');$('backendText').textContent=ok?'SISTEMA ONLINE':'BACKEND OFFLINE'}
-async function refresh(){try{await loadPanel();if($('pageSettings').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
+async function refresh(){
+  if(refreshInProgress)return;
+  refreshInProgress=true;
+  try{await loadPanel();if($('pageSettings').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}
+  catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}
+  finally{refreshInProgress=false}
+}
+function configurarPullToRefresh(){
+  let startY=null,startX=null,distance=0,enabled=false;
+  const threshold=72;
+  const indicator=$('pullRefreshIndicator');
+  const esconder=()=>{
+    indicator.classList.remove('visible');
+    indicator.setAttribute('aria-hidden','true');
+    indicator.textContent='Puxe para baixo para actualizar';
+  };
+  document.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1||window.scrollY>1||document.querySelector('.modal.open')){enabled=false;return}
+    if(!(event.target instanceof Element)||event.target.closest('input,textarea,select,button,a,.sheet,.tableWrap,.bottom')){enabled=false;return}
+    startY=event.touches[0].clientY;startX=event.touches[0].clientX;distance=0;enabled=true;
+  },{passive:true});
+  document.addEventListener('touchmove',event=>{
+    if(!enabled||startY===null||event.touches.length!==1||refreshInProgress)return;
+    const touch=event.touches[0];
+    const deltaY=touch.clientY-startY;const deltaX=touch.clientX-startX;
+    if(deltaY<=0||Math.abs(deltaX)>Math.abs(deltaY)){if(deltaY<0)enabled=false;return}
+    if(window.scrollY>1){enabled=false;esconder();return}
+    if(deltaY>8){
+      if(event.cancelable)event.preventDefault();
+      distance=deltaY;
+      indicator.textContent=distance>=threshold?'Solte para actualizar':'Puxe para actualizar';
+      indicator.classList.add('visible');indicator.setAttribute('aria-hidden','false');
+    }
+  },{passive:false});
+  const terminar=()=>{
+    const deveActualizar=enabled&&distance>=threshold&&window.scrollY<=1&&!refreshInProgress;
+    enabled=false;startY=null;startX=null;distance=0;esconder();
+    if(deveActualizar)void refresh();
+  };
+  document.addEventListener('touchend',terminar,{passive:true});
+  document.addEventListener('touchcancel',terminar,{passive:true});
+}
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
 function renderAll(){renderDashboard();renderOperations();renderWhatsAppOrders();renderSims();renderSystem();renderPackages();renderPayments()}
 
@@ -820,10 +893,12 @@ function renderDashboard(){
     $('simMeta').textContent=`${sim.operator||'Operadora não informada'} • Slot ${sim.slot??'?'}`;
     $('simBadge').outerHTML=`<span id="simBadge" class="badge ${online(sim.updatedAt)?'ok':'warn'}">${online(sim.updatedAt)?'ONLINE':'TELEMETRIA DESATUALIZADA'}</span>`;
     const internet=formatMB(sim.internetMB);
+    const quota=quotaMensalTransferivel(sim);
     const balance=validNum(sim.saldoMT)?`${fmtDecimal(sim.saldoMT)} MT`:'Não disponível';
     const transfers=validNum(sim.transferenciasHoje)?`${sim.transferenciasHoje}/${sim.limiteDiario??10}`:'Não disponível';
     $('simQuick').innerHTML=`
       <div class="kv"><span>Internet disponível</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div>
+      <div class="kv"><span>Quota mensal transferível</span><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></div>
       <div class="kv"><span>Saldo</span><span>${esc(balance)}</span></div>
       <div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div>
       <div class="kv"><span>Última leitura</span><span>${esc(age(sim.updatedAt))}</span></div>`;
@@ -872,9 +947,9 @@ function renderOperations(){
 function renderSims(){
   if(!state.sims.length){$('simsGrid').innerHTML='<div class="card empty" style="grid-column:1/-1"><b>Sem SIMs</b>O Backend ainda não retornou recursos SIM para este tenant.</div>'}else{
     $('simsGrid').innerHTML=state.sims.map(s=>{
-      const internet=formatMB(s.internetMB);const isVod=String(s.operator).toLowerCase().includes('vodacom');const connected=typeof s.online==='boolean'?s.online:online(s.updatedAt,SIM_ONLINE_WINDOW_MS);
+      const internet=formatMB(s.internetMB);const quota=quotaMensalTransferivel(s);const isVod=String(s.operator).toLowerCase().includes('vodacom');const connected=typeof s.online==='boolean'?s.online:online(s.updatedAt,SIM_ONLINE_WINDOW_MS);
       const transfers=validNum(s.transferenciasHoje)?`${s.transferenciasHoje}/${s.limiteDiario??10}`:'Não disponível';
-      return`<div class="card"><div class="resource"><div class="resourceIcon">▣</div><div class="resourceInfo"><b>${esc(s.simId||'SIM')}</b><small>${esc(s.operator||'Operadora não informada')} • Slot ${esc(s.slot??'?')}</small></div>${badge(connected?'ONLINE':'SEM_TELEMETRIA',connected?'ONLINE':'SEM TELEMETRIA')}</div><div style="margin-top:12px"><div class="kv"><span>Internet</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div><div class="kv"><span>Saldo</span><span>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</span></div><div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div><div class="kv"><span>Última leitura</span><span>${esc(age(s.updatedAt))}</span></div>${isVod?'':'<div class="notice warn" style="margin-top:9px">Este recurso não é selecionável para transferência Vodacom.</div>'}</div></div>`;
+      return`<div class="card"><div class="resource"><div class="resourceIcon">▣</div><div class="resourceInfo"><b>${esc(s.simId||'SIM')}</b><small>${esc(s.operator||'Operadora não informada')} • Slot ${esc(s.slot??'?')}</small></div>${badge(connected?'ONLINE':'SEM_TELEMETRIA',connected?'ONLINE':'SEM TELEMETRIA')}</div><div style="margin-top:12px"><div class="kv"><span>Internet total</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div><div class="kv"><span>Quota mensal transferível</span><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></div><div class="kv"><span>Saldo</span><span>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</span></div><div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div><div class="kv"><span>Última leitura</span><span>${esc(age(s.updatedAt))}</span></div>${isVod?'':'<div class="notice warn" style="margin-top:9px">Este recurso não é selecionável para transferência Vodacom.</div>'}</div></div>`;
     }).join('');
   }
   const d=state.device;const connected=deviceIsConnected();
@@ -886,7 +961,7 @@ function renderSystem(){
   $('systemStatus').innerHTML=`<div class="kv"><span>Backend</span><span>${badge('ONLINE','SISTEMA ONLINE')}</span></div><div class="kv"><span>Saúde operacional</span><span>${badge(state.health?.estado||'SEM LEITURA',state.health?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Execução telecom</span><span>${state.health?.execucaoPermitida===true?badge('ATIVA','ATIVA'):badge('BLOQUEADA','BLOQUEADA')}</span></div><div class="kv"><span>Tenant</span><span>${esc(firstDefined(tenant.id,tenant.tenantId,session.tenantId))}</span></div><div class="kv"><span>Engine</span><span>${esc(engine()[0])}</span></div><div class="kv"><span>Telemetria</span><span>${state.sims.length?'Disponível':'Aguardando'}</span></div><div class="kv"><span>Agent</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div>`;
   const licenseStatus=String(firstDefined(lic.estado,lic.status,'SEM LICENÇA')).toUpperCase();
   $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(licenseStatus,licenseStatus)}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.codigo,lic.code,'Não disponível'))}</span></div><div class="kv"><span>Duração</span><span>${Number.isFinite(Number(lic.dias))?esc(lic.dias+' dias'):'Não disponível'}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiraEmMs,lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
-  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td data-label="SIM">${esc(s.simId||'SIM')}</td><td data-label="Operadora">${esc(s.operator||'Não informado')}</td><td data-label="Internet"><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td data-label="Saldo">${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td data-label="Atualização">${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
+  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);const quota=quotaMensalTransferivel(s);return`<tr><td data-label="SIM">${esc(s.simId||'SIM')}</td><td data-label="Operadora">${esc(s.operator||'Não informado')}</td><td data-label="Internet total"><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td data-label="Quota mensal transferível"><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></td><td data-label="Saldo">${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td data-label="Atualização">${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
   $('sessionPanel').innerHTML=`<div class="kv"><span>Tenant</span><span>${esc(session?.tenantId||'')}</span></div><div class="kv"><span>Endpoint</span><span>${esc(location.origin)}</span></div><div class="kv"><span>Atualização automática</span><span>30 segundos</span></div><div class="kv"><span>Assinatura</span><span>✨ BY Edilton Ronaldo</span></div><div style="margin-top:12px"><button id="logoutBtn" class="btn">SAIR DA SESSÃO</button></div>`;
   $('logoutBtn').onclick=logout;
 }
@@ -924,6 +999,7 @@ function openDetail(id){
 }
 
 document.addEventListener('DOMContentLoaded',async()=>{
+  configurarPullToRefresh();
   $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
   $('refreshWhatsappOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos WhatsApp atualizados')).catch(e=>showToast(e.message));
