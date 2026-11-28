@@ -18,6 +18,7 @@ const db = require("../src/automation/database/automationDb");
 const tenantService = require("../src/automation/services/tenantService");
 const telemetry = require("../src/automation/services/simTelemetryService");
 const operations = require("../src/automation/services/operationService");
+const fulfillment = require("../src/automation/services/orderFulfillmentService");
 const storefrontService = require("../src/automation/services/storefrontService");
 const storefrontRoutes = require("../src/automation/routes/storefrontRoutes");
 
@@ -104,7 +105,8 @@ async function criarPedido(fixture, key, extra = {}) {
         },
         body: JSON.stringify({
             nome: "Cliente Teste",
-            telefone: "841234567",
+            telefone: "861234567",
+            destino: "841234567",
             paymentMethodId: "mpesa-teste",
             items: [{ productId: fixture.product.id, quantity: 1 }],
             ...extra
@@ -121,7 +123,19 @@ test("checkout público só cria pedido depois de confirmar capacidade e método
     assert.equal(body.ok, true);
     assert.equal(body.pedido.pagamentoEstado, "PENDENTE_VERIFICACAO");
     assert.equal(body.pedido.pagamentoMetodo.id, "mpesa-teste");
+    assert.equal(body.pedido.telefone, "861234567");
+    assert.equal(body.pedido.destino, "841234567");
     assert.equal(Object.values(db.pendingTasks).filter(task => task.tenantId === fixture.tenant.id).length, 0);
+
+    const savedOrder = db.storeOrders[body.pedido.id];
+    savedOrder.pagamentoEstado = "CONFIRMADO_MANUALMENTE";
+    db.save();
+    const delivered = fulfillment.cumprirPedidoPago(savedOrder.id, fixture.tenant.id);
+    assert.equal(delivered.error, undefined);
+    const operation = Object.values(db.operations).find(item => item.tenantId === fixture.tenant.id);
+    assert.ok(operation);
+    assert.equal(operation.destino, "841234567");
+    assert.equal(Object.values(db.pendingTasks).filter(task => task.tenantId === fixture.tenant.id).length, 1);
 });
 
 test("checkout público não cria pedido nem apresenta pagamento quando a quota é insuficiente", async () => {
@@ -180,12 +194,17 @@ test("retry idempotente devolve o pedido registado mesmo que a capacidade já te
     assert.equal(repeatedBody.idempotente, true);
     assert.equal(repeatedBody.pedido.id, firstBody.pedido.id);
     assert.equal(Object.values(db.storeOrders).filter(order => order.tenantId === fixture.tenant.id).length, 1);
+
+    const conflict = await criarPedido(fixture, key, { destino: "851234567" });
+    assert.equal(conflict.status, 409);
+    const conflictBody = await conflict.json();
+    assert.equal(conflictBody.code, "IDEMPOTENCY_CONFLICT");
 });
 
 test("checkout não aceita destino ou produto sem capacidade operacional", async () => {
     const fixture = prepararLoja({ quotaMB: 1000, quantidadeMB: 500 });
     const invalid = await criarPedido(fixture, "storefront-preflight-invalid-001", {
-        telefone: "861234567"
+        destino: "861234567"
     });
     assert.equal(invalid.status, 409);
     const body = await invalid.json();
