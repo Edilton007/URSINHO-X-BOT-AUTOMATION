@@ -23,6 +23,12 @@ function publicOrderLimit(req, res, next) {
     next();
 }
 
+function normalizarDestino(valor) {
+    let numero = String(valor || "").replace(/\\D/g, "");
+    if (numero.startsWith("258") && numero.length === 12) numero = numero.slice(3);
+    return numero;
+}
+
 router.get("/:slug", (req, res) => {
     const result = service.catalogoPublico(req.params.slug);
     if (!result) return res.status(404).json({ ok: false, error: "Loja não encontrada ou não publicada." });
@@ -52,6 +58,15 @@ router.post("/:slug/orders", publicOrderLimit, (req, res) => {
         order.idempotencyKey === String(idempotencyKey || "").trim()
     );
     if (previous) {
+        const destinoAnterior = normalizarDestino(previous.destino || previous.telefone);
+        const destinoSolicitado = normalizarDestino(input.destino);
+        if (destinoAnterior !== destinoSolicitado) {
+            return res.status(409).json({
+                ok: false,
+                code: "IDEMPOTENCY_CONFLICT",
+                error: "A chave deste pedido já foi usada com outro número de destino."
+            });
+        }
         const repeated = service.criarPedidoPublico(slug, input, idempotencyKey);
         if (repeated.error) {
             return res.status(repeated.status || 400).json({
@@ -105,7 +120,7 @@ router.post("/:slug/orders", publicOrderLimit, (req, res) => {
         storefront.tenantId,
         device?.id,
         totalMB,
-        input.telefone
+        input.destino
     );
     if (!disponibilidade.disponivel) {
         return res.status(409).json({
@@ -123,6 +138,10 @@ router.post("/:slug/orders", publicOrderLimit, (req, res) => {
             error: result.error,
             code: result.code
         });
+    }
+    if (result.pedido) {
+        result.pedido.destino = normalizarDestino(input.destino);
+        db.save();
     }
     res.status(result.idempotente ? 200 : 201).json(result);
 });
