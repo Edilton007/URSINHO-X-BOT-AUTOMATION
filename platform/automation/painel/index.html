@@ -749,6 +749,9 @@ function mbFromPackageInput(){
 function whatsappOrderStatusLabel(value){
   const labels={
     AGUARDANDO_PAGAMENTO:'Aguardando pagamento',
+    PENDENTE_VERIFICACAO:'Aguardando revisão manual',
+    CONFIRMADO_MANUALMENTE:'Pagamento confirmado',
+    REJEITADO_MANUALMENTE:'Pagamento rejeitado',
     COMPROVATIVO_RECEBIDO:'Comprovativo recebido',
     OPERACAO_CRIADA:'Operação criada',
     PAGAMENTO_REJEITADO:'Pagamento rejeitado',
@@ -803,7 +806,7 @@ function renderStoreOrderCard(order,allowReview){
   const items=Array.isArray(order.items)?order.items.map(item=>`${item.nome||'Pacote'} × ${item.quantity||1}`).join(', '):'Não disponível';
   const method=order.pagamentoMetodo?.nome||order.pagamentoMetodo?.tipo||'Não indicado';
   const stateLabel=String(order.pagamentoEstado||'PENDENTE_VERIFICACAO').replace(/_/g,' ');
-  const fulfillment=String(order.fulfillmentStatus||'AGUARDANDO_PAGAMENTO').replace(/_/g,' ');
+  const fulfillment=String(order.fulfillmentStatus||order.estado||'AGUARDANDO_PAGAMENTO').replace(/_/g,' ');
   const review=order.revisaoPagamento;
   return '<article class="card packageCard">'+
     '<div class="row" style="justify-content:space-between"><b>'+esc(order.reference||order.id||'Pedido')+'</b>'+badge(stateLabel,stateLabel)+'</div>'+
