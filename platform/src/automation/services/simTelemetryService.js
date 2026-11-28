@@ -380,6 +380,106 @@ function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
     return null;
 }
 
+/**
+ * Simula, sem reservar recursos nem criar operações, a capacidade para
+ * todas as partes de um pedido grande. Usa os mesmos limites, frescura,
+ * reservas e prioridade da seleção operacional normal.
+ */
+function preverPlanoTransferencias(tenantId, deviceId, partes, limiteDiario) {
+    if (!Array.isArray(partes) || partes.length === 0 ||
+        partes.some(mb => !Number.isSafeInteger(mb) || mb < 100 || mb > 10240) ||
+        !Number.isSafeInteger(limiteDiario) || limiteDiario < 1) {
+        return { disponivel: false, motivo: "Plano de transferência inválido." };
+    }
+
+    const agora = Date.now();
+    const hojeStr = diaOperacional(agora);
+    const sims = listarSimsDoTenant(tenantId)
+        .filter(sim => sim.deviceId === deviceId)
+        .map(sim => {
+            const reservas = reservasDoSim(sim.simId, hojeStr);
+            return {
+                sim,
+                megasReservados: reservas.megasReservados,
+                transferenciasReservadas: reservas.transferenciasReservadas,
+                megasPlaneados: 0,
+                transferenciasPlaneadas: 0,
+                transferenciasBase: transferenciasDoDia(sim, hojeStr) + reservas.transferenciasReservadas
+            };
+        });
+
+    if (!sims.length) {
+        return { disponivel: false, motivo: "Não existe SIM Vodacom reportado neste Agent." };
+    }
+
+    const plano = [];
+    for (let indice = 0; indice < partes.length; indice += 1) {
+        const megas = partes[indice];
+        const elegiveis = sims.filter(item => {
+            const sim = item.sim;
+            if (!sim.online || !subscriptionIdValido(sim.subscriptionId)) return false;
+            if (!Number.isSafeInteger(sim.internetTransferivelMB) ||
+                !telemetriaRecente(sim.internetTransferivelAtualizadoEmMs, agora)) return false;
+            const transferencias = item.transferenciasBase + item.transferenciasPlaneadas;
+            const livres = sim.internetTransferivelMB -
+                item.megasReservados - item.megasPlaneados;
+            return transferencias < limiteDiario && livres >= megas;
+        }).sort((a, b) => {
+            const cargaA = a.transferenciasBase + a.transferenciasPlaneadas;
+            const cargaB = b.transferenciasBase + b.transferenciasPlaneadas;
+            const consumoA = a.megasReservados + a.megasPlaneados;
+            const consumoB = b.megasReservados + b.megasPlaneados;
+            return cargaA - cargaB || consumoA - consumoB || a.sim.slot - b.sim.slot;
+        });
+
+        const escolhido = elegiveis[0];
+        if (!escolhido) {
+            const ativos = sims.filter(item => item.sim.online && subscriptionIdValido(item.sim.subscriptionId));
+            const quotasRecentes = ativos.filter(item =>
+                Number.isSafeInteger(item.sim.internetTransferivelMB) &&
+                telemetriaRecente(item.sim.internetTransferivelAtualizadoEmMs, agora)
+            );
+            const dentroDoLimite = quotasRecentes.filter(item =>
+                item.transferenciasBase + item.transferenciasPlaneadas < limiteDiario
+            );
+            const comMegas = dentroDoLimite.filter(item =>
+                item.sim.internetTransferivelMB - item.megasReservados - item.megasPlaneados >= megas
+            );
+
+            let motivo;
+            if (!ativos.length) {
+                motivo = "Nenhum SIM Vodacom tem telemetria recente neste Agent.";
+            } else if (!quotasRecentes.length) {
+                motivo = "Nenhum SIM tem quota mensal transferível comprovada e actualizada.";
+            } else if (!dentroDoLimite.length) {
+                motivo = "Os SIMs disponíveis atingiram o limite diário de transferências.";
+            } else if (!comMegas.length) {
+                motivo = "A quota mensal transferível livre não cobre todas as partes do pedido.";
+            } else {
+                motivo = "Não foi possível distribuir o pedido pelos SIMs disponíveis.";
+            }
+
+            return {
+                disponivel: false,
+                motivo,
+                parte: indice + 1,
+                totalPartes: partes.length,
+                megasParte: megas
+            };
+        }
+
+        escolhido.megasPlaneados += megas;
+        escolhido.transferenciasPlaneadas += 1;
+        plano.push({ parte: indice + 1, megas, slot: escolhido.sim.slot });
+    }
+
+    return {
+        disponivel: true,
+        totalPartes: partes.length,
+        plano
+    };
+}
+
 function obterSimOperacional(deviceId, slot) {
     if (!slotValido(slot)) return null;
     const sim = db.sims[chaveSim(deviceId, slot)];
@@ -394,6 +494,7 @@ module.exports = {
     registrarLeituraQuotaTransferivel,
     listarSimsDoTenant,
     escolherSimElegivel,
+    preverPlanoTransferencias,
     obterSimOperacional,
     JANELA_ONLINE_MS,
     telemetriaRecente
