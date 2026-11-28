@@ -32,23 +32,39 @@ class SaldoParserTest {
     }
 
     @Test
-    fun soIdentificaQuotaTransferivelSeOperadoraIndicarMensal() {
+    fun identificaQuotaMensalApenasQuandoTransferibilidadeTambemEstaExplicita() {
         assertEquals(
             1536,
             SaldoParser.extrairSaldoMensalTransferivelMB(
-                listOf("Benefício de Internet mensal: 1,5 GB")
+                listOf("Benefício de Internet mensal transferível: 1,5 GB")
             )
         )
         assertEquals(
             750,
             SaldoParser.extrairSaldoMensalTransferivelMB(
-                listOf("750 MB de dados mensais")
+                listOf("750 MB de dados mensais disponíveis para transferência")
+            )
+        )
+        assertEquals(
+            2048,
+            SaldoParser.extrairSaldoMensalTransferivelMB(
+                listOf("2 GB monthly transferable data")
             )
         )
     }
 
     @Test
-    fun naoConfundeSaldoDiarioOuSaldoGeralComQuotaMensal() {
+    fun naoConfundeDadosMensaisComQuotaTransferivel() {
+        assertNull(
+            SaldoParser.extrairSaldoMensalTransferivelMB(
+                listOf("750 MB de dados mensais")
+            )
+        )
+        assertNull(
+            SaldoParser.extrairSaldoMensalTransferivelMB(
+                listOf("Benefício mensal de Internet: 1 GB")
+            )
+        )
         assertNull(
             SaldoParser.extrairSaldoMensalTransferivelMB(
                 listOf("Internet: 500 MB", "Dados diários: 1 GB")
@@ -57,6 +73,15 @@ class SaldoParserTest {
         assertNull(
             SaldoParser.extrairSaldoMensalTransferivelMB(
                 listOf("Saldo geral: 2 GB")
+            )
+        )
+    }
+
+    @Test
+    fun quotaMensalTransferivelNaoEReportadaComoSaldoGeral() {
+        assertNull(
+            SaldoParser.extrairSaldoMB(
+                listOf("2 GB de Internet mensal transferível")
             )
         )
     }
