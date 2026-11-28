@@ -7,7 +7,7 @@ const FUTURE_TOLERANCE_MS = 120000;
 
 function limiteTelemetriaMs() {
     const n = Number(process.env.SIM_TELEMETRY_STALE_MIN);
-    return (Number.isFinite(n) && n >= 5 && n <= 1440 ? n : 45) * 60000;
+    return (Number.isFinite(n) && n >= 5 && n <= 30 ? n : 30) * 60000;
 }
 
 function timestampState(value, now, maxAgeMs) {
@@ -40,6 +40,15 @@ function avaliarDevice(deviceId, now = Date.now()) {
                 operadora: sim.operadora || null,
                 subscriptionId: Number.isInteger(sim.subscriptionId) ? sim.subscriptionId : null,
                 internetMB: Number.isFinite(sim.internetMB) ? sim.internetMB : null,
+                internetTransferivelMB: Number.isSafeInteger(sim.internetTransferivelMB)
+                    ? sim.internetTransferivelMB : null,
+                internetTransferivelAtualizadoEmMs: Number.isSafeInteger(sim.internetTransferivelAtualizadoEmMs)
+                    ? sim.internetTransferivelAtualizadoEmMs : null,
+                estadoTransferibilidade: timestampState(
+                    sim.internetTransferivelAtualizadoEmMs,
+                    now,
+                    limiteTelemetriaMs()
+                ).reason,
                 saldoMT: Number.isFinite(sim.saldoMT) ? sim.saldoMT : null,
                 atualizadoEmMs: Number.isSafeInteger(sim.atualizadoEmMs) ? sim.atualizadoEmMs : null,
                 estado: health.reason,

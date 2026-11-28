@@ -115,11 +115,19 @@ router.post("/:deviceId/sim-status", (req, res) => {
     const tenantId = tenantService.getTenantDoDevice(deviceId);
     if (!tenantId) return res.status(403).json({ ok: false, error: "Device sem Tenant associado." });
 
-    const { slot, operadora, internetMB, saldoMT, subscriptionId } = req.body || {};
+    const {
+        slot,
+        operadora,
+        internetMB,
+        internetTransferivelMB,
+        saldoMT,
+        subscriptionId
+    } = req.body || {};
     const resultado = simTelemetryService.registrarStatus(tenantId, deviceId, {
         slot,
         operadora,
         internetMB,
+        internetTransferivelMB,
         saldoMT,
         subscriptionId
     });

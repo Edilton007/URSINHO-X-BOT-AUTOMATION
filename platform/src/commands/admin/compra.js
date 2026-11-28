@@ -7,7 +7,9 @@ const {
     saveCustomer,
     isSalesEnabled,
     getPendingPayments,
-    removePendingPayment
+    removePendingPayment,
+    obterPedidoAutomationPorId,
+    atualizarEstadoPedidoAutomation
 } = require("../../services/salesService");
 
 const automationBridge = require("../../services/automationBridgeService");
@@ -464,6 +466,48 @@ A compra não foi registada nem será anunciada como entregue. Verifica o compro
                 );
             }
 
+            let pedidoAutomation = null;
+
+            if (grupoComAutomation && pendingPayment) {
+                if (!pendingPayment.preflightOrderId) {
+                    return ctx.reply(
+                        "❌ Este comprovativo não está associado a um pedido pré-validado do Tenant. " +
+                        "Não será criada qualquer transferência. O cliente deve repetir a pré-verificação e enviar um novo comprovativo."
+                    );
+                }
+
+                pedidoAutomation = obterPedidoAutomationPorId(
+                    groupId,
+                    pendingPayment.preflightOrderId
+                );
+
+                if (
+                    !pedidoAutomation ||
+                    pedidoAutomation.estado !== "COMPROVATIVO_RECEBIDO" ||
+                    String(pedidoAutomation.sender) !== String(pendingPayment.sender) ||
+                    String(pedidoAutomation.recipientNumber) !== String(pendingPayment.recipientNumber) ||
+                    String(pedidoAutomation.paymentReference) !== String(pendingPayment.reference) ||
+                    Number(pedidoAutomation.expectedAmount) !== Number(pendingPayment.expectedAmount) ||
+                    Number(pedidoAutomation.megas) !== Number(pendingPayment.expectedMegas)
+                ) {
+                    return ctx.reply(
+                        "❌ O pedido, comprovativo, cliente ou destino não coincidem. " +
+                        "A transferência foi bloqueada e exige revisão administrativa."
+                    );
+                }
+
+                if (
+                    !Number.isFinite(Number(pendingPayment.amount)) ||
+                    Math.round(Number(pendingPayment.amount) * 100) !==
+                        Math.round(Number(pedidoAutomation.expectedAmount) * 100)
+                ) {
+                    return ctx.reply(
+                        "❌ O valor do comprovativo não corresponde ao preço do pedido. " +
+                        "A transferência não será criada."
+                    );
+                }
+            }
+
             /*
             ==========================================
             CARREGAR DADOS DO GRUPO
@@ -500,6 +544,18 @@ A compra não foi registada nem será anunciada como entregue. Verifica o compro
                     return ctx.reply("❌ Este pacote não corresponde a uma quantidade inteira de MB. Usa, por exemplo, 100mb, 500mb, 1gb ou 1.5gb.");
                 }
 
+                if (
+                    !pedidoAutomation ||
+                    quantidadeMB !== Number(pedidoAutomation.megas) ||
+                    quantidadeMB !== Number(pendingPayment.expectedMegas)
+                ) {
+                    return ctx.reply(
+                        "❌ A quantidade do comando .compra não corresponde ao pacote pré-validado e pago. " +
+                        "Usa exactamente " + (pedidoAutomation?.megas || pendingPayment.expectedMegas) +
+                        " MB. Nenhuma transferência foi criada."
+                    );
+                }
+
                 const resultadoAutomation = automationBridge.criarTransferenciaAprovada({
                     groupId,
                     customerJid: clienteJid,
@@ -518,6 +574,17 @@ A compra não foi registada nem será anunciada como entregue. Verifica o compro
                 }
 
                 automationOperation = resultadoAutomation.operation;
+
+                atualizarEstadoPedidoAutomation(
+                    groupId,
+                    pedidoAutomation.id,
+                    "OPERACAO_CRIADA",
+                    {
+                        operationId: automationOperation.id,
+                        approvedBy: String(ctx.sender || ""),
+                        approvedAtMs: Date.now()
+                    }
+                );
 
                 const pedidoJaRegistado = getOrders(groupId).find(order =>
                     order.operationId === automationOperation.id

@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        configurarNavegacao()
 
         // Microanimações apenas decorativas. Não representam ligação ou estado operacional.
         findViewById<View>(R.id.brandMark).apply {
@@ -145,6 +146,48 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         runCatching { unregisterReceiver(receptorLogAcessibilidade) }
+    }
+
+
+    private fun configurarNavegacao() {
+        val abas = listOf(
+            R.id.tabEstado to R.id.sectionEstado,
+            R.id.tabLigacao to R.id.sectionLigacao,
+            R.id.tabTarefas to R.id.sectionTarefas,
+            R.id.tabRegisto to R.id.sectionRegisto
+        )
+        abas.forEach { (tabId, _) ->
+            findViewById<Button>(tabId).setOnClickListener {
+                selecionarAba(tabId)
+            }
+        }
+        selecionarAba(R.id.tabEstado)
+    }
+
+    private fun selecionarAba(tabSelecionada: Int) {
+        val abas = listOf(
+            R.id.tabEstado to R.id.sectionEstado,
+            R.id.tabLigacao to R.id.sectionLigacao,
+            R.id.tabTarefas to R.id.sectionTarefas,
+            R.id.tabRegisto to R.id.sectionRegisto
+        )
+        abas.forEach { (tabId, sectionId) ->
+            val selecionada = tabId == tabSelecionada
+            findViewById<View>(sectionId).visibility =
+                if (selecionada) View.VISIBLE else View.GONE
+            findViewById<Button>(tabId).apply {
+                setBackgroundResource(
+                    if (selecionada) R.drawable.bg_button_primary
+                    else R.drawable.bg_button_secondary
+                )
+                backgroundTintList = null
+                setTextColor(
+                    if (selecionada) android.graphics.Color.parseColor("#06131d")
+                    else ContextCompat.getColor(this@MainActivity, R.color.text_secondary)
+                )
+            }
+        }
+        findViewById<android.widget.ScrollView>(R.id.mainScroll).scrollTo(0, 0)
     }
 
     // ---------- Permissões ----------

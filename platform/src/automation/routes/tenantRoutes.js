@@ -23,6 +23,10 @@ const tenantService = require("../services/tenantService");
 const simTelemetryService = require("../services/simTelemetryService");
 const operationService = require("../services/operationService");
 const deviceHealthService = require("../services/deviceHealthService");
+const orderFulfillmentService = require("../services/orderFulfillmentService");
+const customerIdentityService = require("../services/customerIdentityService");
+const salesService = require("../../services/salesService");
+const whatsappPaymentReviewService = require("../services/whatsappPaymentReviewService");
 
 router.use("/:tenantId", autenticarTenant);
 
@@ -84,6 +88,52 @@ router.get("/:tenantId/operacoes", (req, res) => {
     res.json({ ok: true, operacoes });
 });
 
+router.get("/:tenantId/whatsapp/orders", (req, res) => {
+    const tenantId = req.params.tenantId;
+    // Os groupIds são derivados da associação persistida do Tenant autenticado.
+    // O pedido nunca pode indicar o tenant nem escolher grupos por conta própria.
+    const grupos = customerIdentityService.listarGruposDoTenant(tenantId);
+    const groupIds = grupos.map(group => group.groupId);
+    const operacoes = new Map(
+        operationService.listarOperacoes(tenantId).map(operation => [operation.id, operation])
+    );
+    const pedidos = salesService.listarPedidosAutomationPorGrupos(groupIds).map(pedido => ({
+        ...pedido,
+        estadoOperacao: pedido.operationId
+            ? (operacoes.get(pedido.operationId)?.estado || "NAO_ENCONTRADA")
+            : null
+    }));
+
+    res.json({
+        ok: true,
+        total: pedidos.length,
+        gruposAssociados: grupos.length,
+        pedidos
+    });
+});
+
+/**
+ * Revisão humana de pagamento de pedidos WhatsApp pertencentes a este Tenant.
+ * A autenticação vem da chave Tenant; groupId, sender e referência são sempre
+ * recuperados do pedido persistido, nunca confiados ao corpo do cliente.
+ */
+router.post("/:tenantId/whatsapp/orders/:orderId/payment-review", (req, res) => {
+    const resultado = whatsappPaymentReviewService.reverPedidoWhatsApp(
+        req.params.tenantId,
+        req.params.orderId,
+        req.body?.decisao,
+        req.body?.motivo
+    );
+    if (resultado.error) {
+        return res.status(resultado.status || 409).json({
+            ok: false,
+            code: resultado.code || "PAYMENT_REVIEW_FAILED",
+            error: resultado.error
+        });
+    }
+    res.json(resultado);
+});
+
 router.get("/:tenantId/sims", (req, res) => {
     const sims = simTelemetryService.listarSimsDoTenant(req.params.tenantId);
 
@@ -97,26 +147,67 @@ router.get("/:tenantId/sims", (req, res) => {
     res.json({ ok: true, sims });
 });
 
-router.post("/:tenantId/transferir", (req, res) => {
-    const { destino, megas } = req.body || {};
+// Pré-verificação sem criar operação nem reservar recursos. O cliente só deve
+// receber instruções de pagamento quando a capacidade estiver disponível.
+router.post("/:tenantId/disponibilidade", (req, res) => {
     const tenantId = req.params.tenantId;
-
     const device = tenantService.getDeviceDoTenant(tenantId);
-
-    // Até 10.240 MB é uma operação normal; acima disso vira um pedido
-    // dividido em suboperações (devolve também "pedido").
-    const resultado = operationService.criarPedido(
-        tenantId,
-        device ? device.id : null,
-        Number(megas),
-        String(destino || "")
-    );
-
-    if (resultado.error) {
-        return res.status(400).json({ ok: false, error: resultado.error });
+    if (!device) {
+        return res.json({
+            ok: true,
+            disponivel: false,
+            codigo: "DEVICE_NOT_ASSOCIATED",
+            motivo: "Nenhum Android Agent está associado ao Tenant."
+        });
     }
 
-    res.json({ ok: true, operacao: resultado.operacao, pedido: resultado.pedido });
+    const megas = Number(req.body?.megas);
+    const destino = String(req.body?.destino || "").replace(/\D/g, "");
+    const resultado = operationService.preverDisponibilidade(
+        tenantId,
+        device.id,
+        megas,
+        destino
+    );
+
+    res.json({ ok: true, ...resultado });
+});
+
+// A rota histórica já não pode criar transferências sem pagamento verificado.
+// Para cumprir um pedido, o corpo deve conter apenas o ID de um pedido pago.
+router.post("/:tenantId/transferir", (req, res) => {
+    const tenantId = req.params.tenantId;
+    const orderId = String(req.body?.orderId || "").trim();
+    if (!orderId) {
+        return res.status(402).json({
+            ok: false,
+            code: "PAYMENT_REQUIRED",
+            error: "Não é possível transferir diretamente. Primeiro crie o pedido, valide o pagamento e envie o orderId."
+        });
+    }
+
+    const resultado = orderFulfillmentService.cumprirPedidoPago(orderId, tenantId);
+    if (resultado.error) {
+        const status = resultado.status || (
+            resultado.code === "ORDER_NOT_FOUND" ? 404 : 409
+        );
+        return res.status(status).json({ ok: false, ...resultado });
+    }
+    res.json(resultado);
+});
+
+router.post("/:tenantId/store-orders/:orderId/fulfill", (req, res) => {
+    const resultado = orderFulfillmentService.cumprirPedidoPago(
+        req.params.orderId,
+        req.params.tenantId
+    );
+    if (resultado.error) {
+        const status = resultado.status || (
+            resultado.code === "ORDER_NOT_FOUND" ? 404 : 409
+        );
+        return res.status(status).json({ ok: false, ...resultado });
+    }
+    res.json(resultado);
 });
 
 router.get("/:tenantId/pedidos", (req, res) => {
@@ -156,10 +247,65 @@ router.patch("/:tenantId/products/:productId", (req, res) => {
 router.get("/:tenantId/store-orders", (req, res) => {
     res.json({ ok: true, pedidos: storefrontService.listarPedidos(req.params.tenantId) });
 });
+router.post("/:tenantId/store-orders/:orderId/payment-review", (req, res) => {
+    const tenantId = req.params.tenantId;
+    const orderId = String(req.params.orderId || "");
+    const order = storefrontService.listarPedidos(tenantId).find(item => item.id === orderId);
+
+    if (!order) {
+        return res.status(404).json({
+            ok: false,
+            code: "ORDER_NOT_FOUND",
+            error: "Pedido não encontrado para este Tenant."
+        });
+    }
+    if (order.pagamentoEstado !== "PENDENTE_VERIFICACAO") {
+        return res.status(409).json({
+            ok: false,
+            code: "ORDER_ALREADY_REVIEWED",
+            error: "Este pedido já recebeu uma decisão de pagamento. A decisão não pode ser substituída."
+        });
+    }
+
+    const decisao = String(req.body?.decisao || "").toUpperCase();
+    if (!["CONFIRMADO", "REJEITADO"].includes(decisao)) {
+        return res.status(400).json({
+            ok: false,
+            code: "INVALID_PAYMENT_DECISION",
+            error: "A decisão deve ser CONFIRMADO ou REJEITADO."
+        });
+    }
+
+    const motivo = String(req.body?.motivo || "").trim();
+    if (motivo.length < 5) {
+        return res.status(400).json({
+            ok: false,
+            code: "REVIEW_REASON_REQUIRED",
+            error: "Registe como verificou o pagamento (mínimo 5 caracteres)."
+        });
+    }
+
+    const result = storefrontService.resolverPagamento(
+        orderId,
+        decisao,
+        motivo,
+        req.body?.referencia,
+        "tenant"
+    );
+    if (result.error) {
+        return res.status(result.status || 400).json({ ok: false, ...result });
+    }
+
+    // Só uma confirmação manual efectivamente guardada pode iniciar o
+    // fulfillment. Uma rejeição nunca cria operação ou tarefa USSD.
+    const fulfillment = decisao === "CONFIRMADO"
+        ? orderFulfillmentService.cumprirPedidoPago(orderId, tenantId)
+        : null;
+
+    res.json({ ...result, fulfillment });
+});
 
 
-
-const customerIdentityService = require("../services/customerIdentityService");
 
 // Associação de grupos: o Tenant gera um código temporário;
 // o Bot só conclui a associação depois de observar esse código no grupo.

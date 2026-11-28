@@ -59,6 +59,38 @@ function normalizarMetodosPagamento(input, atual = []) {
     return metodos;
 }
 
+function normalizarValidadePacote(categoriaInput, diasInput, atual = {}) {
+    const categoria = String(categoriaInput ?? atual.categoria ?? "NAO_DEFINIDA")
+        .trim().toUpperCase();
+    const categoriasFixas = { DIARIO: 1, SEMANAL: 7, MENSAL: 30 };
+
+    if (Object.prototype.hasOwnProperty.call(categoriasFixas, categoria)) {
+        const diasEsperados = categoriasFixas[categoria];
+        if (diasInput !== undefined && diasInput !== null && diasInput !== "" &&
+            Number(diasInput) !== diasEsperados) {
+            return { error: `A categoria ${categoria} tem validade fixa de ${diasEsperados} dia(s).` };
+        }
+        return { categoria, validadeDias: diasEsperados };
+    }
+
+    if (categoria === "PERSONALIZADO") {
+        if (diasInput === undefined || diasInput === null || diasInput === "") {
+            return { categoria, validadeDias: null };
+        }
+        const dias = Number(diasInput);
+        if (!Number.isSafeInteger(dias) || dias < 1 || dias > 365) {
+            return { error: "A validade personalizada deve estar entre 1 e 365 dias." };
+        }
+        return { categoria, validadeDias: dias };
+    }
+
+    if (categoria === "NAO_DEFINIDA") {
+        return { categoria, validadeDias: null };
+    }
+
+    return { error: "Categoria inválida. Use DIARIO, SEMANAL, MENSAL ou PERSONALIZADO." };
+}
+
 function configurarLoja(tenantId, input = {}) {
     ensureCollections();
     if (!tenantAtivo(tenantId)) return { error: "Tenant inexistente ou desativado." };
@@ -114,6 +146,9 @@ function criarProduto(tenantId, input = {}) {
     const quantidadeMB = input.quantidadeMB == null || input.quantidadeMB === "" ? null : Number(input.quantidadeMB);
     if (quantidadeMB !== null && (!Number.isSafeInteger(quantidadeMB) || quantidadeMB < 1 || quantidadeMB > 10485760)) return { error: "Quantidade em MB inválida." };
 
+    const validade = normalizarValidadePacote(input.categoria, input.validadeDias);
+    if (validade.error) return { error: validade.error };
+
     const agora = Date.now();
     const product = {
         id: id("PROD"), tenantId,
@@ -121,6 +156,8 @@ function criarProduto(tenantId, input = {}) {
         descricao: cleanText(input.descricao, 500),
         precoMT: Math.round(precoMT * 100) / 100,
         quantidadeMB,
+        categoria: validade.categoria,
+        validadeDias: validade.validadeDias,
         sku: cleanText(input.sku, 50) || null,
         ativo: input.ativo !== false,
         criadoEmMs: agora, atualizadoEmMs: agora
@@ -151,6 +188,19 @@ function atualizarProduto(tenantId, productId, input = {}) {
         if (quantidadeMB !== null && (!Number.isSafeInteger(quantidadeMB) || quantidadeMB < 1 || quantidadeMB > 10485760)) return { error: "Quantidade em MB inválida." };
         product.quantidadeMB = quantidadeMB;
     }
+    if (input.categoria !== undefined || input.validadeDias !== undefined) {
+        const validadeDiasInput = input.validadeDias !== undefined
+            ? input.validadeDias
+            : (input.categoria !== undefined ? null : product.validadeDias);
+        const validade = normalizarValidadePacote(
+            input.categoria !== undefined ? input.categoria : product.categoria,
+            validadeDiasInput,
+            product
+        );
+        if (validade.error) return { error: validade.error };
+        product.categoria = validade.categoria;
+        product.validadeDias = validade.validadeDias;
+    }
     if (input.ativo !== undefined) product.ativo = input.ativo === true;
     if (input.sku !== undefined) product.sku = cleanText(input.sku, 50) || null;
     product.atualizadoEmMs = Date.now();
@@ -173,7 +223,9 @@ function catalogoPublico(slug) {
             }))
         },
         produtos: listarProdutos(loja.tenantId, false).map(p => ({
-            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT, quantidadeMB: p.quantidadeMB ?? null, sku: p.sku
+            id: p.id, nome: p.nome, descricao: p.descricao, precoMT: p.precoMT,
+            quantidadeMB: p.quantidadeMB ?? null, categoria: p.categoria || "NAO_DEFINIDA",
+            validadeDias: p.validadeDias ?? null, sku: p.sku
         }))
     };
 }
@@ -199,7 +251,12 @@ function criarPedidoPublico(slug, input = {}, idempotencyKey = null) {
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return { error: "Quantidade inválida." };
         const lineTotal = Math.round(product.precoMT * quantity * 100) / 100;
         totalMT = Math.round((totalMT + lineTotal) * 100) / 100;
-        items.push({ productId, nome: product.nome, quantidadeMB: product.quantidadeMB ?? null, precoUnitarioMT: product.precoMT, quantity, totalMT: lineTotal });
+        items.push({
+            productId, nome: product.nome, quantidadeMB: product.quantidadeMB ?? null,
+            categoria: product.categoria || "NAO_DEFINIDA",
+            validadeDias: product.validadeDias ?? null,
+            precoUnitarioMT: product.precoMT, quantity, totalMT: lineTotal
+        });
     }
     if (totalMT <= 0 || totalMT > 1000000000) return { error: "Valor total do pedido inválido." };
 

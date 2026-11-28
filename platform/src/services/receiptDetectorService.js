@@ -11,6 +11,9 @@ const {
     isDetectorEnabled
 } = require("./salesService");
 
+const customerIdentityService = require("../automation/services/customerIdentityService");
+const storefrontService = require("../automation/services/storefrontService");
+
 const {
     unwrapMessage
 } = require("./messageService");
@@ -22,10 +25,9 @@ const path = require("path");
    DATABASE DE COMPROVATIVOS UTILIZADOS
    ============================================================ */
 
-const RECEIPTS_DB_PATH = path.join(
-    __dirname,
-    "../database/usedReceipts.json"
-);
+const RECEIPTS_DB_PATH = process.env.URSINHO_USED_RECEIPTS_DB
+    ? path.resolve(process.env.URSINHO_USED_RECEIPTS_DB)
+    : path.join(__dirname, "../database/usedReceipts.json");
 
 function loadUsedReceipts() {
     if (!fs.existsSync(RECEIPTS_DB_PATH)) {
@@ -49,29 +51,44 @@ function loadUsedReceipts() {
             )
         );
 
-        if (!db.groups) {
-            db.groups = {};
+        if (
+            !db ||
+            typeof db !== "object" ||
+            Array.isArray(db) ||
+            !db.groups ||
+            typeof db.groups !== "object" ||
+            Array.isArray(db.groups)
+        ) {
+            throw new Error("Estrutura inválida em usedReceipts.json.");
         }
 
         return db;
 
     } catch (error) {
+        // Não devolver uma base vazia: isso permitiria aceitar referências já
+        // usadas se o ficheiro estivesse corrompido. Bloquear até restauração.
         console.error(
-            "usedReceipts load erro:",
+            "usedReceipts load erro — validação bloqueada:",
             error.message
         );
-
-        return {
-            groups: {}
-        };
+        throw new Error("Histórico de comprovativos ilegível. Validação bloqueada para evitar reutilização.");
     }
 }
 
 function saveUsedReceipts(db) {
-    fs.writeFileSync(
-        RECEIPTS_DB_PATH,
-        JSON.stringify(db, null, 2)
-    );
+    const temporary = `${RECEIPTS_DB_PATH}.tmp-${process.pid}`;
+    const payload = JSON.stringify(db, null, 2);
+    try {
+        fs.writeFileSync(temporary, payload, { encoding: "utf8", mode: 0o600, flag: "wx" });
+        fs.renameSync(temporary, RECEIPTS_DB_PATH);
+    } catch (error) {
+        try {
+            if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+        } catch (_) {
+            // Preservar o erro original; limpeza é best-effort.
+        }
+        throw error;
+    }
 }
 
 /* ============================================================
@@ -105,6 +122,13 @@ function normalizeCompare(text) {
 function cleanNumber(value) {
     return String(value || "")
         .replace(/[^\d]/g, "");
+}
+
+function normalizeMozPaymentNumber(value) {
+    const number = cleanNumber(value);
+    return number.startsWith("258") && number.length === 12
+        ? number.slice(3)
+        : number;
 }
 
 /* ============================================================
@@ -687,7 +711,7 @@ function extractPhoneNumbers(text) {
             /(?:\+?258[\s-]?)?(?:8[2-7]\d{7})\b/g
         ) || [];
 
-    return matches.map(cleanNumber);
+    return matches.map(normalizeMozPaymentNumber);
 }
 
 /* ============================================================
@@ -710,12 +734,38 @@ function verifyDestination(
      * Nunca usamos configuração global.
      */
 
-    const payments = getPayments(
-        groupId
-    );
+    let account = null;
+    let tenantStoreExists = false;
 
-    const account =
-        payments?.[operator];
+    // Para grupos associados, o comprovativo deve ser comparado com a mesma
+    // conta do Tenant que o bot apresentou ao cliente no checkout.
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+    if (association?.ok) {
+        const store = storefrontService.getStoreByTenant(association.tenantId);
+        if (store) {
+            tenantStoreExists = true;
+            const acceptedTypes = {
+                mpesa: new Set(["MPESA"]),
+                emola: new Set(["EMOLA"]),
+                bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL"])
+            };
+            const allowed = acceptedTypes[operator] || new Set();
+            const method = (Array.isArray(store.metodosPagamento) ? store.metodosPagamento : [])
+                .find(item => item && item.ativo !== false && allowed.has(String(item.tipo || "").trim().toUpperCase()));
+            if (method) {
+                account = {
+                    number: method.conta || method.numero || "",
+                    name: method.titular || ""
+                };
+            }
+        }
+    }
+
+    // Não recorrer à conta antiga do grupo quando já existe uma loja Tenant.
+    if (!tenantStoreExists) {
+        const payments = getPayments(groupId);
+        account = payments?.[operator] || null;
+    }
 
     if (
         !account ||
@@ -741,7 +791,7 @@ function verifyDestination(
     }
 
     const configuredNumber =
-        cleanNumber(
+        normalizeMozPaymentNumber(
             account.number
         );
 
@@ -761,15 +811,13 @@ function verifyDestination(
 
     if (destination) {
         numberMatch =
-            cleanNumber(destination) ===
+            normalizeMozPaymentNumber(destination) ===
             configuredNumber;
     } else {
         numberMatch =
             foundNumbers.some(
                 number =>
-                    number === configuredNumber ||
-                    number.endsWith(configuredNumber) ||
-                    configuredNumber.endsWith(number)
+                    normalizeMozPaymentNumber(number) === configuredNumber
             );
     }
 
@@ -922,29 +970,44 @@ async function runOCR(buffer) {
 
 function getUsedReceipt(
     groupId,
-    reference
+    reference,
+    operator = null
 ) {
-    if (
-        !groupId ||
-        !reference
-    ) {
-        return null;
+    if (!groupId || !reference) return null;
+
+    const db = loadUsedReceipts();
+    const referenceKey = String(reference).trim().toUpperCase();
+    const operatorKey = String(operator || "").trim().toLowerCase();
+
+    // Dentro do próprio grupo, qualquer repetição da mesma referência é
+    // bloqueada, independentemente do método indicado na nova imagem.
+    const localGroup = db.groups?.[groupId];
+    if (localGroup) {
+        const local = localGroup[reference] ||
+            Object.values(localGroup).find(item =>
+                String(item?.reference || "").trim().toUpperCase() === referenceKey
+            );
+        if (local) return { ...local, groupId };
     }
 
-    const db =
-        loadUsedReceipts();
+    // Referências de transação são verificadas em toda a plataforma para
+    // impedir que o mesmo comprovativo seja reutilizado noutro grupo/Tenant.
+    // A operadora também tem de corresponder quando existe no registo antigo.
+    for (const [otherGroupId, records] of Object.entries(db.groups || {})) {
+        if (otherGroupId === groupId || !records || typeof records !== "object") continue;
 
-    const group =
-        db.groups?.[groupId];
+        const previous = records[reference] ||
+            Object.values(records).find(item =>
+                String(item?.reference || "").trim().toUpperCase() === referenceKey
+            );
+        if (!previous) continue;
 
-    if (!group) {
-        return null;
+        const previousOperator = String(previous.operator || "").trim().toLowerCase();
+        const sameOperator = !operatorKey || !previousOperator || previousOperator === operatorKey;
+        if (sameOperator) return { ...previous, groupId: otherGroupId };
     }
 
-    return (
-        group[reference] ||
-        null
-    );
+    return null;
 }
 
 /* ============================================================
@@ -1040,6 +1103,23 @@ function getMessagePushName(m) {
 }
 
 /* ============================================================
+   DETECTOR DISPONÍVEL PARA O GRUPO
+   ============================================================ */
+
+/**
+ * Grupos associados ao URSINHO Automation precisam sempre de analisar
+ * comprovativos: a pré-verificação e o pedido de pagamento são iniciados
+ * pelo próprio fluxo de Automation. O interruptor legado continua a
+ * controlar apenas grupos que não estão associados a um Tenant.
+ */
+function isReceiptDetectionEnabledForGroup(groupId) {
+    if (!groupId || !String(groupId).endsWith("@g.us")) return false;
+    if (isDetectorEnabled(groupId)) return true;
+    const association = customerIdentityService.resolverTenantGrupo(groupId);
+    return association?.ok === true;
+}
+
+/* ============================================================
    ANALISAR COMPROVATIVO
    ============================================================ */
 
@@ -1054,9 +1134,12 @@ async function analyzeReceipt(
 
     /* ========================================================
        DETECTOR DESLIGADO
+       --------------------------------------------------------
+       O fluxo Automation ativa a análise por associação do grupo.
+       Grupos sem Automation continuam a respeitar o comando legado.
        ======================================================== */
 
-    if (!isDetectorEnabled(groupId)) {
+    if (!isReceiptDetectionEnabledForGroup(groupId)) {
         return null;
     }
 
@@ -1263,7 +1346,8 @@ async function analyzeReceipt(
     const previous =
         getUsedReceipt(
             groupId,
-            reference
+            reference,
+            operator
         );
 
     const sender =
@@ -1529,7 +1613,7 @@ function formatReceiptResult(
     if (data.verified) {
         return `╭━━━〔 🐻 URSINHO X BOT 〕━━━╮
 ┃
-┃ ✅ PAGAMENTO DETECTADO
+┃ ✅ COMPROVATIVO RECONHECIDO
 ┃
 ┃ 👤 CLIENTE
 ┃ ┗ ${clientMention}
@@ -1549,7 +1633,10 @@ function formatReceiptResult(
 ┃ 👤 NOME
 ┃ ┗ ${destinationName}
 ┃
-┃ 🟢 DESTINO VERIFICADO
+┃ 🟢 CONTA DE DESTINO CORRESPONDENTE
+┃
+┃ ⏳ AGUARDE A CONFIRMAÇÃO
+┃ DO ADMINISTRADOR
 ┃
 ╰━━━〔 💎 URSINHO X BOT 〕━━━╯`;
     }
@@ -1628,6 +1715,7 @@ ${mismatch}
 
 module.exports = {
     analyzeReceipt,
+    isReceiptDetectionEnabledForGroup,
 
     formatReceiptResult,
 

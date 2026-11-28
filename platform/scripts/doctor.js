@@ -17,10 +17,18 @@ function safePath(value, fallback) {
 }
 
 console.log("URSINHO X BOT AUTOMATION • DIAGNÓSTICO LOCAL\n");
-check("Node.js >= 20", Number(process.versions.node.split(".")[0]) >= 20, process.version);
+check("Node.js >= 22", Number(process.versions.node.split(".")[0]) >= 22, process.version);
 check("OWNER configurado", /^\d{9,15}$/.test(String(process.env.OWNER || "").replace(/\D/g, "")));
 check("API_KEY distinta de ADMIN_API_KEY", !!process.env.API_KEY && !!process.env.ADMIN_API_KEY && process.env.API_KEY !== process.env.ADMIN_API_KEY);
-check("AUTOMATION_ALLOW_EXECUTION desativado", String(process.env.AUTOMATION_ALLOW_EXECUTION || "false").toLowerCase() !== "true");
+const automationExecutionEnabled = String(process.env.AUTOMATION_ALLOW_EXECUTION || "false").toLowerCase() === "true";
+const allowedTestDestinations = String(process.env.AUTOMATION_ALLOWED_DESTINATIONS || "")
+    .split(",").map((value) => String(value).replace(/\D/g, "").slice(-9))
+    .filter((value) => value.length === 9);
+check("AUTOMATION_ALLOW_EXECUTION desativado", !automationExecutionEnabled);
+check("Lista explícita de destinos para execução",
+    !automationExecutionEnabled || allowedTestDestinations.length > 0,
+    automationExecutionEnabled ? `${allowedTestDestinations.length} destino(s) permitido(s); valores ocultos`
+        : "execução desativada; nenhuma lista necessária", !automationExecutionEnabled);
 check("PORT/API_PORT válido", Number(process.env.PORT || process.env.API_PORT || 3000) > 0);
 
 for (const [name, fallback] of [
@@ -40,8 +48,11 @@ for (const [name, fallback] of [
     }
 }
 
-const sessionDir = safePath(process.env.OFFSITE_BACKUP_SESSION_DIR, "./sessions/principal");
-check("Pasta de sessão Baileys", fs.existsSync(sessionDir), path.relative(process.cwd(), sessionDir), true);
+const sessionRoot = safePath(process.env.BAILEYS_SESSION_DIR, "./sessions");
+const sessionDir = safePath(process.env.OFFSITE_BACKUP_SESSION_DIR,
+    path.join(process.env.BAILEYS_SESSION_DIR || "./sessions", "principal"));
+check("Raiz persistente de sessões Baileys", fs.existsSync(sessionRoot), path.relative(process.cwd(), sessionRoot), true);
+check("Pasta de sessão principal para backup", fs.existsSync(sessionDir), path.relative(process.cwd(), sessionDir), true);
 const cfAny = !!(process.env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_KV_NAMESPACE_ID || process.env.CLOUDFLARE_API_TOKEN);
 const cfReady = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_KV_NAMESPACE_ID && process.env.CLOUDFLARE_API_TOKEN);
 check("Credenciais Cloudflare configuradas", cfReady, cfReady ? "valores presentes; não exibidos" : cfAny ? "configuração parcial; backup desativado até completar" : "backup externo opcional ainda não configurado", true);

@@ -6,6 +6,7 @@ const tenantService = require("../automation/services/tenantService");
 const operationService = require("../automation/services/operationService");
 const customerIdentityService = require("../automation/services/customerIdentityService");
 const salesService = require("./salesService");
+const storefrontService = require("../automation/services/storefrontService");
 
 const TRACK_FILE = process.env.AUTOMATION_ORDERS_FILE
     ? path.resolve(process.env.AUTOMATION_ORDERS_FILE)
@@ -99,6 +100,158 @@ function getGroupMapping(groupId) {
         return { error: "A apiKey configurada para este grupo não corresponde ao tenant." };
     }
     return { tenantId };
+}
+
+/**
+ * Pré-verificação de disponibilidade a partir do grupo WhatsApp associado.
+ * Não cria pedidos, operações, tarefas nem reservas de quota.
+ */
+function preverDisponibilidadePedido({ groupId, recipientNumber, megas }) {
+    if (!groupId || !String(groupId).endsWith("@g.us")) {
+        return { error: "Grupo WhatsApp inválido.", disponivel: false, codigo: "GROUP_INVALID" };
+    }
+
+    const mapping = getGroupMapping(groupId);
+    if (!mapping) {
+        return { error: "Este grupo não tem Tenant de Automation associado.", disponivel: false, codigo: "GROUP_NOT_LINKED" };
+    }
+    if (mapping.error) {
+        return { error: mapping.error, disponivel: false, codigo: "GROUP_MAPPING_INVALID" };
+    }
+
+    const destino = String(recipientNumber || "").replace(/\D/g, "");
+    const quantidade = Number(megas);
+    if (!/^(?:258)?(?:84|85)\d{7}$/.test(destino) ||
+        !Number.isInteger(quantidade) || quantidade < 100 || quantidade > 10240) {
+        return {
+            error: "Indica um número Vodacom 84/85 válido e uma quantidade inteira entre 100 e 10.240 MB.",
+            disponivel: false,
+            codigo: "REQUEST_INVALID"
+        };
+    }
+
+    const tenantId = mapping.tenantId;
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device) {
+        return {
+            disponivel: false,
+            codigo: "DEVICE_NOT_ASSOCIATED",
+            motivo: "O Tenant ainda não tem um Android Agent associado."
+        };
+    }
+
+    const resultado = operationService.preverDisponibilidade(
+        tenantId,
+        device.id,
+        quantidade,
+        destino
+    );
+
+    return {
+        ...resultado,
+        tenantId,
+        deviceId: device.id
+    };
+}
+
+/**
+ * Obtém preço e métodos de pagamento do Tenant associado ao grupo.
+ * A configuração legada do grupo só é usada quando ainda não existe
+ * uma loja Tenant; nunca mistura contas das duas fontes.
+ */
+function obterCheckoutGrupo({ groupId, megas }) {
+    if (!groupId || !String(groupId).endsWith("@g.us")) {
+        return { error: "Grupo WhatsApp inválido.", codigo: "GROUP_INVALID" };
+    }
+
+    const mapping = getGroupMapping(groupId);
+    if (!mapping) return { error: "Grupo sem Tenant associado.", codigo: "GROUP_NOT_LINKED" };
+    if (mapping.error) return { error: mapping.error, codigo: "GROUP_MAPPING_INVALID" };
+
+    const tenantId = mapping.tenantId;
+    const store = storefrontService.getStoreByTenant(tenantId);
+
+    if (store) {
+        const products = storefrontService.listarProdutos(tenantId, false)
+            .filter(product => Number(product.quantidadeMB) === Number(megas));
+        if (products.length !== 1) {
+            return {
+                error: products.length
+                    ? "Há mais de um pacote com esta quantidade. O Tenant deve deixar apenas um pacote activo para esta quantidade."
+                    : "O Tenant não tem um pacote activo com esta quantidade de Internet.",
+                codigo: products.length ? "PACKAGE_AMBIGUOUS" : "PACKAGE_NOT_CONFIGURED",
+                fonte: "TENANT"
+            };
+        }
+
+        const metodosPagamento = (Array.isArray(store.metodosPagamento) ? store.metodosPagamento : [])
+            .filter(method => method && method.ativo !== false && String(method.conta || method.numero || "").trim())
+            .map(method => ({
+                id: String(method.id || "").trim(),
+                nome: String(method.nome || method.tipo || "Pagamento").trim(),
+                tipo: String(method.tipo || "").trim().toUpperCase(),
+                conta: String(method.conta || method.numero || "").trim(),
+                banco: String(method.banco || "").trim(),
+                titular: String(method.titular || "").trim(),
+                instrucoes: String(method.instrucoes || "").trim()
+            }));
+
+        if (!metodosPagamento.length) {
+            return {
+                error: "A loja do Tenant ainda não tem métodos de pagamento activos.",
+                codigo: "PAYMENT_METHODS_NOT_CONFIGURED",
+                fonte: "TENANT"
+            };
+        }
+
+        return {
+            ok: true,
+            fonte: "TENANT",
+            loja: { nome: store.nome },
+            produto: {
+                id: products[0].id,
+                nome: products[0].nome,
+                quantidadeMB: products[0].quantidadeMB,
+                categoria: products[0].categoria || "NAO_DEFINIDA",
+                validadeDias: products[0].validadeDias ?? null,
+                precoMT: products[0].precoMT
+            },
+            metodosPagamento
+        };
+    }
+
+    // Compatibilidade para grupos antigos ainda sem loja associada no Tenant.
+    const groupPayments = salesService.getPayments(groupId) || {};
+    const legacyMethods = [
+        ["mpesa", "M-Pesa"],
+        ["emola", "e-Mola"],
+        ["bim", "Banco"]
+    ].map(([key, nome]) => {
+        const account = groupPayments[key] || {};
+        return {
+            nome,
+            tipo: key.toUpperCase(),
+            conta: String(account.number || "").trim(),
+            titular: String(account.name || "").trim(),
+            instrucoes: ""
+        };
+    }).filter(method => method.conta);
+
+    if (!legacyMethods.length) {
+        return {
+            error: "Não existem métodos de pagamento configurados para este grupo.",
+            codigo: "PAYMENT_METHODS_NOT_CONFIGURED",
+            fonte: "GRUPO_LEGADO"
+        };
+    }
+
+    return {
+        ok: true,
+        fonte: "GRUPO_LEGADO",
+        produto: null,
+        tabela: String(salesService.getVendaIATabela(groupId) || "").trim(),
+        metodosPagamento: legacyMethods
+    };
 }
 
 /**
@@ -325,6 +478,8 @@ function startAutomationMonitor(sock) {
 
 module.exports = {
     isAutomationEnabledForGroup,
+    preverDisponibilidadePedido,
+    obterCheckoutGrupo,
     criarTransferenciaAprovada,
     startAutomationMonitor,
     pollOnce

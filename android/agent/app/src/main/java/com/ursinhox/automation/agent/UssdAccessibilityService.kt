@@ -92,14 +92,35 @@ class UssdAccessibilityService : AccessibilityService() {
 
         log("Ecrã USSD detetado:\n$textoDialogo")
 
-        if (campoTexto != null && UssdRoteiro.temProximoPasso()) {
-            val resposta = UssdRoteiro.proximoPasso() ?: return
+        if (campoTexto == null && UssdDialogClassifier.deveFecharComOk(textoDialogo)) {
+            // Só fecha diálogos informativos conhecidos. Um OK associado a
+            // confirmação, compra, cobrança ou escolha nunca chega a este ramo.
+            val resultadoTerminal = UssdDialogClassifier.ehResultadoTerminal(textoDialogo)
+            val botaoOk = encontrarBotaoOk(root)
+            if (botaoOk?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) {
+                log("Diálogo informativo reconhecido: botão OK pressionado automaticamente.")
+                if (resultadoTerminal || !UssdRoteiro.temProximoPasso()) {
+                    log("A operadora terminou a sessão USSD. O resultado continua sujeito à validação do Backend.")
+                    UssdRoteiro.parar()
+                } else {
+                    log("Aviso informativo fechado. A sessão USSD permanece ativa para o próximo passo previsto.")
+                }
+            } else {
+                log("Diálogo informativo reconhecido, mas o botão OK não pôde ser acionado. Sessão interrompida para revisão.")
+                UssdRoteiro.parar()
+            }
+        } else if (campoTexto != null && UssdRoteiro.temProximoPasso()) {
+            val resposta = UssdRoteiro.proximoPasso(textoDialogo)
+            if (resposta == null) {
+                log("O texto do menu não corresponde ao próximo passo autorizado. Nenhuma resposta foi enviada; sessão interrompida para revisão.")
+                UssdRoteiro.parar()
+                return
+            }
             val enviado = preencherEEnviar(root, campoTexto, resposta)
             if (enviado) {
-                log("Resposta automática enviada: \"$resposta\"")
+                log("Resposta automática enviada após validação do menu: \"$resposta\"")
             } else {
-                log("Não foi possível localizar o botão de enviar para responder \"$resposta\" — " +
-                    "pare e verifique manualmente. Roteiro interrompido.")
+                log("Não foi possível preencher o campo e localizar o botão de envio para \"$resposta\" — sessão interrompida para revisão.")
                 UssdRoteiro.parar()
             }
         } else if (campoTexto != null && !UssdRoteiro.temProximoPasso()) {
@@ -131,10 +152,45 @@ class UssdAccessibilityService : AccessibilityService() {
                 valor
             )
         }
-        campoTexto.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, argumentos)
+        val textoDefinido = campoTexto.performAction(
+            AccessibilityNodeInfo.ACTION_SET_TEXT,
+            argumentos
+        )
+        if (!textoDefinido) return false
 
         val botaoEnviar = encontrarBotaoPorTexto(root, TEXTOS_BOTAO_ENVIAR) ?: return false
         return botaoEnviar.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    /**
+     * Procura apenas um controlo clicável cujo rótulo seja exatamente "OK".
+     * Não usa coordenadas nem clica em botões genéricos por posição.
+     */
+    private fun encontrarBotaoOk(
+        node: AccessibilityNodeInfo?,
+        ancestralClicavel: AccessibilityNodeInfo? = null
+    ): AccessibilityNodeInfo? {
+        if (node == null) return null
+        val rotulo = node.text?.toString()?.trim()
+        val descricao = node.contentDescription?.toString()?.trim()
+        val eBotaoOk =
+            rotulo.equals("OK", ignoreCase = true) ||
+                descricao.equals("OK", ignoreCase = true)
+        val eClasseBotao = node.className?.toString()
+            ?.contains("Button", ignoreCase = true) == true
+
+        if (eBotaoOk && node.isClickable && eClasseBotao) return node
+        if (eBotaoOk && ancestralClicavel != null) return ancestralClicavel
+
+        // Só guardamos como ancestral clicável um controlo identificado
+        // estruturalmente como botão. Não clicar em contentores genéricos.
+        val proximoAncestral =
+            if (node.isClickable && eClasseBotao) node else ancestralClicavel
+        for (i in 0 until node.childCount) {
+            val encontrado = encontrarBotaoOk(node.getChild(i), proximoAncestral)
+            if (encontrado != null) return encontrado
+        }
+        return null
     }
 
     private fun encontrarCampoDeTexto(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {

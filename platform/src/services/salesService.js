@@ -1,4 +1,5 @@
 const path = require("path");
+const crypto = require("crypto");
 
 const DB_PATH = process.env.SALES_DB_FILE
     ? path.resolve(process.env.SALES_DB_FILE)
@@ -15,7 +16,7 @@ function validarSalesData(data) {
     }
     for (const [groupId, group] of Object.entries(data.groups || {})) {
         if (!group || typeof group !== "object" || Array.isArray(group)) throw new Error(`grupo ${groupId} inválido`);
-        for (const campo of ["orders", "customers", "pendingPayments"]) {
+        for (const campo of ["orders", "customers", "pendingPayments", "pendingAutomationOrders"]) {
             if (group[campo] !== undefined && !Array.isArray(group[campo])) throw new Error(`groups.${groupId}.${campo} inválido`);
         }
         if (group.payments !== undefined && (!group.payments || typeof group.payments !== "object" || Array.isArray(group.payments))) {
@@ -68,7 +69,8 @@ function defaultGroup() {
            Cada pagamento fica isolado por grupo.
            O cliente é identificado pelo sender.
         ==================================================== */
-        pendingPayments: []
+        pendingPayments: [],
+        pendingAutomationOrders: []
     };
 }
 
@@ -122,6 +124,7 @@ function loadSales() {
             if (!Array.isArray(group.orders)) group.orders = [];
             if (!Array.isArray(group.customers)) group.customers = [];
             if (!Array.isArray(group.pendingPayments)) group.pendingPayments = [];
+            if (!Array.isArray(group.pendingAutomationOrders)) group.pendingAutomationOrders = [];
         }
 
         return db;
@@ -210,6 +213,10 @@ function ensureGroup(db, groupId) {
 
     if (!Array.isArray(group.pendingPayments)) {
         group.pendingPayments = [];
+    }
+
+    if (!Array.isArray(group.pendingAutomationOrders)) {
+        group.pendingAutomationOrders = [];
     }
 
     return group;
@@ -607,6 +614,290 @@ function updateOrder(groupId, index, changes) {
  * }
  */
 
+
+function criarPedidoAutomationPendente(groupId, dados) {
+    if (!groupId || !String(groupId).endsWith("@g.us") || !dados) {
+        return { error: "Grupo ou dados do pedido inválidos." };
+    }
+
+    const sender = String(dados.sender || "").trim();
+    const recipientNumber = String(dados.recipientNumber || "").replace(/\D/g, "");
+    const megas = Number(dados.megas);
+    const expectedAmount = Number(dados.expectedAmount);
+    const productId = String(dados.productId || "").trim();
+
+    if (!sender || sender.length > 160) return { error: "Cliente WhatsApp inválido." };
+    if (!/^(?:258)?(?:84|85)\d{7}$/.test(recipientNumber)) return { error: "Destino Vodacom inválido." };
+    if (!Number.isSafeInteger(megas) || megas < 100 || megas > 10240) return { error: "Quantidade de megas inválida." };
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || expectedAmount > 100000000) return { error: "Preço esperado inválido." };
+    if (!productId) return { error: "Produto Tenant em falta." };
+    const metodos = Array.isArray(dados.paymentMethods)
+        ? dados.paymentMethods.filter(method =>
+            method && method.ativo !== false &&
+            String(method.tipo || "").trim() &&
+            String(method.conta || method.numero || "").replace(/\D/g, "").length >= 5
+        )
+        : [];
+    if (metodos.length === 0) return { error: "O pedido não tem método de pagamento activo do Tenant." };
+
+    const db = loadSales();
+    const group = ensureGroup(db, groupId);
+    const now = Date.now();
+
+    // Se já existe comprovativo ligado a um pedido, o administrador tem de
+    // resolver esse pedido antes de aceitar um segundo para o mesmo cliente.
+    const estadosComComprovativoPendente = new Set([
+        "COMPROVATIVO_RECEBIDO",
+        "METODO_PAGAMENTO_DIVERGENTE",
+        "VALOR_DIVERGENTE"
+    ]);
+    const aguardandoDecisao = group.pendingAutomationOrders.find(item =>
+        item.sender === sender &&
+        estadosComComprovativoPendente.has(item.estado)
+    );
+    if (aguardandoDecisao) {
+        return {
+            error: "Já existe um comprovativo associado a um pedido à espera de revisão administrativa. Aguarda a decisão antes de iniciar outro pedido.",
+            code: "CUSTOMER_ORDER_REVIEW_PENDING"
+        };
+    }
+
+    // Um único pedido de pagamento aberto por cliente/grupo elimina ambiguidades.
+    for (const item of group.pendingAutomationOrders) {
+        if (item.sender === sender && item.estado === "AGUARDANDO_PAGAMENTO") {
+            item.estado = "SUBSTITUIDO";
+            item.atualizadoEmMs = now;
+        }
+    }
+
+    const order = {
+        id: "WA-" + crypto.randomBytes(12).toString("hex").toUpperCase(),
+        groupId,
+        sender,
+        recipientNumber,
+        megas,
+        expectedAmount: Math.round(expectedAmount * 100) / 100,
+        productId,
+        productName: String(dados.productName || "").slice(0, 100),
+        productCategory: String(dados.productCategory || "NAO_DEFINIDA").trim().toUpperCase(),
+        validityDays: Number.isSafeInteger(Number(dados.validityDays)) && dados.validityDays != null
+            ? Number(dados.validityDays)
+            : null,
+        paymentMethods: Array.isArray(dados.paymentMethods)
+            ? dados.paymentMethods
+                .filter(method => method && method.ativo !== false)
+                .map(method => ({
+                    id: String(method.id || "").slice(0, 60),
+                    tipo: String(method.tipo || "").trim().toUpperCase().slice(0, 30),
+                    conta: String(method.conta || method.numero || "").replace(/[^0-9+]/g, "").slice(0, 30),
+                    titular: String(method.titular || "").trim().slice(0, 100)
+                }))
+                .filter(method => method.tipo && method.conta.length >= 5)
+            : [],
+        estado: "AGUARDANDO_PAGAMENTO",
+        criadoEmMs: now,
+        expiraEmMs: now + 30 * 60 * 1000,
+        atualizadoEmMs: now
+    };
+
+    group.pendingAutomationOrders.push(order);
+    saveSales(db);
+    return { ok: true, pedido: { ...order } };
+}
+
+function obterPedidoAutomationPendente(groupId, sender) {
+    if (!groupId || !sender) return null;
+    const db = loadSales();
+    const group = db.groups?.[groupId];
+    if (!group || !Array.isArray(group.pendingAutomationOrders)) return null;
+
+    const now = Date.now();
+    const order = group.pendingAutomationOrders
+        .filter(item => item.sender === String(sender) && item.estado === "AGUARDANDO_PAGAMENTO")
+        .sort((a, b) => Number(b.criadoEmMs || 0) - Number(a.criadoEmMs || 0))[0];
+
+    if (!order) return null;
+    if (!Number.isSafeInteger(order.expiraEmMs) || order.expiraEmMs <= now) {
+        order.estado = "EXPIRADO";
+        order.atualizadoEmMs = now;
+        saveSales(db);
+        return null;
+    }
+    return { ...order };
+}
+
+function associarComprovativoAoPedidoAutomation(groupId, sender, proof) {
+    if (!groupId || !sender || !proof?.reference) {
+        return { error: "Dados do comprovativo incompletos.", code: "PROOF_INVALID" };
+    }
+
+    const db = loadSales();
+    const group = db.groups?.[groupId];
+    if (!group || !Array.isArray(group.pendingAutomationOrders)) {
+        return { error: "Não existe pré-pedido para este cliente.", code: "PREFLIGHT_ORDER_NOT_FOUND" };
+    }
+
+    const now = Date.now();
+    const order = group.pendingAutomationOrders
+        .filter(item => item.sender === String(sender) && item.estado === "AGUARDANDO_PAGAMENTO")
+        .sort((a, b) => Number(b.criadoEmMs || 0) - Number(a.criadoEmMs || 0))[0];
+
+    if (!order) return { error: "Não existe um pedido activo deste cliente. Deve fazer nova pré-verificação.", code: "PREFLIGHT_ORDER_NOT_FOUND" };
+
+    if (!Number.isSafeInteger(order.expiraEmMs) || order.expiraEmMs <= now) {
+        order.estado = "EXPIRADO";
+        order.atualizadoEmMs = now;
+        saveSales(db);
+        return { error: "A pré-verificação expirou. Deve verificar a disponibilidade novamente.", code: "PREFLIGHT_ORDER_EXPIRED" };
+    }
+
+    const amount = Number(proof.amount);
+    const amountMatches = Number.isFinite(amount) &&
+        Math.round(amount * 100) === Math.round(Number(order.expectedAmount) * 100);
+
+    const operator = String(proof.operator || "").trim().toLowerCase();
+    const acceptedTypes = {
+        mpesa: new Set(["MPESA"]),
+        emola: new Set(["EMOLA"]),
+        bim: new Set(["BANCO", "TRANSFERENCIA", "MANUAL", "MKESH"])
+    };
+    const allowedTypes = acceptedTypes[operator] || new Set();
+    const normalizarContaPagamento = value => {
+        const digits = String(value || "").replace(/\D/g, "");
+        return digits.startsWith("258") && digits.length === 12
+            ? digits.slice(3)
+            : digits;
+    };
+    const proofAccount = normalizarContaPagamento(proof.destination);
+    const proofHolder = String(proof.destinationName || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/\s+/g, " ").trim();
+    const methodMatches = Array.isArray(order.paymentMethods) &&
+        order.paymentMethods.some(method => {
+            const methodAccount = normalizarContaPagamento(method.conta);
+            const methodHolder = String(method.titular || "")
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase().replace(/\s+/g, " ").trim();
+            return allowedTypes.has(String(method.tipo || "").toUpperCase()) &&
+                proofAccount.length >= 5 &&
+                methodAccount === proofAccount &&
+                proofHolder.length > 0 &&
+                methodHolder === proofHolder;
+        });
+
+    if (!methodMatches) {
+        order.estado = "METODO_PAGAMENTO_DIVERGENTE";
+        order.paymentReference = String(proof.reference);
+        order.paymentOperator = operator || null;
+        order.detectedAmount = Number.isFinite(amount) ? amount : null;
+        order.proofReceivedAtMs = now;
+        order.atualizadoEmMs = now;
+        saveSales(db);
+        return {
+            error: "O comprovativo utiliza um método de pagamento que não foi apresentado neste pedido.",
+            code: "PAYMENT_METHOD_MISMATCH",
+            pedido: { ...order }
+        };
+    }
+    if (!amountMatches) {
+        order.estado = "VALOR_DIVERGENTE";
+        order.paymentReference = String(proof.reference);
+        order.paymentOperator = operator || null;
+        order.detectedAmount = Number.isFinite(amount) ? amount : null;
+        order.proofReceivedAtMs = now;
+        order.atualizadoEmMs = now;
+        saveSales(db);
+        return {
+            error: "O valor do comprovativo não corresponde ao preço do pedido. A referência foi registada e exige revisão administrativa.",
+            code: "PAYMENT_AMOUNT_MISMATCH",
+            pedido: { ...order }
+        };
+    }
+
+    order.estado = "COMPROVATIVO_RECEBIDO";
+    order.paymentReference = String(proof.reference);
+    order.paymentOperator = String(proof.operator || "").slice(0, 30);
+    order.detectedAmount = amount;
+    order.proofReceivedAtMs = now;
+    order.atualizadoEmMs = now;
+    saveSales(db);
+    return { ok: true, pedido: { ...order } };
+}
+
+/**
+ * Lista pré-pedidos e comprovativos dos grupos fornecidos pelo serviço de
+ * identidade. O caller tem de obter groupIds a partir do Tenant autenticado.
+ * Nunca devolve métodos de pagamento completos, texto OCR ou dados internos.
+ */
+function listarPedidosAutomationPorGrupos(groupIds = []) {
+    if (!Array.isArray(groupIds) || groupIds.length > 3) return [];
+    const db = loadSales();
+    const pedidos = [];
+
+    for (const groupIdInput of groupIds) {
+        const groupId = String(groupIdInput || "").trim().toLowerCase();
+        if (!/^\d{5,25}-\d{5,25}@g\.us$/.test(groupId)) continue;
+        const group = db.groups?.[groupId];
+        if (!Array.isArray(group?.pendingAutomationOrders)) continue;
+
+        for (const order of group.pendingAutomationOrders) {
+            if (!order || typeof order !== "object") continue;
+            pedidos.push({
+                id: String(order.id || ""),
+                groupId,
+                sender: String(order.sender || ""),
+                recipientNumber: String(order.recipientNumber || ""),
+                megas: Number.isSafeInteger(order.megas) ? order.megas : null,
+                productId: String(order.productId || ""),
+                productName: String(order.productName || ""),
+                productCategory: String(order.productCategory || "NAO_DEFINIDA"),
+                validityDays: Number.isSafeInteger(order.validityDays) ? order.validityDays : null,
+                expectedAmount: Number.isFinite(Number(order.expectedAmount)) ? Number(order.expectedAmount) : null,
+                detectedAmount: Number.isFinite(Number(order.detectedAmount)) ? Number(order.detectedAmount) : null,
+                estado: String(order.estado || "SEM_ESTADO"),
+                paymentReference: order.paymentReference ? String(order.paymentReference).slice(0, 120) : null,
+                paymentOperator: order.paymentOperator ? String(order.paymentOperator).slice(0, 30) : null,
+                proofReceivedAtMs: Number.isSafeInteger(order.proofReceivedAtMs) ? order.proofReceivedAtMs : null,
+                paymentReview: order.paymentReview ? {
+                    decisao: String(order.paymentReview.decisao || "").slice(0, 20),
+                    por: String(order.paymentReview.por || "").slice(0, 140),
+                    emMs: Number.isSafeInteger(order.paymentReview.emMs) ? order.paymentReview.emMs : null,
+                    motivo: String(order.paymentReview.motivo || "").slice(0, 500)
+                } : null,
+                operationId: order.operationId ? String(order.operationId).slice(0, 128) : null,
+                criadoEmMs: Number.isSafeInteger(order.criadoEmMs) ? order.criadoEmMs : null,
+                expiraEmMs: Number.isSafeInteger(order.expiraEmMs) ? order.expiraEmMs : null,
+                atualizadoEmMs: Number.isSafeInteger(order.atualizadoEmMs) ? order.atualizadoEmMs : null
+            });
+        }
+    }
+
+    return pedidos.sort((a, b) => (b.criadoEmMs || 0) - (a.criadoEmMs || 0));
+}
+
+function obterPedidoAutomationPorId(groupId, orderId) {
+    if (!groupId || !orderId) return null;
+    const group = loadSales().groups?.[groupId];
+    const order = group?.pendingAutomationOrders?.find(item => item.id === String(orderId));
+    return order ? { ...order } : null;
+}
+
+function atualizarEstadoPedidoAutomation(groupId, orderId, estado, dados = {}) {
+    if (!groupId || !orderId || !estado) return null;
+    const db = loadSales();
+    const group = ensureGroup(db, groupId);
+    const index = group.pendingAutomationOrders.findIndex(item => item.id === String(orderId));
+    if (index < 0) return null;
+    group.pendingAutomationOrders[index] = {
+        ...group.pendingAutomationOrders[index],
+        ...dados,
+        estado: String(estado),
+        atualizadoEmMs: Date.now()
+    };
+    saveSales(db);
+    return { ...group.pendingAutomationOrders[index] };
+}
+
 function savePendingPayment(
     groupId,
     payment
@@ -682,6 +973,18 @@ function savePendingPayment(
          */
         recipientNumber:
             payment.recipientNumber || null,
+
+        // Referência ao pedido pré-validado no Tenant/WhatsApp.
+        preflightOrderId:
+            payment.preflightOrderId || null,
+
+        expectedMegas:
+            Number.isSafeInteger(payment.expectedMegas) ? payment.expectedMegas : null,
+
+        expectedAmount:
+            Number.isFinite(Number(payment.expectedAmount)) && payment.expectedAmount != null
+                ? Math.round(Number(payment.expectedAmount) * 100) / 100
+                : null,
 
         status:
             payment.status ||
@@ -1200,5 +1503,11 @@ module.exports = {
     getLatestPendingPayment,
     setPendingRecipientNumber,
     updatePendingPayment,
-    removePendingPayment
+    removePendingPayment,
+    criarPedidoAutomationPendente,
+    obterPedidoAutomationPendente,
+    listarPedidosAutomationPorGrupos,
+    associarComprovativoAoPedidoAutomation,
+    obterPedidoAutomationPorId,
+    atualizarEstadoPedidoAutomation
 };

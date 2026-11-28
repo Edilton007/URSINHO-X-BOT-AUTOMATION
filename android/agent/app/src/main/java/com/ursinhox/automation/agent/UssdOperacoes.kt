@@ -20,6 +20,11 @@ import androidx.core.content.ContextCompat
  * na tarefa do Backend. Nunca usa a posição da lista como se fosse slotIndex
  * e nunca deixa o Android escolher silenciosamente a linha predefinida.
  */
+data class LeituraSaldo(
+    val saldoGeralMB: Int?,
+    val internetTransferivelMB: Int?
+)
+
 object UssdOperacoes {
 
     private fun obterPhoneAccountDoSim(
@@ -115,7 +120,10 @@ object UssdOperacoes {
         }
     }
 
-    /** Consulta internet discando *100# e rejeitando a oferta que aparece. */
+    /**
+     * Consulta a quota mensal transferível.
+     * Sem quota mensal explicitamente identificada, devolve null e bloqueia a operação.
+     */
     fun consultarSaldo(
         context: Context,
         sim: SimInfo,
@@ -131,21 +139,64 @@ object UssdOperacoes {
         // pós-transferência pode preservar o histórico anterior para enviar ao
         // Backend a sequência completa: saldo antes → transferência → saldo depois.
         if (!preservarHistorico) UssdRoteiro.limparHistorico()
-        val iniciado = UssdRoteiro.iniciar(listOf("2"))
+        // *100# está documentado pela Vodacom para consulta de bónus, não
+        // constitui evidência segura da quota mensal transferível. A consulta
+        // de dados usa *131# (referência externa a validar no teste físico) e
+        // só é aceite quando a resposta identifica explicitamente uma quota
+        // mensal. Sem esse rótulo, o resultado é null e o Backend bloqueia.
+        val iniciado = UssdRoteiro.iniciar(emptyList())
         if (!iniciado) {
             callback(null)
             return
         }
         UssdRoteiro.aoTerminar = {
-            val saldo = SaldoParser.extrairSaldoMB(UssdRoteiro.obterHistorico())
+            val saldo = SaldoParser.extrairSaldoMensalTransferivelMB(
+                UssdRoteiro.obterHistorico()
+            )
             callback(saldo)
         }
-        discar(context, sim, "*100#")
+        discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
     }
 
     /**
-     * Executa *162# → 8 (Internet) → 2 (Transferir) → quantidade → destino.
-     * A chamada só é iniciada após confirmar o PhoneAccount do subscriptionId.
+     * Consulta o código de dados configurado e devolve dois valores independentes:
+     * saldo geral de dados e quota mensal explicitamente identificada.
+     * Nenhum dos dois é inferido a partir do outro.
+     */
+    fun consultarSaldoDetalhado(
+        context: Context,
+        sim: SimInfo,
+        preservarHistorico: Boolean = false,
+        callback: (LeituraSaldo) -> Unit
+    ) {
+        if (UssdRoteiro.ativo) {
+            UssdRoteiro.registrar("Consulta detalhada recusada: já existe uma sessão USSD em andamento.")
+            callback(LeituraSaldo(null, null))
+            return
+        }
+        if (!preservarHistorico) UssdRoteiro.limparHistorico()
+        val iniciado = UssdRoteiro.iniciar(emptyList())
+        if (!iniciado) {
+            callback(LeituraSaldo(null, null))
+            return
+        }
+        UssdRoteiro.aoTerminar = {
+            val historico = UssdRoteiro.obterHistorico()
+            callback(
+                LeituraSaldo(
+                    saldoGeralMB = SaldoParser.extrairSaldoMB(historico),
+                    internetTransferivelMB = SaldoParser.extrairSaldoMensalTransferivelMB(historico)
+                )
+            )
+        }
+        discar(context, sim, VodacomUssdProtocol.CODIGO_CONSULTA_SALDO)
+    }
+
+    /**
+     * Executa o fluxo de transferência informado pelo responsável operacional:
+     * *162# → 8 → 2 → quantidade (100 a 10.240 MB) → número de destino.
+     * As opções são enviadas apenas quando o texto USSD visível corresponde
+     * ao passo esperado; a chamada usa o PhoneAccount do subscriptionId exacto.
      */
     fun executarTransferencia(
         context: Context,
@@ -164,12 +215,14 @@ object UssdOperacoes {
             callback()
             return
         }
-        val iniciado = UssdRoteiro.iniciar(listOf("8", "2", megas.toString(), destino))
+        val iniciado = UssdRoteiro.iniciarRoteiro(
+            VodacomUssdProtocol.roteiroTransferencia(megas, destino)
+        )
         if (!iniciado) {
             callback()
             return
         }
         UssdRoteiro.aoTerminar = callback
-        discar(context, sim, "*162#")
+        discar(context, sim, VodacomUssdProtocol.CODIGO_TRANSFERENCIA_MEGAS)
     }
 }

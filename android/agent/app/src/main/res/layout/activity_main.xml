@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/app_background"
-    android:fillViewport="true"
-    android:clipToPadding="false">
+    android:orientation="vertical"
+    android:background="@color/app_background">
+
+    <ScrollView
+        android:id="@+id/mainScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/app_background"
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -158,7 +166,13 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/sectionEstado"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="visible">
+<com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
@@ -261,8 +275,15 @@
                     android:textStyle="bold" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/sectionLigacao"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+<com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
@@ -349,23 +370,18 @@
                     android:textColorHint="@color/text_muted"
                     android:textSize="13sp" />
 
-                <Button
-                    android:id="@+id/btnBuscarTarefa"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="14dp"
-                    android:background="@drawable/bg_button_primary"
-                    android:backgroundTint="@null"
-                    android:stateListAnimator="@null"
-                    android:text="Verificar tarefa autorizada"
-                    android:textAllCaps="false"
-                    android:textColor="#06131d"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/sectionTarefas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+<com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
@@ -407,6 +423,20 @@
                     android:text="O modo manual permanece desativado. A execução automática só aceita tarefas autorizadas pelo Backend."
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
+
+<Button
+                    android:id="@+id/btnBuscarTarefa"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:backgroundTint="@null"
+                    android:stateListAnimator="@null"
+                    android:text="Verificar tarefa autorizada"
+                    android:textAllCaps="false"
+                    android:textColor="#06131d"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/btnAtivarAcessibilidade"
@@ -450,8 +480,15 @@
                     android:textSize="13sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/sectionRegisto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+<com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/surface"
@@ -499,6 +536,7 @@
                     android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
         <!-- Controlos manuais mantidos ocultos para compatibilidade e segurança. -->
         <EditText
@@ -554,4 +592,77 @@
             android:textSize="9sp"
             android:letterSpacing="0.06" />
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/agentBottomTabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingStart="7dp"
+        android:paddingEnd="7dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="@color/surface"
+        android:elevation="10dp">
+        <Button
+            android:id="@+id/tabEstado"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:stateListAnimator="@null"
+            android:text="Estado"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/tabLigacao"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:stateListAnimator="@null"
+            android:text="Ligação"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/tabTarefas"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:stateListAnimator="@null"
+            android:text="Tarefas"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/tabRegisto"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginStart="3dp"
+            android:background="@drawable/bg_button_secondary"
+            android:backgroundTint="@null"
+            android:stateListAnimator="@null"
+            android:text="Registo"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

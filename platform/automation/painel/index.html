@@ -148,6 +148,22 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
 }
 </style>
 
+<style id="tenant-commercial-pages">
+#bottomNav{grid-template-columns:repeat(6,minmax(0,1fr));overflow-x:auto;overscroll-behavior-x:contain}
+#bottomNav .nav{min-width:0;padding:6px 2px;font-size:9px;white-space:nowrap}
+#bottomNav .nav span{display:block;font-size:16px;line-height:18px;margin-bottom:2px}
+.packageCard{display:grid;gap:10px}
+.packageCard .packageMeta{display:flex;flex-wrap:wrap;gap:7px}
+.packageCard .packageActions{display:flex;gap:8px;flex-wrap:wrap}
+.packageCard .packagePrice{font-size:20px;font-weight:800;color:var(--ux-text)}
+@media(max-width:380px){#bottomNav .nav{font-size:8px}}
+</style>
+<style id="tenant-pull-refresh-quota">
+html,body{overscroll-behavior-y:contain}
+.pullRefreshIndicator{position:fixed;z-index:70;top:10px;left:50%;transform:translate(-50%,-150%);opacity:0;pointer-events:none;padding:10px 15px;border:1px solid #425a83;border-radius:999px;background:#172844;color:#dce5ff;font-size:11px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.28);transition:transform .18s ease,opacity .18s ease;white-space:nowrap}
+.pullRefreshIndicator.visible{transform:translate(-50%,0);opacity:1}
+@media(prefers-reduced-motion:reduce){.pullRefreshIndicator{transition:none}}
+</style>
 </head>
 <body>
 <div id="loginView" class="app login">
@@ -176,6 +192,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <button id="refreshBtn" class="iconbtn" title="Atualizar">↻</button>
     </div>
   </header>
+  <div id="pullRefreshIndicator" class="pullRefreshIndicator" aria-live="polite" aria-hidden="true">Puxe para baixo para actualizar</div>
 
   <main>
     <section id="pageDashboard" class="page active">
@@ -186,7 +203,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
             <h1>Operação sob controle.</h1>
             <p>Monitoramento do tenant, Agent Android, SIMs e operações reais. Os dados exibidos vêm do Backend.</p>
             <div class="heroActions">
-              <button id="newOpBtn" class="btn primary">＋ NOVA OPERAÇÃO</button>
+              <span class="badge muted">Execução após pagamento confirmado</span>
               <span id="licenseBadge" class="badge muted">LICENÇA</span>
             </div>
           </div>
@@ -233,7 +250,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
     </section>
 
     <section id="pageOperations" class="page">
-      <div class="sectionHead"><h2>Operações</h2><button id="newOpBtn2" class="btn primary">＋ NOVA</button></div>
+      <div class="sectionHead"><div><h2>Pedidos e operações</h2><span>Execução gerada a partir de pedidos com pagamento confirmado</span></div></div>
       <div class="card" style="margin-bottom:12px">
         <div class="toolbar">
           <input id="opSearch" class="input" placeholder="Pesquisar operação, destino ou SIM">
@@ -256,6 +273,69 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
           </table>
         </div>
       </div>
+      <div class="sectionHead"><div><h2>Pedidos recebidos no WhatsApp</h2><span id="whatsappOrdersCount">0 pedidos</span></div><button id="refreshWhatsappOrdersBtn" class="btn">ATUALIZAR</button></div>
+      <div class="card"><div id="whatsappOrdersList" class="grid"></div></div>
+      <div class="sectionHead"><div><h2>Pedidos da Loja pública</h2><span id="storeOrdersCount">0 pedidos</span></div><button id="refreshStoreOrdersBtn" class="btn">ATUALIZAR</button></div>
+      <div class="card"><div id="storeOrdersList" class="grid"></div></div>
+    </section>
+
+    <section id="pagePackages" class="page">
+      <div class="sectionHead"><div><div class="eyebrow">CATÁLOGO DO TENANT</div><h2>Pacotes e preços</h2><span>Quantidades, preços e validade comercial</span></div><button id="refreshPackagesBtn" class="btn">ATUALIZAR</button></div>
+      <div class="grid two">
+        <div class="card">
+          <div class="sectionHead"><h3 id="packageFormTitle">Novo pacote</h3><span>Configuração comercial</span></div>
+          <div class="formGrid">
+            <div class="field full"><label for="packageName">Nome do pacote</label><input id="packageName" class="input" maxlength="100" placeholder="Ex.: 1 GB Mensal"></div>
+            <div class="field"><label for="packageAmount">Quantidade</label><input id="packageAmount" class="input" inputmode="decimal" placeholder="Ex.: 1"></div>
+            <div class="field"><label for="packageUnit">Unidade</label><select id="packageUnit" class="select"><option value="MB">MB</option><option value="GB">GB</option></select></div>
+            <div class="field"><label for="packagePrice">Preço (MT)</label><input id="packagePrice" class="input" inputmode="decimal" placeholder="Ex.: 25"></div>
+            <div class="field"><label for="packageCategory">Categoria / validade</label><select id="packageCategory" class="select"><option value="DIARIO">Diário · 1 dia</option><option value="SEMANAL">Semanal · 7 dias</option><option value="MENSAL">Mensal · 30 dias</option><option value="PERSONALIZADO">Personalizado</option></select></div>
+            <div class="field" id="packageValidityField"><label for="packageValidityDays">Validade personalizada (dias)</label><input id="packageValidityDays" class="input" inputmode="numeric" placeholder="Entre 1 e 365" disabled></div>
+            <div class="field full"><label for="packageDescription">Descrição (opcional)</label><input id="packageDescription" class="input" maxlength="500" placeholder="Detalhes do pacote"></div>
+          </div>
+          <div id="packageMsg" class="notice hidden" style="margin-top:12px"></div>
+          <div class="row" style="margin-top:14px"><button id="savePackageBtn" class="btn primary">GUARDAR PACOTE</button><button id="cancelPackageEditBtn" class="btn hidden">CANCELAR EDIÇÃO</button></div>
+          <p class="muted" style="margin-top:12px">A validade aqui é a validade comercial configurada para o pacote. A transferência telecom continua limitada à quota que a operadora realmente permite transferir.</p>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>Pacotes configurados</h3><span id="packageCount">0 pacotes</span></div>
+          <div id="packageList" class="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pagePayments" class="page">
+      <div class="sectionHead"><div><div class="eyebrow">RECEBIMENTOS</div><h2>Métodos de pagamento</h2><span>Contas apresentadas ao cliente no pedido</span></div><button id="refreshPaymentsBtn" class="btn">ATUALIZAR</button></div>
+      <div class="notice warn" style="margin-bottom:12px">O comprovativo é analisado quanto ao método, conta, titular e valor. A imagem, por si só, não prova que o dinheiro entrou. A confirmação continua manual até existir integração oficial e validada com o prestador.</div>
+      <div class="sectionHead"><div><h3>Pagamentos da Loja pública</h3><span id="storePaymentsCount">0 pedidos pendentes</span></div></div>
+      <div class="notice warn" style="margin-bottom:12px">Nesta fila, a confirmação exige consulta real da transação no M-Pesa, e-Mola ou banco. A Loja pública ainda não recebe ficheiros de comprovativo; não aproves apenas com base nos dados do pedido.</div>
+      <div class="card" style="margin-bottom:14px"><div id="storePaymentsList" class="grid"></div></div>
+      <div class="grid three" id="paymentMethodsGrid">
+        <div class="card">
+          <div class="sectionHead"><h3>M-Pesa</h3><span>VODACOM</span></div>
+          <label for="paymentMpesaConta">Número de recebimento</label><input id="paymentMpesaConta" class="input" inputmode="tel" placeholder="84/85... ou +258...">
+          <label for="paymentMpesaTitular" style="margin-top:10px">Titular</label><input id="paymentMpesaTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentMpesaInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentMpesaInstrucoes" class="input" placeholder="Referência ou nota">
+          <label for="paymentMpesaAtivo" style="margin-top:10px">Estado</label><select id="paymentMpesaAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>e-Mola</h3><span>MOVITEL</span></div>
+          <label for="paymentEmolaConta">Número de recebimento</label><input id="paymentEmolaConta" class="input" inputmode="tel" placeholder="86/87...">
+          <label for="paymentEmolaTitular" style="margin-top:10px">Titular</label><input id="paymentEmolaTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentEmolaInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentEmolaInstrucoes" class="input" placeholder="Referência ou nota">
+          <label for="paymentEmolaAtivo" style="margin-top:10px">Estado</label><select id="paymentEmolaAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+        <div class="card">
+          <div class="sectionHead"><h3>Banco</h3><span>TRANSFERÊNCIA</span></div>
+          <label for="paymentBancoConta">Conta / NIB</label><input id="paymentBancoConta" class="input" placeholder="Número da conta ou NIB">
+          <label for="paymentBancoTitular" style="margin-top:10px">Titular</label><input id="paymentBancoTitular" class="input" placeholder="Nome do titular">
+          <label for="paymentBancoNome" style="margin-top:10px">Banco</label><input id="paymentBancoNome" class="input" placeholder="Nome do banco">
+          <label for="paymentBancoInstrucoes" style="margin-top:10px">Instruções (opcional)</label><input id="paymentBancoInstrucoes" class="input" placeholder="Detalhes para o cliente">
+          <label for="paymentBancoAtivo" style="margin-top:10px">Estado</label><select id="paymentBancoAtivo" class="select"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+        </div>
+      </div>
+      <div id="paymentMsg" class="notice hidden" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:14px"><button id="savePaymentsBtn" class="btn primary">GUARDAR MÉTODOS</button></div>
     </section>
 
     <section id="pageSims" class="page">
@@ -265,7 +345,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <div class="card" id="devicePanel"></div>
     </section>
 
-    <section id="pageSystem" class="page">
+    <section id="pageSettings" class="page">
       <div class="sectionHead"><h2>Sistema</h2><span>estado e sessão</span></div>
       <div class="grid two">
         <div class="card" id="systemStatus"></div>
@@ -275,17 +355,14 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       <div class="card">
         <div class="tableWrap">
           <table class="table">
-            <thead><tr><th>SIM</th><th>Operadora</th><th>Internet</th><th>Saldo</th><th>Atualização</th></tr></thead>
+            <thead><tr><th>SIM</th><th>Operadora</th><th>Internet total</th><th>Quota mensal transferível</th><th>Saldo</th><th>Atualização</th></tr></thead>
             <tbody id="simTable"></tbody>
           </table>
         </div>
       </div>
       <div class="sectionHead"><h2>Sessão</h2></div>
       <div class="card" id="sessionPanel"></div>
-    </section>
-
-    <section id="pageWhatsApp" class="page">
-      <div class="sectionHead">
+      <div class="sectionHead" style="margin-top:24px">
         <div><div class="eyebrow">CANAL DE ATENDIMENTO</div><h2>WhatsApp</h2><span>Associação segura de grupos por Tenant</span></div>
         <button id="refreshGroupsBtn" class="btn">ATUALIZAR</button>
       </div>
@@ -309,15 +386,18 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
         </div>
       </div>
     </section>
+
+
   </main>
 </div>
 
 <nav id="bottomNav" class="bottom hidden">
-  <button class="nav active" data-page="Dashboard"><span>⌂</span>Visão geral</button>
-  <button class="nav" data-page="Operations"><span>◎</span>Operações</button>
-  <button class="nav" data-page="Sims"><span>▣</span>SIMs</button>
-  <button class="nav" data-page="System"><span>⚙</span>Sistema</button>
-  <button class="nav" data-page="WhatsApp"><span>◉</span>WhatsApp</button>
+  <button class="nav active" data-page="Dashboard"><span>⌂</span>Início</button>
+  <button class="nav" data-page="Operations"><span>◎</span>Pedidos</button>
+  <button class="nav" data-page="Packages"><span>▤</span>Pacotes</button>
+  <button class="nav" data-page="Payments"><span>◈</span>Pagamentos</button>
+  <button class="nav" data-page="Sims"><span>▣</span>SIMs / Agent</button>
+  <button class="nav" data-page="Settings"><span>⚙</span>Definições</button>
 </nav>
 
 <div id="modal" class="modal">
@@ -333,6 +413,29 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-ser
       </div>
       <div id="newOpMsg" class="notice hidden" style="margin-top:10px"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button id="cancelOp" class="btn">CANCELAR</button><button id="submitOp" class="btn primary">CRIAR OPERAÇÃO</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="storePaymentReviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="storeReviewTitle">
+  <div class="sheet">
+    <div class="sheetHead"><h3 id="storeReviewTitle">Revisão de pagamento</h3><button id="closeStoreReview" class="iconbtn" aria-label="Fechar">×</button></div>
+    <div id="storeReviewSummary" class="notice" style="margin-bottom:12px"></div>
+    <div id="storeReviewWarning" class="notice warn" style="margin-bottom:12px"></div>
+    <div id="storeReviewVerifiedWrap" class="notice" style="margin-bottom:12px">
+      <label style="display:flex;align-items:flex-start;gap:9px;color:var(--text)">
+        <input id="storeReviewVerified" type="checkbox" style="margin-top:2px;width:auto">
+        <span>Consultei a transacção no M-Pesa, e-Mola ou banco e confirmei que o valor entrou na conta do negócio.</span>
+      </label>
+    </div>
+    <div class="formGrid">
+      <div class="field full"><label for="storeReviewReference">Referência da transacção (opcional)</label><input id="storeReviewReference" class="input" maxlength="120" placeholder="Ex.: código da transacção"></div>
+      <div class="field full"><label for="storeReviewReason">Justificação da decisão</label><textarea id="storeReviewReason" class="input" rows="3" maxlength="300" placeholder="Descreve como verificaste o pagamento ou o motivo da rejeição."></textarea></div>
+    </div>
+    <div id="storeReviewMessage" class="notice hidden" style="margin-top:10px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button id="cancelStoreReview" class="btn">CANCELAR</button>
+      <button id="submitStoreReview" class="btn primary">CONFIRMAR PAGAMENTO</button>
     </div>
   </div>
 </div>
@@ -353,11 +456,16 @@ const API_BASE=location.origin;
 const SESSION_KEY='ursinho_x_tenant_session_v3';
 const DEVICE_ONLINE_WINDOW_MS=120*1000;
 const SIM_ONLINE_WINDOW_MS=45*60*1000;
+const QUOTA_FRESH_WINDOW_MS=30*60*1000;
 let session=null;
-let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],loadedAt:null};
+let state={tenant:null,license:null,device:null,health:null,sims:[],operations:[],whatsappOrders:[],storeOrders:[],products:[],storefront:null,loadedAt:null};
+let editingPackageId=null;
+let paymentFormDirty=false;
 let refreshTimer=null;
+let refreshInProgress=false;
 let whatsappGroups=[];
 let pendingGroupPairing=null;
+let pendingStoreReview=null;
 
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -395,6 +503,29 @@ function formatMB(mb){
   if(!Number.isFinite(n))return{main:'Não disponível',secondary:''};
   if(n>=1024){return{main:`${fmtDecimal(n/1024)} GB`,secondary:`${fmtDecimal(n)} MB`}}
   return{main:`${fmtDecimal(n)} MB`,secondary:''};
+}
+
+function quotaMensalTransferivel(sim){
+  const value=sim?.internetTransferivelMB;
+  if(!Number.isSafeInteger(value)||value<0){
+    return{value:'Não identificada',freshness:'Sem leitura mensal explícita',fresh:false};
+  }
+  const formatted=formatMB(value);
+  const stamp=sim?.internetTransferivelAtualizadoEmMs;
+  const timestamp=toMs(stamp);
+  if(!timestamp){
+    return{value:formatted.main,secondary:formatted.secondary,freshness:'Data da leitura não disponível',fresh:false};
+  }
+  if(timestamp>Date.now()+120000){
+    return{value:formatted.main,secondary:formatted.secondary,freshness:'Data da leitura inválida',fresh:false};
+  }
+  const fresh=online(stamp,QUOTA_FRESH_WINDOW_MS);
+  return{
+    value:formatted.main,
+    secondary:formatted.secondary,
+    freshness:fresh?`Actualizada ${age(stamp)}`:`Desactualizada ${age(stamp)}`,
+    fresh
+  };
 }
 
 function mbFromInput(){
@@ -467,13 +598,22 @@ async function loadPanel(){
   try{deviceR=await api(`/automation/tenants/${tid}/device`)}catch(e){if(e.status!==404)throw e}
   try{healthR=await api(`/automation/tenants/${tid}/saude`)}catch(e){if(e.status!==404)console.warn('Saúde do Agent indisponível:',e.message)}
   const opsR=await api(`/automation/tenants/${tid}/operacoes`);
+  const whatsappOrdersR=await api(`/automation/tenants/${tid}/whatsapp/orders`);
+  const productsR=await api(`/automation/tenants/${tid}/products`);
+  const storeOrdersR=await api(`/automation/tenants/${tid}/store-orders`);
+  let storefrontR=null;
+  try{storefrontR=await api(`/automation/tenants/${tid}/storefront`)}catch(e){if(e.status!==404)throw e}
   try{simsR=await api(`/automation/tenants/${tid}/sims`)}catch(e){if(e.status!==404)throw e}
   state.tenant=tenantR?.tenant||tenantR?.data||tenantR;
   state.license=licenseR?.licenca||licenseR?.license||licenseR?.data||null;
   state.device=normalizeDevice(deviceR?.device||deviceR?.data||deviceR);
   state.health=healthR?.saude||null;
   state.operations=asArray(opsR).map(normalizeOperation);
+  state.whatsappOrders=Array.isArray(whatsappOrdersR?.pedidos)?whatsappOrdersR.pedidos:[];
   state.sims=asArray(simsR).map(normalizeSim);
+  state.products=Array.isArray(productsR?.produtos)?productsR.produtos:asArray(productsR);
+  state.storeOrders=Array.isArray(storeOrdersR?.pedidos)?storeOrdersR.pedidos:[];
+  state.storefront=storefrontR?.loja||null;
   state.loadedAt=Date.now();
   renderAll();backendState(true);return state;
 }
@@ -499,6 +639,26 @@ function renderWhatsApp(){
   }else{
     pendingGroupPairing=null;
     $('pairingResult').classList.add('hidden');
+  }
+}
+
+async function reviewWhatsAppOrder(orderId,decision){
+  const confirming=decision==='CONFIRMAR';
+  if(confirming&&!confirm('Confirmaste a entrada real do valor consultando o serviço de pagamento fora do URSINHO? O comprovativo OCR, sozinho, não é prova.'))return;
+  const motivo=prompt(confirming?'Regista como verificaste a entrada do dinheiro (mínimo 5 caracteres):':'Regista o motivo da rejeição (mínimo 5 caracteres):');
+  if(!motivo||motivo.trim().length<5)return showToast('A justificação é obrigatória (mínimo 5 caracteres).');
+  try{
+    const tid=encodeURIComponent(session.tenantId);
+    const result=await api('/automation/tenants/'+tid+'/whatsapp/orders/'+encodeURIComponent(orderId)+'/payment-review',{
+      method:'POST',
+      body:JSON.stringify({decisao:decision,motivo:motivo.trim()})
+    });
+    showToast(confirming
+      ?'Pagamento confirmado manualmente. Operação '+(result.operacao?.estado||'registada')+'.'
+      :'Pagamento rejeitado. A operação não foi criada.');
+    await loadPanel();
+  }catch(error){
+    showToast('Não foi possível rever o pagamento: '+error.message);
   }
 }
 
@@ -551,10 +711,296 @@ async function removeWhatsAppGroup(groupId){
 }
 
 function backendState(ok){$('backendDot').className='dot '+(ok?'on':'err');$('backendText').textContent=ok?'SISTEMA ONLINE':'BACKEND OFFLINE'}
-async function refresh(){try{await loadPanel();if($('pageWhatsApp').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}}
+async function refresh(){
+  if(refreshInProgress)return;
+  refreshInProgress=true;
+  try{await loadPanel();if($('pageSettings').classList.contains('active'))await loadWhatsAppGroups();showToast('Dados atualizados')}
+  catch(e){backendState(false);showToast(`Atualização falhou: ${e.message}`)}
+  finally{refreshInProgress=false}
+}
+function configurarPullToRefresh(){
+  let startY=null,startX=null,distance=0,enabled=false;
+  const threshold=72;
+  const indicator=$('pullRefreshIndicator');
+  const esconder=()=>{
+    indicator.classList.remove('visible');
+    indicator.setAttribute('aria-hidden','true');
+    indicator.textContent='Puxe para baixo para actualizar';
+  };
+  document.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1||window.scrollY>1||document.querySelector('.modal.open')){enabled=false;return}
+    if(!(event.target instanceof Element)||event.target.closest('input,textarea,select,button,a,.sheet,.tableWrap,.bottom')){enabled=false;return}
+    startY=event.touches[0].clientY;startX=event.touches[0].clientX;distance=0;enabled=true;
+  },{passive:true});
+  document.addEventListener('touchmove',event=>{
+    if(!enabled||startY===null||event.touches.length!==1||refreshInProgress)return;
+    const touch=event.touches[0];
+    const deltaY=touch.clientY-startY;const deltaX=touch.clientX-startX;
+    if(deltaY<=0||Math.abs(deltaX)>Math.abs(deltaY)){if(deltaY<0)enabled=false;return}
+    if(window.scrollY>1){enabled=false;esconder();return}
+    if(deltaY>8){
+      if(event.cancelable)event.preventDefault();
+      distance=deltaY;
+      indicator.textContent=distance>=threshold?'Solte para actualizar':'Puxe para actualizar';
+      indicator.classList.add('visible');indicator.setAttribute('aria-hidden','false');
+    }
+  },{passive:false});
+  const terminar=()=>{
+    const deveActualizar=enabled&&distance>=threshold&&window.scrollY<=1&&!refreshInProgress;
+    enabled=false;startY=null;startX=null;distance=0;esconder();
+    if(deveActualizar)void refresh();
+  };
+  document.addEventListener('touchend',terminar,{passive:true});
+  document.addEventListener('touchcancel',terminar,{passive:true});
+}
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(refresh,30000)}
-function renderAll(){renderDashboard();renderOperations();renderSims();renderSystem()}
+function renderAll(){renderDashboard();renderOperations();renderWhatsAppOrders();renderStoreOrders();renderStorePayments();renderSims();renderSystem();renderPackages();renderPayments()}
 
+function packageValidityLabel(product){
+  const days=Number(product?.validadeDias);
+  if(Number.isSafeInteger(days)&&days>0)return String(days)+' dia(s)';
+  const labels={DIARIO:'1 dia',SEMANAL:'7 dias',MENSAL:'30 dias',PERSONALIZADO:'Personalizada',NAO_DEFINIDA:'Não definida'};
+  return labels[String(product?.categoria||'NAO_DEFINIDA').toUpperCase()]||'Não definida';
+}
+function packageCategoryLabel(category){
+  return ({DIARIO:'Diário',SEMANAL:'Semanal',MENSAL:'Mensal',PERSONALIZADO:'Personalizado',NAO_DEFINIDA:'Não definida'})[String(category||'NAO_DEFINIDA').toUpperCase()]||'Não definida';
+}
+function mbFromPackageInput(){
+  const raw=Number(String($('packageAmount').value||'').replace(',','.'));
+  if(!Number.isFinite(raw)||raw<=0)return 0;
+  return $('packageUnit').value==='GB'?Math.round(raw*1024):Math.round(raw);
+}
+function whatsappOrderStatusLabel(value){
+  const labels={
+    AGUARDANDO_PAGAMENTO:'Aguardando pagamento',
+    PENDENTE_VERIFICACAO:'Aguardando revisão manual',
+    CONFIRMADO_MANUALMENTE:'Pagamento confirmado',
+    REJEITADO_MANUALMENTE:'Pagamento rejeitado',
+    COMPROVATIVO_RECEBIDO:'Comprovativo recebido',
+    OPERACAO_CRIADA:'Operação criada',
+    PAGAMENTO_REJEITADO:'Pagamento rejeitado',
+    METODO_PAGAMENTO_DIVERGENTE:'Método divergente',
+    VALOR_DIVERGENTE:'Valor divergente',
+    EXPIRADO:'Pedido expirado',
+    SUBSTITUIDO:'Pedido substituído'
+  };
+  return labels[String(value||'').toUpperCase()]||String(value||'Sem estado').replace(/_/g,' ');
+}
+function renderWhatsAppOrders(){
+  const orders=Array.isArray(state.whatsappOrders)?state.whatsappOrders:[];
+  $('whatsappOrdersCount').textContent=String(orders.length)+' pedido(s)';
+  $('whatsappOrdersList').innerHTML=orders.length?orders.map(order=>{
+    const cliente=String(order.sender||'').split('@')[0]||'Não identificado';
+    const volume=formatMB(order.megas==null?NaN:order.megas);
+    const amount=Number.isFinite(Number(order.expectedAmount))?fmtDecimal(Number(order.expectedAmount))+' MT':'Não disponível';
+    const detected=Number.isFinite(Number(order.detectedAmount))?fmtDecimal(Number(order.detectedAmount))+' MT':'Não identificado';
+    const paymentState=String(order.estado||'SEM_ESTADO').toUpperCase();
+    const operationState=order.estadoOperacao?String(order.estadoOperacao).replace(/_/g,' '):'Ainda não criada';
+    return '<article class="card packageCard">'+
+      '<div class="row" style="justify-content:space-between"><b>'+esc(order.productName||'Pedido de Internet')+'</b>'+badge(paymentState,whatsappOrderStatusLabel(paymentState))+'</div>'+
+      '<div class="packageMeta"><span class="badge info">'+esc(volume.main)+'</span><span class="badge muted">'+esc(packageCategoryLabel(order.productCategory))+'</span><span class="badge muted">'+esc(packageValidityLabel({categoria:order.productCategory,validadeDias:order.validityDays}))+'</span></div>'+
+      '<div class="kv"><span>Cliente</span><span>'+esc(cliente)+'</span></div>'+
+      '<div class="kv"><span>Destino</span><span>'+esc(order.recipientNumber||'Não disponível')+'</span></div>'+
+      '<div class="kv"><span>Valor esperado</span><span>'+esc(amount)+'</span></div>'+
+      '<div class="kv"><span>Valor no comprovativo</span><span>'+esc(detected)+'</span></div>'+
+      '<div class="kv"><span>Pagamento</span><span>'+esc(whatsappOrderStatusLabel(paymentState))+'</span></div>'+
+      '<div class="kv"><span>Operação</span><span>'+esc(operationState)+'</span></div>'+
+      (order.paymentReference?'<div class="kv"><span>Referência</span><span>'+esc(order.paymentReference)+'</span></div>':'')+
+      '<div class="kv"><span>Pedido recebido</span><span>'+esc(fmtDate(order.criadoEmMs))+'</span></div>'+
+      (order.proofReceivedAtMs?'<div class="kv"><span>Comprovativo recebido</span><span>'+esc(fmtDate(order.proofReceivedAtMs))+'</span></div>':'')+
+      (order.operationId?'<div class="kv"><span>ID da operação</span><span>'+esc(order.operationId)+'</span></div>':'')+
+      (order.paymentReview?'<div class="notice '+(order.paymentReview.decisao==='REJEITAR'?'err':'')+'" style="margin-top:10px"><b>Revisão: '+esc(order.paymentReview.decisao)+'</b><div>'+esc(order.paymentReview.motivo||'')+'</div><small>'+esc(fmtDate(order.paymentReview.emMs))+'</small></div>':'')+
+      (paymentState==='COMPROVATIVO_RECEBIDO'?'<div class="notice warn" style="margin-top:12px">Confirma apenas depois de consultar a transação no M-Pesa, e-Mola ou banco. O OCR não confirma a entrada do dinheiro.</div><div class="packageActions"><button class="btn primary" data-review-whatsapp="'+esc(order.id)+'" data-decision="CONFIRMAR">CONFIRMAR PAGAMENTO</button><button class="btn" data-review-whatsapp="'+esc(order.id)+'" data-decision="REJEITAR">REJEITAR</button></div>':'')+
+      (['METODO_PAGAMENTO_DIVERGENTE','VALOR_DIVERGENTE'].includes(paymentState)?'<div class="notice err" style="margin-top:12px">O comprovativo não corresponde ao método ou valor do pedido. A confirmação está bloqueada; revê os dados e rejeita o comprovativo, se aplicável.</div><div class="packageActions"><button class="btn" data-review-whatsapp="'+esc(order.id)+'" data-decision="REJEITAR">REJEITAR COMPROVATIVO</button></div>':'')+
+      '<small class="muted">'+esc(order.groupId||'Grupo WhatsApp')+'</small></article>';
+  }).join(''):'<div class="empty"><b>Sem pedidos WhatsApp</b>Os pedidos pré-validados e comprovativos associados aos grupos deste Tenant aparecerão aqui.</div>';
+}
+
+function storeOrderVolume(order){
+  if(!Array.isArray(order.items))return null;
+  const total=order.items.reduce((sum,item)=>{
+    const mb=Number(item.quantidadeMB);const quantity=Number(item.quantity);
+    return Number.isSafeInteger(mb)&&mb>0&&Number.isSafeInteger(quantity)&&quantity>0
+      ?sum+mb*quantity:sum;
+  },0);
+  return total>0?total:null;
+}
+function renderStoreOrderCard(order,allowReview){
+  const volume=storeOrderVolume(order);
+  const items=Array.isArray(order.items)?order.items.map(item=>`${item.nome||'Pacote'} × ${item.quantity||1}`).join(', '):'Não disponível';
+  const method=order.pagamentoMetodo?.nome||order.pagamentoMetodo?.tipo||'Não indicado';
+  const stateLabel=String(order.pagamentoEstado||'PENDENTE_VERIFICACAO').replace(/_/g,' ');
+  const fulfillment=String(order.fulfillmentStatus||order.estado||'AGUARDANDO_PAGAMENTO').replace(/_/g,' ');
+  const review=order.revisaoPagamento;
+  return '<article class="card packageCard">'+
+    '<div class="row" style="justify-content:space-between"><b>'+esc(order.reference||order.id||'Pedido')+'</b>'+badge(stateLabel,stateLabel)+'</div>'+
+    '<div class="kv"><span>Cliente</span><span>'+esc(order.nome||'Não informado')+'</span></div>'+
+    '<div class="kv"><span>Contacto</span><span>'+esc(order.telefone||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Destino Vodacom</span><span>'+esc(order.destino||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Pacotes</span><span>'+esc(items)+'</span></div>'+
+    '<div class="kv"><span>Volume</span><span>'+esc(volume?formatMB(volume).main:'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Total</span><span>'+esc(fmtDecimal(Number(order.totalMT)||0))+' MT</span></div>'+
+    '<div class="kv"><span>Método</span><span>'+esc(method)+'</span></div>'+
+    '<div class="kv"><span>Operação</span><span>'+esc(fulfillment)+'</span></div>'+
+    '<div class="kv"><span>Recebido</span><span>'+esc(fmtDate(order.criadoEmMs))+'</span></div>'+
+    (review?'<div class="notice '+(review.decisao==='REJEITADO'?'err':'')+'" style="margin-top:10px"><b>Revisão: '+esc(review.decisao)+'</b><div>'+esc(review.motivo||'')+'</div>'+(review.referencia?'<small>Referência: '+esc(review.referencia)+'</small>':'')+'<small>'+esc(fmtDate(review.emMs))+'</small></div>':'')+
+    (allowReview&&order.pagamentoEstado==='PENDENTE_VERIFICACAO'
+      ?'<div class="notice warn" style="margin-top:10px">Confirma apenas depois de veres a entrada efectiva do valor no serviço de pagamento.</div><div class="packageActions"><button class="btn primary" data-review-store-order="'+esc(order.id)+'" data-decision="CONFIRMADO">CONFIRMAR PAGAMENTO</button><button class="btn" data-review-store-order="'+esc(order.id)+'" data-decision="REJEITADO">REJEITAR</button></div>'
+      :'')+
+    '</article>';
+}
+function renderStoreOrders(){
+  const orders=Array.isArray(state.storeOrders)?state.storeOrders:[];
+  $('storeOrdersCount').textContent=String(orders.length)+' pedido(s)';
+  $('storeOrdersList').innerHTML=orders.length
+    ?orders.slice().sort((a,b)=>(Number(b.criadoEmMs)||0)-(Number(a.criadoEmMs)||0)).map(order=>renderStoreOrderCard(order,false)).join('')
+    :'<div class="empty"><b>Sem pedidos da Loja</b>Os pedidos públicos efectuados pelos clientes aparecerão aqui.</div>';
+}
+function renderStorePayments(){
+  const orders=Array.isArray(state.storeOrders)?state.storeOrders:[];
+  const pending=orders.filter(order=>order.pagamentoEstado==='PENDENTE_VERIFICACAO');
+  $('storePaymentsCount').textContent=pending.length+' por confirmar · '+orders.length+' no histórico';
+  $('storePaymentsList').innerHTML=orders.length
+    ?orders.slice().sort((a,b)=>(Number(b.criadoEmMs)||0)-(Number(a.criadoEmMs)||0)).map(order=>renderStoreOrderCard(order,true)).join('')
+    :'<div class="empty"><b>Sem pagamentos da Loja</b>Quando um cliente concluir um pedido público, o pagamento ficará disponível para revisão aqui.</div>';
+}
+function reviewStoreOrderPayment(orderId,decision){
+  const order=state.storeOrders.find(item=>String(item.id)===String(orderId));
+  if(!order||order.pagamentoEstado!=='PENDENTE_VERIFICACAO'){
+    showToast('Este pedido já não está pendente de revisão.');
+    return;
+  }
+  pendingStoreReview={orderId:String(orderId),decision};
+  const confirming=decision==='CONFIRMADO';
+  $('storeReviewTitle').textContent=confirming?'Confirmar pagamento':'Rejeitar pagamento';
+  $('storeReviewSummary').innerHTML='<b>'+esc(order.reference||order.id)+'</b>'+
+    '<div class="kv"><span>Cliente</span><span>'+esc(order.nome||'Não informado')+'</span></div>'+
+    '<div class="kv"><span>Contacto</span><span>'+esc(order.telefone||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Destino</span><span>'+esc(order.destino||'Não disponível')+'</span></div>'+
+    '<div class="kv"><span>Valor</span><span>'+esc(fmtDecimal(Number(order.totalMT)||0))+' MT</span></div>';
+  $('storeReviewWarning').textContent=confirming
+    ?'A aprovação grava o pagamento e encaminha o pedido para o Backend. A execução continua sujeita à validação do dispositivo, SIM, quota e limites.'
+    :'A rejeição fica registada e não cria qualquer operação de transferência.';
+  $('storeReviewVerifiedWrap').classList.toggle('hidden',!confirming);
+  $('storeReviewVerified').checked=false;
+  $('storeReviewReference').value='';
+  $('storeReviewReason').value='';
+  $('storeReviewMessage').classList.add('hidden');
+  $('submitStoreReview').textContent=confirming?'CONFIRMAR E ENCAMINHAR':'REJEITAR PAGAMENTO';
+  $('submitStoreReview').classList.toggle('danger',!confirming);
+  $('storePaymentReviewModal').classList.add('open');
+  $('storeReviewReason').focus();
+}
+function closeStorePaymentReview(){
+  $('storePaymentReviewModal').classList.remove('open');
+  pendingStoreReview=null;
+}
+async function submitStoreOrderPaymentReview(){
+  const pending=pendingStoreReview;
+  if(!pending)return;
+  const confirming=pending.decision==='CONFIRMADO';
+  const motivo=$('storeReviewReason').value.trim();
+  if(confirming&&!$('storeReviewVerified').checked){
+    $('storeReviewMessage').textContent='Confirmação bloqueada: assinala que consultaste a transacção e verificaste a entrada do dinheiro.';
+    $('storeReviewMessage').classList.remove('hidden');
+    return;
+  }
+  if(motivo.length<5){
+    $('storeReviewMessage').textContent='A justificação é obrigatória e deve ter pelo menos 5 caracteres.';
+    $('storeReviewMessage').classList.remove('hidden');
+    return;
+  }
+  const button=$('submitStoreReview');
+  button.disabled=true;
+  try{
+    const tid=encodeURIComponent(session.tenantId);
+    const result=await api('/automation/tenants/'+tid+'/store-orders/'+encodeURIComponent(pending.orderId)+'/payment-review',{
+      method:'POST',
+      body:JSON.stringify({
+        decisao:pending.decision,
+        motivo,
+        referencia:$('storeReviewReference').value.trim()
+      })
+    });
+    closeStorePaymentReview();
+    if(result.fulfillment?.error){
+      showToast('Pagamento confirmado. A entrega ficou em revisão: '+result.fulfillment.error);
+    }else if(confirming){
+      showToast('Pagamento confirmado. Pedido encaminhado ao Backend.');
+    }else{
+      showToast('Pagamento rejeitado. Nenhuma operação foi criada.');
+    }
+    await loadPanel();
+  }catch(error){
+    $('storeReviewMessage').textContent='Não foi possível registar a decisão: '+error.message;
+    $('storeReviewMessage').classList.remove('hidden');
+  }finally{
+    button.disabled=false;
+  }
+}
+
+function renderPackages(){
+  const products=Array.isArray(state.products)?state.products:[];
+  $('packageCount').textContent=String(products.length)+' pacote(s)';
+  $('packageList').innerHTML=products.length?products.map(product=>{
+    const volume=formatMB(product.quantidadeMB==null?NaN:product.quantidadeMB);
+    const active=product.ativo!==false;
+    return '<article class="card packageCard"><div class="row" style="justify-content:space-between"><b>'+esc(product.nome||'Pacote sem nome')+'</b>'+badge(active?'ATIVO':'INATIVO',active?'ATIVO':'INATIVO')+'</div>' +
+      '<div class="packagePrice">'+esc(fmtDecimal(number(product.precoMT)||0))+' MT</div>' +
+      '<div class="packageMeta"><span class="badge info">'+esc(volume.main)+'</span><span class="badge muted">'+esc(packageCategoryLabel(product.categoria))+'</span><span class="badge muted">'+esc(packageValidityLabel(product))+'</span></div>' +
+      (product.descricao?'<small class="muted">'+esc(product.descricao)+'</small>':'') +
+      '<div class="packageActions"><button class="btn" data-edit-package="'+esc(product.id)+'">EDITAR</button><button class="btn" data-toggle-package="'+esc(product.id)+'" data-active="'+(active?'true':'false')+'">'+(active?'DESATIVAR':'ATIVAR')+'</button></div></article>';
+  }).join(''):'<div class="empty"><b>Ainda não existem pacotes</b>Cria o primeiro pacote com quantidade, preço e validade.</div>';
+}
+function setPackageMessage(message,error=false){
+  $('packageMsg').textContent=message;$('packageMsg').className='notice '+(error?'err':'');$('packageMsg').classList.remove('hidden');
+}
+function resetPackageForm(){
+  editingPackageId=null;$('packageFormTitle').textContent='Novo pacote';$('packageName').value='';$('packageAmount').value='';$('packageUnit').value='MB';$('packagePrice').value='';$('packageCategory').value='';$('packageValidityDays').value='';$('packageDescription').value='';$('packageValidityDays').disabled=true;$('cancelPackageEditBtn').classList.add('hidden');$('savePackageBtn').textContent='GUARDAR PACOTE';$('packageMsg').classList.add('hidden');
+}
+function updatePackageValidityField(){
+  const category=$('packageCategory').value;const fixed={DIARIO:1,SEMANAL:7,MENSAL:30};
+  if(Object.prototype.hasOwnProperty.call(fixed,category)){$('packageValidityDays').value=String(fixed[category]);$('packageValidityDays').disabled=true}
+  else if(category==='PERSONALIZADO'){$('packageValidityDays').disabled=false}
+  else{$('packageValidityDays').value='';$('packageValidityDays').disabled=true}
+}
+function editPackage(productId){
+  const product=state.products.find(item=>String(item.id)===String(productId));if(!product)return;
+  editingPackageId=product.id;$('packageFormTitle').textContent='Editar pacote';$('packageName').value=product.nome||'';
+  const mb=number(product.quantidadeMB);if(Number.isFinite(mb)&&mb>0&&mb%1024===0){$('packageAmount').value=String(mb/1024);$('packageUnit').value='GB'}else{$('packageAmount').value=Number.isFinite(mb)?String(mb):'';$('packageUnit').value='MB'}
+  $('packagePrice').value=product.precoMT??'';$('packageCategory').value=['DIARIO','SEMANAL','MENSAL','PERSONALIZADO'].includes(product.categoria)?product.categoria:'PERSONALIZADO';$('packageValidityDays').value=product.validadeDias??'';$('packageDescription').value=product.descricao||'';$('packageValidityDays').disabled=$('packageCategory').value!=='PERSONALIZADO';$('cancelPackageEditBtn').classList.remove('hidden');$('savePackageBtn').textContent='GUARDAR ALTERAÇÕES';$('packageMsg').classList.add('hidden');$('packageName').focus();
+}
+async function savePackage(){
+  const nome=$('packageName').value.trim();const quantidadeMB=mbFromPackageInput();const precoMT=Number(String($('packagePrice').value||'').replace(',','.'));const categoria=$('packageCategory').value;
+  if(nome.length<2)return setPackageMessage('Indica um nome válido para o pacote.',true);
+  if(!Number.isSafeInteger(quantidadeMB)||quantidadeMB<100||quantidadeMB>10240)return setPackageMessage('A quantidade deve ser um número inteiro entre 100 MB e 10 GB.',true);
+  if(!Number.isFinite(precoMT)||precoMT<=0)return setPackageMessage('Indica um preço válido em MT.',true);
+  if(!categoria)return setPackageMessage('Seleciona a categoria e validade do pacote.',true);
+  const payload={nome,quantidadeMB,precoMT,categoria,descricao:$('packageDescription').value.trim()};
+  if(categoria==='PERSONALIZADO'){const dias=Number($('packageValidityDays').value);if(!Number.isSafeInteger(dias)||dias<1||dias>365)return setPackageMessage('A validade personalizada deve estar entre 1 e 365 dias.',true);payload.validadeDias=dias;}
+  $('savePackageBtn').disabled=true;
+  try{const tid=encodeURIComponent(session.tenantId);if(editingPackageId){await api('/automation/tenants/'+tid+'/products/'+encodeURIComponent(editingPackageId),{method:'PATCH',body:JSON.stringify(payload)})}else{await api('/automation/tenants/'+tid+'/products',{method:'POST',body:JSON.stringify(payload)})}resetPackageForm();await loadPanel();showToast('Pacote guardado.')}catch(error){setPackageMessage('Não foi possível guardar: '+error.message,true)}finally{$('savePackageBtn').disabled=false}
+}
+async function togglePackage(productId,active){
+  const tid=encodeURIComponent(session.tenantId);try{await api('/automation/tenants/'+tid+'/products/'+encodeURIComponent(productId),{method:'PATCH',body:JSON.stringify({ativo:!active})});await loadPanel();showToast(!active?'Pacote ativado.':'Pacote desativado.')}catch(error){showToast('Não foi possível atualizar: '+error.message)}
+}
+
+function paymentMethod(type){return (state.storefront?.metodosPagamento||[]).find(method=>String(method.tipo||'').toUpperCase()===type)||null}
+function fillPaymentForm(prefix,method){$('payment'+prefix+'Conta').value=method?.conta||method?.numero||'';$('payment'+prefix+'Titular').value=method?.titular||'';$('payment'+prefix+'Instrucoes').value=method?.instrucoes||'';$('payment'+prefix+'Ativo').value=method?(method.ativo===false?'false':'true'):'false'}
+function renderPayments(){
+  if(paymentFormDirty)return;fillPaymentForm('Mpesa',paymentMethod('MPESA'));fillPaymentForm('Emola',paymentMethod('EMOLA'));
+  const bank=paymentMethod('BANCO')||paymentMethod('TRANSFERENCIA')||paymentMethod('MANUAL');$('paymentBancoConta').value=bank?.conta||bank?.numero||'';$('paymentBancoTitular').value=bank?.titular||'';$('paymentBancoNome').value=bank?.banco||'';$('paymentBancoInstrucoes').value=bank?.instrucoes||'';$('paymentBancoAtivo').value=bank?(bank.ativo===false?'false':'true'):'false';
+}
+function setPaymentMessage(message,error=false){$('paymentMsg').textContent=message;$('paymentMsg').className='notice '+(error?'err':'');$('paymentMsg').classList.remove('hidden')}
+async function savePaymentMethods(){
+  const methods=[];
+  const add=(type,prefix,nome,banco)=>{const conta=$('payment'+prefix+'Conta').value.trim();if(!conta)return;const old=paymentMethod(type);methods.push({id:old?.id||('PAY-'+type+'-'+Date.now()),tipo:type,nome,conta,banco:banco||'',titular:$('payment'+prefix+'Titular').value.trim(),instrucoes:$('payment'+prefix+'Instrucoes').value.trim(),ativo:$('payment'+prefix+'Ativo').value==='true'})};
+  add('MPESA','Mpesa','M-Pesa','');add('EMOLA','Emola','e-Mola','');add('BANCO','Banco','Transferência bancária',$('paymentBancoNome').value.trim());
+  if(methods.length===0)return setPaymentMessage('Configura pelo menos um método de pagamento antes de guardar.',true);
+  if(methods.some(method=>method.conta.replace(/\\D/g,'').length<5))return setPaymentMessage('Verifica os números ou contas indicados.',true);
+  $('savePaymentsBtn').disabled=true;
+  try{const tid=encodeURIComponent(session.tenantId);const tenantName=String(state.tenant?.nome||'Tenant URSINHO');const payload={nome:state.storefront?.nome||tenantName,slug:state.storefront?.slug||('tenant-'+String(session.tenantId).slice(-8).toLowerCase()),descricao:state.storefront?.descricao||'',contacto:state.storefront?.contacto||'',publicado:state.storefront?.publicado===true,metodosPagamento:methods};const result=await api('/automation/tenants/'+tid+'/storefront',{method:'PUT',body:JSON.stringify(payload)});state.storefront=result?.loja||result?.store||state.storefront;paymentFormDirty=false;renderPayments();setPaymentMessage('Métodos guardados. A imagem do comprovativo não confirma a entrada efectiva do dinheiro; a aprovação continua sujeita à revisão definida para o pagamento.');showToast('Configuração de pagamentos atualizada.')}catch(error){setPaymentMessage('Não foi possível guardar: '+error.message,true)}finally{$('savePaymentsBtn').disabled=false}
+}
 function currentActiveOperation(){
   const active=['EXECUTANDO','AGUARDANDO_EXECUCAO','CRIADA','PENDENTE'];
   return state.operations.filter(o=>active.includes(o.state)).sort((a,b)=>(toMs(b.updatedAt||b.createdAt)||0)-(toMs(a.updatedAt||a.createdAt)||0))[0]||null;
@@ -605,10 +1051,12 @@ function renderDashboard(){
     $('simMeta').textContent=`${sim.operator||'Operadora não informada'} • Slot ${sim.slot??'?'}`;
     $('simBadge').outerHTML=`<span id="simBadge" class="badge ${online(sim.updatedAt)?'ok':'warn'}">${online(sim.updatedAt)?'ONLINE':'TELEMETRIA DESATUALIZADA'}</span>`;
     const internet=formatMB(sim.internetMB);
+    const quota=quotaMensalTransferivel(sim);
     const balance=validNum(sim.saldoMT)?`${fmtDecimal(sim.saldoMT)} MT`:'Não disponível';
     const transfers=validNum(sim.transferenciasHoje)?`${sim.transferenciasHoje}/${sim.limiteDiario??10}`:'Não disponível';
     $('simQuick').innerHTML=`
       <div class="kv"><span>Internet disponível</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div>
+      <div class="kv"><span>Quota mensal transferível</span><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></div>
       <div class="kv"><span>Saldo</span><span>${esc(balance)}</span></div>
       <div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div>
       <div class="kv"><span>Última leitura</span><span>${esc(age(sim.updatedAt))}</span></div>`;
@@ -657,9 +1105,9 @@ function renderOperations(){
 function renderSims(){
   if(!state.sims.length){$('simsGrid').innerHTML='<div class="card empty" style="grid-column:1/-1"><b>Sem SIMs</b>O Backend ainda não retornou recursos SIM para este tenant.</div>'}else{
     $('simsGrid').innerHTML=state.sims.map(s=>{
-      const internet=formatMB(s.internetMB);const isVod=String(s.operator).toLowerCase().includes('vodacom');const connected=typeof s.online==='boolean'?s.online:online(s.updatedAt,SIM_ONLINE_WINDOW_MS);
+      const internet=formatMB(s.internetMB);const quota=quotaMensalTransferivel(s);const isVod=String(s.operator).toLowerCase().includes('vodacom');const connected=typeof s.online==='boolean'?s.online:online(s.updatedAt,SIM_ONLINE_WINDOW_MS);
       const transfers=validNum(s.transferenciasHoje)?`${s.transferenciasHoje}/${s.limiteDiario??10}`:'Não disponível';
-      return`<div class="card"><div class="resource"><div class="resourceIcon">▣</div><div class="resourceInfo"><b>${esc(s.simId||'SIM')}</b><small>${esc(s.operator||'Operadora não informada')} • Slot ${esc(s.slot??'?')}</small></div>${badge(connected?'ONLINE':'SEM_TELEMETRIA',connected?'ONLINE':'SEM TELEMETRIA')}</div><div style="margin-top:12px"><div class="kv"><span>Internet</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div><div class="kv"><span>Saldo</span><span>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</span></div><div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div><div class="kv"><span>Última leitura</span><span>${esc(age(s.updatedAt))}</span></div>${isVod?'':'<div class="notice warn" style="margin-top:9px">Este recurso não é selecionável para transferência Vodacom.</div>'}</div></div>`;
+      return`<div class="card"><div class="resource"><div class="resourceIcon">▣</div><div class="resourceInfo"><b>${esc(s.simId||'SIM')}</b><small>${esc(s.operator||'Operadora não informada')} • Slot ${esc(s.slot??'?')}</small></div>${badge(connected?'ONLINE':'SEM_TELEMETRIA',connected?'ONLINE':'SEM TELEMETRIA')}</div><div style="margin-top:12px"><div class="kv"><span>Internet total</span><span class="valueStack"><b>${esc(internet.main)}</b>${internet.secondary?`<small>${esc(internet.secondary)}</small>`:''}</span></div><div class="kv"><span>Quota mensal transferível</span><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></div><div class="kv"><span>Saldo</span><span>${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</span></div><div class="kv"><span>Transferências</span><span>${esc(transfers)}</span></div><div class="kv"><span>Última leitura</span><span>${esc(age(s.updatedAt))}</span></div>${isVod?'':'<div class="notice warn" style="margin-top:9px">Este recurso não é selecionável para transferência Vodacom.</div>'}</div></div>`;
     }).join('');
   }
   const d=state.device;const connected=deviceIsConnected();
@@ -671,16 +1119,16 @@ function renderSystem(){
   $('systemStatus').innerHTML=`<div class="kv"><span>Backend</span><span>${badge('ONLINE','SISTEMA ONLINE')}</span></div><div class="kv"><span>Saúde operacional</span><span>${badge(state.health?.estado||'SEM LEITURA',state.health?.estado||'SEM LEITURA')}</span></div><div class="kv"><span>Execução telecom</span><span>${state.health?.execucaoPermitida===true?badge('ATIVA','ATIVA'):badge('BLOQUEADA','BLOQUEADA')}</span></div><div class="kv"><span>Tenant</span><span>${esc(firstDefined(tenant.id,tenant.tenantId,session.tenantId))}</span></div><div class="kv"><span>Engine</span><span>${esc(engine()[0])}</span></div><div class="kv"><span>Telemetria</span><span>${state.sims.length?'Disponível':'Aguardando'}</span></div><div class="kv"><span>Agent</span><span>${badge(connected?'CONECTADO':'SEM_TELEMETRIA',connected?'CONECTADO':'SEM TELEMETRIA')}</span></div>`;
   const licenseStatus=String(firstDefined(lic.estado,lic.status,'SEM LICENÇA')).toUpperCase();
   $('licensePanel').innerHTML=`<div class="kv"><span>Estado</span><span>${badge(licenseStatus,licenseStatus)}</span></div><div class="kv"><span>Código</span><span>${esc(firstDefined(lic.codigo,lic.code,'Não disponível'))}</span></div><div class="kv"><span>Duração</span><span>${Number.isFinite(Number(lic.dias))?esc(lic.dias+' dias'):'Não disponível'}</span></div><div class="kv"><span>Expira em</span><span>${esc(fmtDate(firstDefined(lic.expiraEmMs,lic.expiresAt,lic.expiraEm,lic.expiresAtMs)))}</span></div>`;
-  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);return`<tr><td data-label="SIM">${esc(s.simId||'SIM')}</td><td data-label="Operadora">${esc(s.operator||'Não informado')}</td><td data-label="Internet"><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td data-label="Saldo">${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td data-label="Atualização">${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="5"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
+  $('simTable').innerHTML=state.sims.length?state.sims.map(s=>{const m=formatMB(s.internetMB);const quota=quotaMensalTransferivel(s);return`<tr><td data-label="SIM">${esc(s.simId||'SIM')}</td><td data-label="Operadora">${esc(s.operator||'Não informado')}</td><td data-label="Internet total"><span class="valueStack"><b>${esc(m.main)}</b>${m.secondary?`<small>${esc(m.secondary)}</small>`:''}</span></td><td data-label="Quota mensal transferível"><span class="valueStack"><b>${esc(quota.value)}</b><small>${esc(quota.freshness)}</small></span></td><td data-label="Saldo">${validNum(s.saldoMT)?esc(fmtDecimal(s.saldoMT)+' MT'):'Não disponível'}</td><td data-label="Atualização">${esc(fmtDate(s.updatedAt))} (${esc(age(s.updatedAt))})</td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty"><b>Sem telemetria</b></div></td></tr>';
   $('sessionPanel').innerHTML=`<div class="kv"><span>Tenant</span><span>${esc(session?.tenantId||'')}</span></div><div class="kv"><span>Endpoint</span><span>${esc(location.origin)}</span></div><div class="kv"><span>Atualização automática</span><span>30 segundos</span></div><div class="kv"><span>Assinatura</span><span>✨ BY Edilton Ronaldo</span></div><div style="margin-top:12px"><button id="logoutBtn" class="btn">SAIR DA SESSÃO</button></div>`;
   $('logoutBtn').onclick=logout;
 }
 
 function navigate(name){
-  const map={Dashboard:'pageDashboard',Operations:'pageOperations',Sims:'pageSims',System:'pageSystem',WhatsApp:'pageWhatsApp'};
+  const map={Dashboard:'pageDashboard',Operations:'pageOperations',Packages:'pagePackages',Payments:'pagePayments',Sims:'pageSims',Settings:'pageSettings'};
   Object.entries(map).forEach(([key,id])=>$(id).classList.toggle('active',key===name));
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.page===name));
-  if(name==='WhatsApp'&&session)loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
+  if(name==='Settings'&&session)loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
 }
 
 function openModal(){resetOpMsg();$('newDestination').value='';$('newAmount').value='';$('newUnit').value='MB';updatePreview();$('modal').classList.add('open')}
@@ -709,8 +1157,37 @@ function openDetail(id){
 }
 
 document.addEventListener('DOMContentLoaded',async()=>{
-  $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('newOpBtn').onclick=openModal;$('newOpBtn2').onclick=openModal;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
+  configurarPullToRefresh();
+  $('loginBtn').onclick=login;$('refreshBtn').onclick=refresh;$('cancelOp').onclick=closeModal;$('closeModal').onclick=closeModal;$('closeDetail').onclick=()=>$('detailModal').classList.remove('open');$('submitOp').onclick=submitOperation;$('newAmount').oninput=updatePreview;$('newUnit').onchange=updatePreview;$('opSearch').oninput=renderOperations;$('opFilter').onchange=renderOperations;$('seeOperations').onclick=()=>navigate('Operations');
   document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>navigate(n.dataset.page));
+  $('refreshWhatsappOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos WhatsApp atualizados')).catch(e=>showToast(e.message));
+  $('refreshStoreOrdersBtn').onclick=()=>loadPanel().then(()=>showToast('Pedidos da Loja actualizados')).catch(e=>showToast(e.message));
+  $('storePaymentsList').addEventListener('click',event=>{
+    const button=event.target.closest('[data-review-store-order]');
+    if(button)reviewStoreOrderPayment(button.dataset.reviewStoreOrder,button.dataset.decision);
+  });
+  $('closeStoreReview').onclick=closeStorePaymentReview;
+  $('cancelStoreReview').onclick=closeStorePaymentReview;
+  $('submitStoreReview').onclick=submitStoreOrderPaymentReview;
+  $('storePaymentReviewModal').addEventListener('click',event=>{
+    if(event.target===$('storePaymentReviewModal'))closeStorePaymentReview();
+  });
+  $('whatsappOrdersList').addEventListener('click',event=>{
+    const button=event.target.closest('[data-review-whatsapp]');
+    if(button)reviewWhatsAppOrder(button.dataset.reviewWhatsapp,button.dataset.decision);
+  });
+  $('packageCategory').onchange=updatePackageValidityField;
+  $('savePackageBtn').onclick=savePackage;
+  $('cancelPackageEditBtn').onclick=resetPackageForm;
+  $('refreshPackagesBtn').onclick=()=>loadPanel().then(()=>showToast('Pacotes atualizados')).catch(e=>showToast(e.message));
+  $('packageList').addEventListener('click',event=>{
+    const edit=event.target.closest('[data-edit-package]');const toggle=event.target.closest('[data-toggle-package]');
+    if(edit)editPackage(edit.dataset.editPackage);
+    if(toggle)togglePackage(toggle.dataset.togglePackage,toggle.dataset.active==='true');
+  });
+  $('savePaymentsBtn').onclick=savePaymentMethods;
+  ['paymentMpesaConta','paymentMpesaTitular','paymentMpesaInstrucoes','paymentMpesaAtivo','paymentEmolaConta','paymentEmolaTitular','paymentEmolaInstrucoes','paymentEmolaAtivo','paymentBancoConta','paymentBancoTitular','paymentBancoNome','paymentBancoInstrucoes','paymentBancoAtivo'].forEach(id=>{const input=$(id);input.addEventListener('input',()=>{paymentFormDirty=true});input.addEventListener('change',()=>{paymentFormDirty=true})});
+  $('refreshPaymentsBtn').onclick=()=>{paymentFormDirty=false;loadPanel().then(()=>showToast('Pagamentos atualizados')).catch(e=>showToast(e.message))};
   $('createPairingBtn').onclick=createGroupPairing;
   $('refreshGroupsBtn').onclick=()=>loadWhatsAppGroups().catch(error=>showToast(`WhatsApp indisponível: ${error.message}`));
   $('copyPairingBtn').onclick=copyGroupPairing;

@@ -899,130 +899,67 @@ class AutomationForegroundService : Service() {
         apiKey: String,
         deviceId: String
     ) {
-
         if (!servicoAtivo) {
-
-            telemetriaEmExecucao =
-                false
-
+            telemetriaEmExecucao = false
             return
         }
 
         if (indice >= sims.size) {
-
-            telemetriaEmExecucao =
-                false
-
+            telemetriaEmExecucao = false
             marcarTelemetriaConcluida()
-
-            atualizarNotificacao(
-                "Telemetria concluída — próxima leitura em 30 min."
-            )
-
+            atualizarNotificacao("Telemetria concluída — próxima leitura em 30 min.")
             return
         }
 
-        val sim =
-            sims[indice]
-
-        atualizarNotificacao(
-            "Telemetria SIM ${sim.slotIndex + 1} — consultando saldo..."
-        )
+        val sim = sims[indice]
+        atualizarNotificacao("Telemetria SIM ${sim.slotIndex + 1} — a consultar benefícios e saldos...")
 
         try {
-
-            UssdOperacoes.consultarSaldo(
-                this,
-                sim
-            ) { internetMB ->
-
+            UssdOperacoes.consultarSaldoDetalhado(this, sim) { leitura ->
                 if (!servicoAtivo) {
-
-                    telemetriaEmExecucao =
-                        false
-
-                    return@consultarSaldo
+                    telemetriaEmExecucao = false
+                    return@consultarSaldoDetalhado
                 }
 
-                if (internetMB == null) {
-
-                    atualizarNotificacao(
-                        "Telemetria SIM ${sim.slotIndex + 1} — leitura não obtida."
-                    )
-
-                    handler.postDelayed(
-                        {
-
-                            consultarSimsSequencialmente(
-                                sims,
-                                indice + 1,
-                                servidor,
-                                apiKey,
-                                deviceId
-                            )
-
-                        },
-                        INTERVALO_ENTRE_SIMS_MS
-                    )
-
-                    return@consultarSaldo
-                }
+                val saldoGeral = leitura.saldoGeralMB
+                val quotaMensal = leitura.internetTransferivelMB
+                val geralTexto = saldoGeral?.let { "${it} MB" } ?: "Sem leitura"
+                val mensalTexto = quotaMensal?.let { "${it} MB" } ?: "Não identificada como mensal"
 
                 atualizarNotificacao(
-                    "Telemetria SIM ${sim.slotIndex + 1} — ${internetMB} MB."
+                    "SIM ${sim.slotIndex + 1} — Internet: ${geralTexto}; quota mensal transferível: ${mensalTexto}."
                 )
 
+                // Envia null quando uma leitura não está disponível. O Backend
+                // conserva a última quota mensal com o timestamp original; não
+                // renova a validade de uma leitura antiga nem inventa zero.
                 thread {
-
-                    val resultado =
-                        BackendClient.enviarStatusSim(
-                            baseUrl =
-                                servidor,
-
-                            apiKey =
-                                apiKey,
-
-                            deviceId =
-                                deviceId,
-
-                            slot =
-                                sim.slotIndex,
-
-                            operadora =
-                                sim.carrierName,
-
-                            internetMB =
-                                internetMB,
-
-                            subscriptionId =
-                                sim.subscriptionId,
-
-                            saldoMT =
-                                null
-                        )
+                    val resultado = BackendClient.enviarStatusSim(
+                        baseUrl = servidor,
+                        apiKey = apiKey,
+                        deviceId = deviceId,
+                        slot = sim.slotIndex,
+                        operadora = sim.carrierName,
+                        internetMB = saldoGeral,
+                        subscriptionId = sim.subscriptionId,
+                        saldoMT = null,
+                        internetTransferivelMB = quotaMensal
+                    )
 
                     handler.post {
-
                         when (resultado) {
-
-                            is BackendClient.Resultado.Sucesso -> {
-
+                            is BackendClient.Resultado.Sucesso ->
                                 atualizarNotificacao(
-                                    "Telemetria SIM ${sim.slotIndex + 1} enviada: ${internetMB} MB."
+                                    "Telemetria SIM ${sim.slotIndex + 1} enviada. Quota mensal transferível: ${mensalTexto}."
                                 )
-                            }
-
-                            is BackendClient.Resultado.Erro -> {
-
+                            is BackendClient.Resultado.Erro ->
                                 atualizarNotificacao(
                                     "Telemetria SIM ${sim.slotIndex + 1} — falha ao enviar."
                                 )
-                            }
                         }
 
                         handler.postDelayed(
                             {
-
                                 consultarSimsSequencialmente(
                                     sims,
                                     indice + 1,
@@ -1030,23 +967,18 @@ class AutomationForegroundService : Service() {
                                     apiKey,
                                     deviceId
                                 )
-
                             },
                             INTERVALO_ENTRE_SIMS_MS
                         )
                     }
                 }
             }
-
         } catch (e: Exception) {
-
             atualizarNotificacao(
                 "Telemetria SIM ${sim.slotIndex + 1} — erro: ${e.message ?: "desconhecido"}"
             )
-
             handler.postDelayed(
                 {
-
                     consultarSimsSequencialmente(
                         sims,
                         indice + 1,
@@ -1054,7 +986,6 @@ class AutomationForegroundService : Service() {
                         apiKey,
                         deviceId
                     )
-
                 },
                 INTERVALO_ENTRE_SIMS_MS
             )

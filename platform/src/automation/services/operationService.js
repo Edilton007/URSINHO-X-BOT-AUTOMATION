@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const db = require("../database/automationDb");
 const simTelemetryService = require("./simTelemetryService");
+const tenantService = require("./tenantService");
 
 const LIMITE_DIARIO_PADRAO = 10;
 const MEGAS_MIN = 100;
@@ -36,6 +37,9 @@ function validarPedido(tenantId, deviceId, megas, destino, opcoes = {}) {
     if (!device || device.tenantId !== tenantId || device.autorizado === false) {
         return "Nenhum Device autorizado está associado a este Tenant.";
     }
+    if (tenant.deviceId !== deviceId) {
+        return "O Device indicado já não é o dispositivo actualmente associado a este Tenant.";
+    }
 
     const licenca = tenant.licencaId ? db.licenseCodes[tenant.licencaId] : null;
     if (!licenca || licenca.estado !== "ATIVA") return "Licença do tenant não está ativa.";
@@ -49,8 +53,137 @@ function validarPedido(tenantId, deviceId, megas, destino, opcoes = {}) {
         return `Quantidade inválida. Use um valor inteiro entre ${MEGAS_MIN} e ${maxMegas} MB.`;
     }
 
-    if (typeof destino !== "string" || !/^\d{9,12}$/.test(destino)) return "Número de destino inválido.";
+    const destinoNumerico = String(destino || "").replace(/\D/g, "");
+    const destinoLocal = destinoNumerico.startsWith("258") && destinoNumerico.length === 12
+        ? destinoNumerico.slice(3)
+        : destinoNumerico;
+    // A transferência de megabytes publicada pela Vodacom é destinada
+    // a números 84/85. Validar isto no preflight evita pedir pagamento para
+    // números que o menu da operadora não aceita.
+    if (!/^(84|85)\d{7}$/.test(destinoLocal)) {
+        return "Número de destino inválido. A transferência Vodacom requer um número 84/85 com 9 dígitos.";
+    }
     return null;
+}
+
+/**
+ * Pré-verificação sem criar operação, reservar dados ou iniciar USSD.
+ * É usada antes de apresentar as instruções de pagamento ao cliente.
+ * A elegibilidade é novamente verificada após o pagamento confirmado.
+ */
+function preverDisponibilidade(tenantId, deviceId, megas, destino) {
+    const erroValidacao = validarPedido(tenantId, deviceId, megas, destino);
+    if (erroValidacao) {
+        return { disponivel: false, codigo: "PEDIDO_INVALIDO", motivo: erroValidacao };
+    }
+
+    if (!execucaoPermitida()) {
+        return {
+            disponivel: false,
+            codigo: "EXECUCAO_DESATIVADA",
+            motivo: "As transferências automáticas estão temporariamente desativadas."
+        };
+    }
+
+    if (!destinoPermitido(destino)) {
+        return {
+            disponivel: false,
+            codigo: "DESTINO_NAO_AUTORIZADO",
+            motivo: "O número de destino não está autorizado para esta fase de testes."
+        };
+    }
+
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device || device.id !== deviceId || !device.autorizado || !device.online) {
+        return {
+            disponivel: false,
+            codigo: "AGENT_OFFLINE",
+            motivo: "O dispositivo Agent não está ligado e autenticado neste momento."
+        };
+    }
+
+    const sim = simTelemetryService.escolherSimElegivel(
+        tenantId,
+        deviceId,
+        megas,
+        LIMITE_DIARIO_PADRAO
+    );
+
+    if (!sim) {
+        return {
+            disponivel: false,
+            codigo: "SIM_MENSAL_NAO_ELEGIVEL",
+            motivo: "Não existe SIM Vodacom com quota mensal transferível comprovada, telemetria recente e limite diário disponível."
+        };
+    }
+
+    return {
+        disponivel: true,
+        codigo: "CAPACIDADE_CONFIRMADA",
+        motivo: "Existe capacidade operacional neste momento. A elegibilidade será novamente verificada após a confirmação do pagamento."
+    };
+}
+
+/**
+ * Pré-verifica a capacidade de um pedido de várias partes antes de apresentar
+ * instruções de pagamento. Não reserva quota nem cria operações; após o
+ * pagamento, cada parte é novamente validada antes de receber tarefa.
+ */
+function preverDisponibilidadePedido(tenantId, deviceId, megas, destino) {
+    const maxPedido = Math.min(PEDIDO_MAX_MB, 204800);
+    const erroValidacao = validarPedido(tenantId, deviceId, megas, destino, {
+        maxMegas: maxPedido
+    });
+    if (erroValidacao) {
+        return { disponivel: false, codigo: "PEDIDO_INVALIDO", motivo: erroValidacao };
+    }
+
+    if (!execucaoPermitida()) {
+        return {
+            disponivel: false,
+            codigo: "EXECUCAO_DESATIVADA",
+            motivo: "As transferências automáticas estão temporariamente desactivadas."
+        };
+    }
+
+    if (!destinoPermitido(destino)) {
+        return {
+            disponivel: false,
+            codigo: "DESTINO_NAO_AUTORIZADO",
+            motivo: "O número de destino não está autorizado para esta fase."
+        };
+    }
+
+    const device = tenantService.getDeviceDoTenant(tenantId);
+    if (!device || device.id !== deviceId || !device.autorizado || !device.online) {
+        return {
+            disponivel: false,
+            codigo: "AGENT_OFFLINE",
+            motivo: "O Android Agent não está ligado e autenticado neste momento."
+        };
+    }
+
+    const partes = megas <= MEGAS_MAX ? [megas] : dividirMegas(megas);
+    const capacidade = simTelemetryService.preverPlanoTransferencias(
+        tenantId,
+        deviceId,
+        partes,
+        LIMITE_DIARIO_PADRAO
+    );
+    if (!capacidade.disponivel) {
+        return {
+            disponivel: false,
+            codigo: "SIM_MENSAL_NAO_ELEGIVEL",
+            motivo: capacidade.motivo
+        };
+    }
+
+    return {
+        disponivel: true,
+        codigo: "CAPACIDADE_CONFIRMADA",
+        motivo: "Há capacidade actual para todas as partes do pedido. A elegibilidade será novamente verificada após a confirmação manual do pagamento.",
+        totalPartes: capacidade.totalPartes
+    };
 }
 
 function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
@@ -88,7 +221,15 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
     const agora = Date.now();
     const permitido = execucaoPermitida();
     const destinoOk = destinoPermitido(destino);
-    const simEscolhido = permitido && destinoOk
+    // Repetir a verificação do Device depois da confirmação do pagamento.
+    // Um Device offline não recebe tarefa: a operação permanece PENDENTE até
+    // um heartbeat autenticado voltar a confirmar o dispositivo actual.
+    const deviceAtual = tenantService.getDeviceDoTenant(tenantId);
+    const deviceOnline = !!deviceAtual &&
+        deviceAtual.id === deviceId &&
+        deviceAtual.autorizado === true &&
+        deviceAtual.online === true;
+    const simEscolhido = permitido && destinoOk && deviceOnline
         ? simTelemetryService.escolherSimElegivel(tenantId, deviceId, megas, LIMITE_DIARIO_PADRAO)
         : null;
 
@@ -117,7 +258,9 @@ function criarTransferencia(tenantId, deviceId, megas, destino, metadata = {}) {
                 ? "Execução desativada no servidor (AUTOMATION_ALLOW_EXECUTION=false)."
                 : (!destinoOk
                     ? MOTIVO_DESTINO_FORA_DA_LISTA
-                    : "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível.")
+                    : (!deviceOnline
+                        ? "Android Agent offline ou não é o Device actualmente associado. A tarefa aguarda novo contacto autenticado."
+                        : "Nenhum SIM Vodacom com telemetria válida, subscriptionId conhecido, internet livre e limite diário disponível."))
         };
         Object.assign(db.operations[opId], extra);
         db.save();
@@ -415,9 +558,10 @@ function registrarResultadoInterno(taskId, dados) {
     adicionarHistorico(op, estadoFinal, agora, leaseExpiradoEmRevisao ? "Evidência tardia reconciliada pelo mesmo claim." : null);
 
     if (saldoDepoisValido) {
-        // A leitura pós-USSD é uma observação mais recente do recurso que a
-        // telemetria anterior. Atualiza o inventário sem misturar saldo MT.
-        simTelemetryService.registrarLeituraInternet(
+        // A consulta USSD do Agent devolve a quota mensal transferível,
+        // não o saldo geral. Actualizar o campo que governa a próxima selecção
+        // de SIM e manter as duas métricas separadas.
+        simTelemetryService.registrarLeituraQuotaTransferivel(
             deviceId,
             simSlot,
             subscriptionId,
@@ -447,12 +591,9 @@ function execucaoPermitida() {
 }
 
 /**
- * Travão para os primeiros testes reais. AUTOMATION_ALLOWED_DESTINATIONS aceita
- * números separados por vírgula; quando preenchida, só esses destinos podem ser
- * alocados e executados, todas as outras operações ficam em PENDENTE com o motivo
- * visível. Ausente ou em branco significa sem restrição; preenchida só com valores
- * inválidos bloqueia tudo. A comparação usa os últimos 9 dígitos, por isso
- * 857286555 e 258857286555 são o mesmo número.
+ * Travão obrigatório: só destinos explicitamente listados podem receber tarefas.
+ * Lista ausente, vazia ou inválida bloqueia tudo (fail-closed). A comparação usa
+ * os últimos 9 dígitos, por isso 857286555 e 258857286555 são equivalentes.
  */
 function normalizarDestino(valor) {
     return String(valor || "").replace(/\D/g, "").slice(-9);
@@ -466,15 +607,13 @@ function destinosPermitidos() {
 }
 
 function destinoPermitido(destino) {
-    // Variável ausente ou em branco: sem restrição. Variável preenchida só com
-    // valores inválidos (erro de digitação) bloqueia tudo, nunca abre tudo.
     const bruto = String(process.env.AUTOMATION_ALLOWED_DESTINATIONS || "").trim();
-    if (!bruto) return true;
+    if (!bruto) return false;
     return destinosPermitidos().includes(normalizarDestino(destino));
 }
 
 const MOTIVO_DESTINO_FORA_DA_LISTA =
-    "Destino fora da lista de destinos permitidos (AUTOMATION_ALLOWED_DESTINATIONS). Nada foi enviado.";
+    "Destino fora da lista de destinos permitidos: configure AUTOMATION_ALLOWED_DESTINATIONS com números de teste autorizados. Nada foi enviado.";
 
 function montarMetadata(metadata = {}) {
     const corta = (v, n) => (v ? String(v).slice(0, n) : null);
@@ -617,6 +756,21 @@ function reprocessarPendentes(tenantId = null) {
         if (!destinoPermitido(op.destino)) {
             if (op.motivoPendente !== MOTIVO_DESTINO_FORA_DA_LISTA) {
                 op.motivoPendente = MOTIVO_DESTINO_FORA_DA_LISTA;
+                alterou = true;
+            }
+            continue;
+        }
+
+        // Não alocar uma tarefa enquanto o Agent não provar que voltou a
+        // estar online através de uma chamada autenticada recente.
+        const deviceAtual = tenantService.getDeviceDoTenant(op.tenantId);
+        if (!deviceAtual ||
+            deviceAtual.id !== op.deviceId ||
+            deviceAtual.autorizado !== true ||
+            deviceAtual.online !== true) {
+            const motivo = "Android Agent offline ou não é o Device actualmente associado. A aguardar novo contacto autenticado.";
+            if (op.motivoPendente !== motivo) {
+                op.motivoPendente = motivo;
                 alterou = true;
             }
             continue;
@@ -902,6 +1056,8 @@ function listarOperacoes(tenantId) {
 }
 
 module.exports = {
+    preverDisponibilidade,
+    preverDisponibilidadePedido,
     criarPedido,
     listarPedidos,
     resolverRevisao,

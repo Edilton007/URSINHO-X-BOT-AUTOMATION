@@ -4,7 +4,7 @@ Este diretório contém o processo central Node.js: WhatsApp Bot V2, API Express
 
 ## Requisitos
 
-- Node.js 20 ou superior (Node 24 também é suportado).
+- Node.js 22 ou superior (Node 24 é usado no servidor Wispbyte actual).
 - Volume persistente para os diretórios reais de base (por padrão `src/database/`, `src/automation/database/`) e `sessions/`.
 - Uma instância apenas: o armazenamento operacional é JSON single-writer.
 - HTTPS público no alojamento.
@@ -12,7 +12,7 @@ Este diretório contém o processo central Node.js: WhatsApp Bot V2, API Express
 ## Instalar e testar
 
 ```bash
-npm ci
+YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci
 npm test
 npm run check
 npm run verify:release
@@ -20,7 +20,7 @@ npm run preflight
 npm run doctor
 ```
 
-Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em alojamento gerido, respeitar o `PORT` atribuído pelo painel; `API_PORT` é fallback. A API faz bind em `0.0.0.0`.
+O `YOUTUBE_DL_SKIP_DOWNLOAD=true` evita que a instalação dependa de um pedido anónimo à API de releases do GitHub. O pacote de vídeo pode ser preparado separadamente com `npm run setup:media` quando houver conectividade. Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em alojamento gerido, respeitar o `PORT` atribuído pelo painel; `API_PORT` é fallback. A API faz bind em `0.0.0.0`.
 
 ## Rotas principais
 
@@ -30,13 +30,20 @@ Depois de preencher o `.env` e confirmar os testes, iniciar com `npm start`. Em 
 - `/master/` — consola Master/Admin.
 - `/loja/:slug` — loja pública.
 - `/site/` — website institucional público; contacto de WhatsApp é opcional via `PUBLIC_CONTACT_NUMBER`.
-- `/painel/` — dashboard privado do Bot V2 (pede `API_KEY` na própria interface).
+- `/` — dashboard privado do Bot V2 (pede `API_KEY` na própria interface).
+- `/api/health` — estado autenticado do socket WhatsApp; requer o cabeçalho `x-api-key` e devolve `socketConnected`.
 - `/automation/tenants/:tenantId/saude` — saúde autenticada do tenant.
+- `/automation/tenants/:tenantId/whatsapp/orders` — pedidos WhatsApp dos grupos associados ao Tenant autenticado.
+- `POST /automation/tenants/:tenantId/whatsapp/orders/:orderId/payment-review` — aprovação/rejeição manual de comprovativo pelo Tenant autenticado; exige decisão e justificação. A confirmação requer verificação externa do recebimento, não apenas OCR.
 - `/admin/tenants/:tenantId/auditoria` — auditoria autenticada por Admin.
 
 ## Variáveis essenciais
 
 Copie `.env.example` para `.env`, configure `OWNER`, `API_KEY`, `ADMIN_API_KEY`, `PAIRING_NUMBER` quando necessário e caminhos persistentes das bases. Use chaves fortes, diferentes entre si. Deixe `AUTOMATION_ALLOW_EXECUTION=false`. Nunca copie `.env` para repositórios ou partilhe os valores.
+
+## Portabilidade entre fornecedores
+
+Consulte [PORTABILIDADE-E-INSTALACAO.md](docs/PORTABILIDADE-E-INSTALACAO.md). O backend pode correr em Node nativo ou, opcionalmente, Docker Compose. Wispbyte não é uma dependência. Para criar cópia local das bases, configuração privada e sessão Baileys fora da pasta da aplicação, execute `npm run backup:portable`. Faça-o com o serviço parado ou numa janela de backup controlada. O resultado pode conter segredos: mantenha-o privado e cifrado. O armazenamento actual continua single-writer; não executar mais de uma instância.
 
 ## Backup Cloudflare KV
 
@@ -48,7 +55,9 @@ O backup é opcional e permanece desativado sem todos os valores Cloudflare + ch
 
 ## Segurança e operação
 
-- Tenant e Agent têm chaves separadas; são armazenadas como hash.
+- Tenant e Agent têm chaves separadas; são armazenadas como hash, e os serviços devolvem snapshots sem hashes.
+- O Agent só autentica se o seu ID for exactamente o dispositivo actualmente associado ao Tenant.
+- A execução telecom exige uma allowlist explícita de destinos; lista ausente/vazia bloqueia todos.
 - Admin usa `ADMIN_API_KEY` separada.
 - Claim tokens internos não são devolvidos ao Tenant Panel.
 - Saúde do Agent considera offline após 120 segundos; cada SIM é avaliado individualmente.

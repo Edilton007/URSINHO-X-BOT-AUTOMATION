@@ -1,46 +1,51 @@
 package com.ursinhox.automation.agent
 
+import java.text.Normalizer
+import java.util.Locale
+
 /**
- * Guarda a sequência de respostas que o UssdAccessibilityService deve enviar
- * automaticamente, uma por uma, conforme cada etapa do menu USSD aparece.
- *
- * Exemplo de uso para "transferir 10GB para 840132257" via *162#:
- *   UssdRoteiro.iniciar(listOf("8", "2", "10", "840132257"))
- * (o próprio código *162# é discado separadamente pela MainActivity; este
- * roteiro cobre só as respostas ENVIADAS DEPOIS que o menu já está aberto)
- *
- * Isto é um objeto simples em memória (singleton do processo do app) — não
- * sobrevive a reinício do app nem é seguro entre processos. Suficiente para
- * a Fase 1/2 de teste; numa versão futura isto deve vir do backend.
+ * Guarda respostas USSD previstas. Os roteiros operacionais exigem que o texto
+ * visível corresponda ao passo esperado antes de enviar qualquer opção.
  */
 object UssdRoteiro {
+
+    data class Passo(
+        val resposta: String,
+        val frasesEsperadas: Set<String> = emptySet(),
+        val termosObrigatorios: Set<String> = emptySet(),
+        val gruposTermosAlternativos: List<Set<String>> = emptyList(),
+        // Palavras de custo/cobrança não autorizadas pela tarefa impedem
+        // qualquer confirmação automática no menu da operadora.
+        val termosProibidos: Set<String> = emptySet(),
+        // Opção numérica exacta apresentada como item de menu (ex.: "8. Internet").
+        val opcaoEsperada: String? = null
+    )
 
     @Volatile
     var ativo: Boolean = false
         private set
 
-    /** Identificador crescente para distinguir duas sessões com menus idênticos. */
     @Volatile
     var geracaoSessao: Long = 0L
         private set
 
-    private val fila: ArrayDeque<String> = ArrayDeque()
-
-    /** Log de tudo o que o serviço de acessibilidade foi vendo/fazendo, para depuração. */
+    private val fila: ArrayDeque<Passo> = ArrayDeque()
     private val historico = mutableListOf<String>()
 
-    /**
-     * Chamado uma única vez quando o roteiro termina (com sucesso, falha, ou
-     * parada de segurança). Usado para encadear várias discagens em sequência
-     * (ex: consultar saldo → transferir → consultar saldo de novo).
-     */
     var aoTerminar: (() -> Unit)? = null
 
-    fun iniciar(passos: List<String>): Boolean {
+    /**
+     * Compatibilidade para roteiros internos de diagnóstico antigos.
+     * Transferências comerciais devem usar iniciarRoteiro com frases esperadas.
+     */
+    fun iniciar(passos: List<String>): Boolean =
+        iniciarRoteiro(passos.map { Passo(it) })
+
+    fun iniciarRoteiro(passos: List<Passo>): Boolean {
         if (ativo) {
             registrar(
                 "AVISO: tentativa de iniciar um novo roteiro enquanto outro ainda " +
-                "estava ativo — recusada, para não corromper a sessão USSD em andamento."
+                    "estava ativo — recusada, para não corromper a sessão USSD em andamento."
             )
             return false
         }
@@ -51,7 +56,46 @@ object UssdRoteiro {
         return true
     }
 
-    fun proximoPasso(): String? = fila.removeFirstOrNull()
+    /**
+     * Consome a resposta apenas quando o ecrã corresponde ao passo esperado.
+     * Roteiros comerciais não aceitam frases vazias nem correspondência aproximada.
+     */
+    fun proximoPasso(textoPrompt: String): String? {
+        val passo = fila.firstOrNull() ?: return null
+        if (passo.frasesEsperadas.isNotEmpty() || passo.opcaoEsperada != null) {
+            val texto = normalizar(textoPrompt)
+            val corresponde = passo.frasesEsperadas.isEmpty() || passo.frasesEsperadas.any { frase ->
+                texto.contains(normalizar(frase))
+            }
+            val opcaoCorresponde = passo.opcaoEsperada?.let { opcao ->
+                Regex("(?:^|\\s)${Regex.escape(opcao)}(?:\\s+|[.)\\-:]\\s*)\\S+")
+                    .containsMatchIn(texto)
+            } ?: true
+            val termosPresentes = passo.termosObrigatorios.all { termo ->
+                texto.contains(normalizar(termo))
+            }
+            val gruposPresentes = passo.gruposTermosAlternativos.all { grupo ->
+                grupo.any { termo -> texto.contains(normalizar(termo)) }
+            }
+            val termoProibidoEncontrado = passo.termosProibidos.firstOrNull { termo ->
+                texto.contains(normalizar(termo))
+            }
+            if (!corresponde || !opcaoCorresponde || !termosPresentes || !gruposPresentes || termoProibidoEncontrado != null) {
+                val motivo = if (termoProibidoEncontrado != null) {
+                    "termo de custo/cobrança não autorizado: ${termoProibidoEncontrado}"
+                } else {
+                    "opção numerada, frase, destino, quantidade ou contexto em falta"
+                }
+                registrar(
+                    "SEGURANÇA: ecrã USSD recusado (${motivo}). " +
+                        "Resposta não enviada; sessão deve ser interrompida para revisão."
+                )
+                return null
+            }
+        }
+        fila.removeFirst()
+        return passo.resposta
+    }
 
     fun temProximoPasso(): Boolean = fila.isNotEmpty()
 
@@ -67,10 +111,15 @@ object UssdRoteiro {
         historico.add(linha)
     }
 
-    /** Limpa apenas quando começa um novo fluxo operacional completo. */
     fun limparHistorico() {
         historico.clear()
     }
 
     fun obterHistorico(): List<String> = historico.toList()
+
+    private fun normalizar(texto: String): String =
+        Normalizer.normalize(texto.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 }

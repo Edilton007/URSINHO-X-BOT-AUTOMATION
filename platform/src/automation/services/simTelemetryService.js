@@ -1,9 +1,11 @@
 const db = require("../database/automationDb");
 const { diaOperacional } = require("../utils/diaOperacional");
 
+// Uma leitura de SIM com mais de 30 minutos não pode autorizar novas
+// transferências. Aceitamos apenas configurações entre 5 e 30 minutos.
 const TELEMETRIA_ANTIGA_MIN = (() => {
     const n = Number(process.env.SIM_TELEMETRY_STALE_MIN);
-    return Number.isFinite(n) && n >= 5 && n <= 1440 ? n : 45;
+    return Number.isFinite(n) && n >= 5 && n <= 30 ? n : 30;
 })();
 const JANELA_ONLINE_MS = TELEMETRIA_ANTIGA_MIN * 60 * 1000;
 const FUTURO_TOLERANCIA_MS = 120 * 1000;
@@ -141,7 +143,7 @@ function reservasDoSim(simId, hojeStr) {
 }
 
 function registrarStatus(tenantId, deviceId, dados) {
-    const { slot, operadora, internetMB, saldoMT, subscriptionId } = dados || {};
+    const { slot, operadora, internetMB, internetTransferivelMB, saldoMT, subscriptionId } = dados || {};
 
     if (!tenantId || !deviceId) {
         return { error: "Tenant ou Device inválido." };
@@ -160,12 +162,18 @@ function registrarStatus(tenantId, deviceId, dados) {
         return { error: "Operadora não suportada para transferências Vodacom. SIM não registado como recurso operacional." };
     }
 
-    if (typeof internetMB !== "number" || !Number.isFinite(internetMB) || internetMB < 0) {
-        return { error: "internetMB deve ser uma leitura numérica real igual ou superior a zero." };
+    if (internetMB !== null && internetMB !== undefined &&
+        (typeof internetMB !== "number" || !Number.isFinite(internetMB) || internetMB < 0)) {
+        return { error: "internetMB deve ser uma leitura numérica real igual ou superior a zero, ou null quando não estiver disponível." };
     }
 
     if (!subscriptionIdValido(subscriptionId)) {
         return { error: "subscriptionId inválido ou ausente. Atualize o Android Agent antes de reportar telemetria operacional." };
+    }
+
+    if (internetTransferivelMB !== null && internetTransferivelMB !== undefined &&
+        (!Number.isSafeInteger(internetTransferivelMB) || internetTransferivelMB < 0)) {
+        return { error: "internetTransferivelMB deve ser uma leitura inteira, explícita e não negativa." };
     }
 
     if (saldoMT !== null && saldoMT !== undefined &&
@@ -208,7 +216,15 @@ function registrarStatus(tenantId, deviceId, dados) {
         slot,
         subscriptionId,
         operadora: operadora.trim(),
-        internetMB: Math.floor(internetMB),
+        internetMB: Number.isFinite(internetMB) ? Math.floor(internetMB) : null,
+        // Este campo só pode ser preenchido por uma leitura que identifique
+        // especificamente a quota mensal transferível. Nunca inferir do saldo geral.
+        internetTransferivelMB: Number.isSafeInteger(internetTransferivelMB)
+            ? internetTransferivelMB
+            : (subscriptionMudou ? null : (existente.internetTransferivelMB ?? null)),
+        internetTransferivelAtualizadoEmMs: Number.isSafeInteger(internetTransferivelMB)
+            ? agora
+            : (subscriptionMudou ? null : (existente.internetTransferivelAtualizadoEmMs ?? null)),
         saldoMT: typeof saldoMT === "number" ? saldoMT : (existente.saldoMT ?? null),
         atualizadoEmMs: agora,
         transferenciasHoje: contador.transferenciasHoje,
@@ -283,6 +299,29 @@ function registrarLeituraInternet(deviceId, slot, subscriptionId, internetMB, em
     return { ok: true, sim };
 }
 
+/**
+ * Actualiza especificamente a quota mensal transferível lida após uma sessão
+ * USSD. Não altera o saldo geral de Internet: são métricas distintas.
+ */
+function registrarLeituraQuotaTransferivel(deviceId, slot, subscriptionId, internetTransferivelMB, emMs = Date.now(), persistir = true) {
+    if (!slotValido(slot) || !subscriptionIdValido(subscriptionId) ||
+        !Number.isSafeInteger(internetTransferivelMB) || internetTransferivelMB < 0) {
+        return { ok: false, error: "Leitura de quota transferível inválida." };
+    }
+
+    const sim = db.sims[chaveSim(deviceId, slot)];
+    if (!sim || sim.subscriptionId !== subscriptionId) {
+        return { ok: false, error: "A leitura pertence a uma subscrição que já não corresponde ao SIM registado." };
+    }
+
+    sim.internetTransferivelMB = internetTransferivelMB;
+    sim.internetTransferivelAtualizadoEmMs = emMs;
+    sim.internetTransferivelAtualizadaPor = "EVIDENCIA_USSD";
+    sim.atualizadoEmMs = emMs;
+    if (persistir) db.save();
+    return { ok: true, sim };
+}
+
 function listarSimsDoTenant(tenantId) {
     const agora = Date.now();
 
@@ -326,7 +365,11 @@ function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
 
         const reservas = reservasDoSim(sim.simId, hojeStr);
         const transferenciasContabilizadas = transferenciasDoDia(sim, hojeStr) + reservas.transferenciasReservadas;
-        const internetLivre = Number(sim.internetMB) - reservas.megasReservados;
+        // Transferências da Vodacom usam megas mensais. Saldo geral de Internet
+        // (*100#) não prova que os dados são transferíveis.
+        if (!Number.isSafeInteger(sim.internetTransferivelMB) ||
+            !telemetriaRecente(sim.internetTransferivelAtualizadoEmMs, agora)) continue;
+        const internetLivre = sim.internetTransferivelMB - reservas.megasReservados;
 
         if (transferenciasContabilizadas >= limiteDiario) continue;
         if (!Number.isFinite(internetLivre) || internetLivre < megas) continue;
@@ -335,6 +378,106 @@ function escolherSimElegivel(tenantId, deviceId, megas, limiteDiario) {
     }
 
     return null;
+}
+
+/**
+ * Simula, sem reservar recursos nem criar operações, a capacidade para
+ * todas as partes de um pedido grande. Usa os mesmos limites, frescura,
+ * reservas e prioridade da seleção operacional normal.
+ */
+function preverPlanoTransferencias(tenantId, deviceId, partes, limiteDiario) {
+    if (!Array.isArray(partes) || partes.length === 0 ||
+        partes.some(mb => !Number.isSafeInteger(mb) || mb < 100 || mb > 10240) ||
+        !Number.isSafeInteger(limiteDiario) || limiteDiario < 1) {
+        return { disponivel: false, motivo: "Plano de transferência inválido." };
+    }
+
+    const agora = Date.now();
+    const hojeStr = diaOperacional(agora);
+    const sims = listarSimsDoTenant(tenantId)
+        .filter(sim => sim.deviceId === deviceId)
+        .map(sim => {
+            const reservas = reservasDoSim(sim.simId, hojeStr);
+            return {
+                sim,
+                megasReservados: reservas.megasReservados,
+                transferenciasReservadas: reservas.transferenciasReservadas,
+                megasPlaneados: 0,
+                transferenciasPlaneadas: 0,
+                transferenciasBase: transferenciasDoDia(sim, hojeStr) + reservas.transferenciasReservadas
+            };
+        });
+
+    if (!sims.length) {
+        return { disponivel: false, motivo: "Não existe SIM Vodacom reportado neste Agent." };
+    }
+
+    const plano = [];
+    for (let indice = 0; indice < partes.length; indice += 1) {
+        const megas = partes[indice];
+        const elegiveis = sims.filter(item => {
+            const sim = item.sim;
+            if (!sim.online || !subscriptionIdValido(sim.subscriptionId)) return false;
+            if (!Number.isSafeInteger(sim.internetTransferivelMB) ||
+                !telemetriaRecente(sim.internetTransferivelAtualizadoEmMs, agora)) return false;
+            const transferencias = item.transferenciasBase + item.transferenciasPlaneadas;
+            const livres = sim.internetTransferivelMB -
+                item.megasReservados - item.megasPlaneados;
+            return transferencias < limiteDiario && livres >= megas;
+        }).sort((a, b) => {
+            const cargaA = a.transferenciasBase + a.transferenciasPlaneadas;
+            const cargaB = b.transferenciasBase + b.transferenciasPlaneadas;
+            const consumoA = a.megasReservados + a.megasPlaneados;
+            const consumoB = b.megasReservados + b.megasPlaneados;
+            return cargaA - cargaB || consumoA - consumoB || a.sim.slot - b.sim.slot;
+        });
+
+        const escolhido = elegiveis[0];
+        if (!escolhido) {
+            const ativos = sims.filter(item => item.sim.online && subscriptionIdValido(item.sim.subscriptionId));
+            const quotasRecentes = ativos.filter(item =>
+                Number.isSafeInteger(item.sim.internetTransferivelMB) &&
+                telemetriaRecente(item.sim.internetTransferivelAtualizadoEmMs, agora)
+            );
+            const dentroDoLimite = quotasRecentes.filter(item =>
+                item.transferenciasBase + item.transferenciasPlaneadas < limiteDiario
+            );
+            const comMegas = dentroDoLimite.filter(item =>
+                item.sim.internetTransferivelMB - item.megasReservados - item.megasPlaneados >= megas
+            );
+
+            let motivo;
+            if (!ativos.length) {
+                motivo = "Nenhum SIM Vodacom tem telemetria recente neste Agent.";
+            } else if (!quotasRecentes.length) {
+                motivo = "Nenhum SIM tem quota mensal transferível comprovada e actualizada.";
+            } else if (!dentroDoLimite.length) {
+                motivo = "Os SIMs disponíveis atingiram o limite diário de transferências.";
+            } else if (!comMegas.length) {
+                motivo = "A quota mensal transferível livre não cobre todas as partes do pedido.";
+            } else {
+                motivo = "Não foi possível distribuir o pedido pelos SIMs disponíveis.";
+            }
+
+            return {
+                disponivel: false,
+                motivo,
+                parte: indice + 1,
+                totalPartes: partes.length,
+                megasParte: megas
+            };
+        }
+
+        escolhido.megasPlaneados += megas;
+        escolhido.transferenciasPlaneadas += 1;
+        plano.push({ parte: indice + 1, megas, slot: escolhido.sim.slot });
+    }
+
+    return {
+        disponivel: true,
+        totalPartes: partes.length,
+        plano
+    };
 }
 
 function obterSimOperacional(deviceId, slot) {
@@ -348,8 +491,10 @@ module.exports = {
     registrarStatus,
     registrarTransferenciaConcluida,
     registrarLeituraInternet,
+    registrarLeituraQuotaTransferivel,
     listarSimsDoTenant,
     escolherSimElegivel,
+    preverPlanoTransferencias,
     obterSimOperacional,
     JANELA_ONLINE_MS,
     telemetriaRecente

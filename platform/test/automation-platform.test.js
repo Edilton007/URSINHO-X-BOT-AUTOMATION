@@ -18,6 +18,7 @@ const operations = require("../src/automation/services/operationService");
 test("credenciais de tenant e device são guardadas em hash e autenticam separadamente", () => {
   const tenant = tenants.criarTenant({ nome: "Loja Teste A" });
   assert.ok(tenant.apiKey);
+  assert.equal(Object.hasOwn(tenant, "apiKeyHash"), false);
   assert.ok(db.tenants[tenant.id].apiKeyHash);
   assert.equal(Object.hasOwn(db.tenants[tenant.id], "apiKey"), false);
   assert.equal(tenants.autenticarTenant(tenant.id, tenant.apiKey), true);
@@ -25,7 +26,9 @@ test("credenciais de tenant e device são guardadas em hash e autenticam separad
 
   const device = tenants.registrarDevice(tenant.id, "device-test-a");
   assert.ok(device.apiKey);
+  assert.equal(Object.hasOwn(device, "apiKeyHash"), false);
   assert.ok(db.devices[device.id].apiKeyHash);
+  assert.equal(Object.hasOwn(tenants.getDeviceDoTenant(tenant.id), "apiKeyHash"), false);
   assert.equal(Object.hasOwn(db.devices[device.id], "apiKey"), false);
   assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
   assert.equal(tenants.autenticarDevice(device.id, tenant.apiKey), false);
@@ -37,6 +40,24 @@ test("credenciais de tenant e device são guardadas em hash e autenticam separad
   db.tenants[tenant.id].ativo = false;
   db.save();
   assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+});
+
+test("um Agent só autentica quando está explicitamente associado como device actual do Tenant", () => {
+  const tenant = tenants.criarTenant({ nome: "Tenant Associação Estrita" });
+  const device = tenants.registrarDevice(tenant.id, "device-associacao-estrita");
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
+  db.tenants[tenant.id].deviceId = null;
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  db.tenants[tenant.id].deviceId = "outro-device-activo";
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  db.tenants[tenant.id].deviceId = device.id;
+  db.save();
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), true);
+  const replacement = tenants.registrarDevice(tenant.id, "device-associacao-substituto");
+  assert.equal(tenants.autenticarDevice(device.id, device.apiKey), false);
+  assert.equal(tenants.autenticarDevice(replacement.id, replacement.apiKey), true);
 });
 
 test("licenças rejeitam duração inválida, vinculam-se a um tenant e não podem ser reutilizadas", () => {
@@ -427,15 +448,62 @@ test("telemetria aceita apenas nomes conhecidos da Vodacom e rejeita correspond�
   assert.equal(aceite.ok, true);
 });
 
+test("pré-verificação só autoriza cliente com Agent online e quota mensal transferível recente", () => {
+  process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567";
+
+  const tenant = tenants.criarTenant({ nome: "Tenant Pré-verificação" });
+  const license = tenants.gerarCodigoLicenca(30);
+  assert.equal(tenants.ativarLicenca(tenant.id, license.codigo).ok, true);
+  const device = tenants.registrarDevice(tenant.id, "device-preflight-test");
+  tenants.marcarContactoDevice(device.id);
+
+  const semQuotaMensal = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    subscriptionId: 91
+  });
+  assert.equal(semQuotaMensal.ok, true);
+  const bloqueado = operations.preverDisponibilidade(tenant.id, device.id, 100, "258841234567");
+  assert.equal(bloqueado.disponivel, false);
+  assert.equal(bloqueado.codigo, "SIM_MENSAL_NAO_ELEGIVEL");
+
+  const comQuotaMensal = telemetry.registrarStatus(tenant.id, device.id, {
+    slot: 0,
+    operadora: "Vodacom Moçambique",
+    internetMB: 5000,
+    internetTransferivelMB: 500,
+    subscriptionId: 91
+  });
+  assert.equal(comQuotaMensal.ok, true);
+
+  const permitido = operations.preverDisponibilidade(tenant.id, device.id, 100, "258841234567");
+  assert.equal(permitido.disponivel, true);
+  assert.equal(permitido.codigo, "CAPACIDADE_CONFIRMADA");
+
+  const acimaDaQuota = operations.preverDisponibilidade(tenant.id, device.id, 501, "258841234567");
+  assert.equal(acimaDaQuota.disponivel, false);
+  assert.equal(acimaDaQuota.codigo, "SIM_MENSAL_NAO_ELEGIVEL");
+
+  const destinoNaoAutorizado = operations.preverDisponibilidade(tenant.id, device.id, 100, "258851234567");
+  assert.equal(destinoNaoAutorizado.disponivel, false);
+  assert.equal(destinoNaoAutorizado.codigo, "DESTINO_NAO_AUTORIZADO");
+});
+
 test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com evidência compatível", () => {
   process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+  process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567";
   const tenant = tenants.criarTenant({ nome: "Tenant Operação" });
   const license = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, license.codigo);
   const device = tenants.registrarDevice(tenant.id, "device-operation-test");
+  // O teste reclama uma tarefa; simula o heartbeat autenticado do Agent.
+  tenants.marcarContactoDevice(device.id);
 
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
     slot: 0, operadora: "Vodacom Moçambique", internetMB: 1200,
+    internetTransferivelMB: 1200,
     saldoMT: 50, subscriptionId: 17
   });
   assert.equal(sim.ok, true);
@@ -472,6 +540,15 @@ test("fluxo Backend escolhe SIM, cria tarefa, reclama uma vez e só conclui com 
   assert.equal(result.estado, "CONCLUIDA");
   assert.equal(db.operations[op.id].estado, "CONCLUIDA");
   assert.equal(db.operations[op.id].diferencaObservadaMB, 100);
+
+  // O saldo final da consulta USSD é a quota transferível mensal:
+  // deve actualizar esse campo sem sobrescrever o saldo geral de Internet.
+  const simDepois = telemetry.obterSimOperacional(device.id, 0);
+  assert.equal(simDepois.internetMB, 1200);
+  assert.equal(simDepois.internetTransferivelMB, 1100);
+  assert.ok(simDepois.internetTransferivelAtualizadoEmMs >= db.operations[op.id].finalizadaEmMs);
+  assert.equal(telemetry.escolherSimElegivel(tenant.id, device.id, 1101, 10), null);
+
   process.env.AUTOMATION_ALLOW_EXECUTION = "false";
 });
 

@@ -8,6 +8,8 @@ const path = require("node:path");
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ursinho-orphan-test-"));
 process.env.AUTOMATION_DB_FILE = path.join(temp, "automation.json");
 process.env.AUTOMATION_ALLOW_EXECUTION = "true";
+// Os testes declaram explicitamente os destinos sintéticos que podem receber tarefas.
+process.env.AUTOMATION_ALLOWED_DESTINATIONS = "258841234567,258841234568,258841234569";
 
 const db = require("../src/automation/database/automationDb");
 const tenants = require("../src/automation/services/tenantService");
@@ -23,10 +25,14 @@ function prepararTenant(nome, deviceNome) {
   const licenca = tenants.gerarCodigoLicenca(30);
   tenants.ativarLicenca(tenant.id, licenca.codigo);
   const device = tenants.registrarDevice(tenant.id, deviceNome);
+  tenants.marcarContactoDevice(device.id);
   const sim = telemetry.registrarStatus(tenant.id, device.id, {
-    slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, saldoMT: 50, subscriptionId: 5
+    slot: 0, operadora: "Vodacom Moçambique", internetMB: 60000, internetTransferivelMB: 60000, saldoMT: 50, subscriptionId: 5
   });
   assert.equal(sim.ok, true);
+  // Reconfirma heartbeat após a escrita da telemetria no fixture.
+  tenants.marcarContactoDevice(device.id);
+  assert.equal(tenants.getDeviceDoTenant(tenant.id).online, true);
   return { tenant, device };
 }
 
